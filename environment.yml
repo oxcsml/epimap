@@ -1,0 +1,13 @@
+name: Rmap
+dependencies:
+  - numpy
+  - pandas
+  - pandas-datareader
+  - xlrd >= 1.0.0
+  - pycountry
+  - r-data.table
+  - r-envstats
+  - r-rstan
+  - r-ggplot2
+channels:
+  - conda-forge

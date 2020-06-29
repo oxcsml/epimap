@@ -8,6 +8,11 @@ Current process:
 * process_uk_cases.py to produce uk_cases.csv
 * run_cori.r to estimate Rt's, saved to Rt.csv
 
+Visualisation
+* Run `pip install --user -r requirements.txt` to install requirements
+* Run `python app.py` to run the server
+* Browse to `http://localhost:8050`
+
 TODO Next steps:
 * Code to plot nicely R maps.
 * Obtain local authority coordinates, population density, population size, mobility data

@@ -6,6 +6,8 @@ Setup conda environment:
 
 Current process:
 * process_uk_cases.py to produce uk_cases.csv
+* process_mobility.py to produce mobility.csv
+* process_population.py to produce population.csv
 * run_cori.r to estimate Rt's, saved to Rt.csv
 
 Visualisation

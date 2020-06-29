@@ -17,3 +17,5 @@ columns = [
   
 df = df[(df.country_region_code == "GB") & (~df.sub_region_1.isna())][columns].rename(columns={'sub_region_1': 'area'})
 df.to_csv('mobility.csv')
+
+print('Wrote mobility.csv')

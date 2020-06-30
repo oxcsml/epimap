@@ -58,7 +58,7 @@ app.layout = html.Div(children=[
     dcc.Dropdown(
                 id='area-select',
                 options=[{'label': a, 'value': a} for a in sorted(cases_df.index)],
-                value='Select a UTLA'
+                value='Lewisham'
             ),
     dcc.Graph(id='area-cases-chart')
 ])

@@ -35,6 +35,7 @@ choropleth = folium.Choropleth(
     fill_opacity=0.7,
     line_opacity=0.2,
     legend_name='Rt',
+    bins=list((0.0,0.5,0.75,1.0,1.5,2.0,100.0)),
     highlight=True,
 
 )

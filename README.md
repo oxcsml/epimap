@@ -8,7 +8,7 @@ Current process:
 * process_uk_cases.py to produce uk_cases.csv
 * process_mobility.py to produce mobility.csv
 * process_metadata.py to produce metadata.csv
-* run_cori.r to estimate Rt's, saved to Rt.csv
+* run_cori.r to estimate Rt's, saved to RtCproj.csv
 
 Visualisation
 * Run `pip install --user -r requirements.txt` to install requirements

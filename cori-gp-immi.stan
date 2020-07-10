@@ -14,6 +14,7 @@ transformed data {
   vector[D] infprofile_rev; // reversed infection profile
   vector[T0] convout[N];       // convolution between C and infprofile
   vector[T] Cvec[N];
+
   for (i in 1:D)
     infprofile_rev[i] = infprofile[D-i+1];
   for (j in 1:N) {
@@ -34,6 +35,7 @@ parameters {
 
   real<lower=0> dispersion;
   real<lower=0> Ravg;
+  real<lower=0,upper=1> immigration_rate;
 }
 
 transformed parameters {
@@ -56,7 +58,10 @@ transformed parameters {
 }
 
 model {
+  vector[T0] immigration;
+
   Ravg ~ normal(1.0,1.0);
+  immigration_rate ~ beta(1.0 * .01, 1.0 * .99);
   dispersion ~ normal(0,5);
 
   // GP
@@ -65,9 +70,18 @@ model {
   data_sigma ~ normal(0.1, 1.0);
   eta ~ std_normal();
 
+  for (i in 1:T0) {
+    immigration[i] = 0.0;
+    for (j in 1:N) 
+      immigration[i] += Rt[j] * convout[j][i]; 
+    immigration[i] = immigration[i] / N;
+  }
+  
   for (j in 1:N) {
     for (i in 1:T0) {
-      C[j][T-T0+i] ~ neg_binomial_2((Rt[j] * convout[j][i]), dispersion);
+      C[j][T-T0+i] ~ neg_binomial_2(
+          (1.0-immigration_rate) *  Rt[j] * convout[j][i] +
+          immigration_rate * immigration[i], dispersion);
     }
   }
 }

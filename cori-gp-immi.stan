@@ -7,10 +7,10 @@ functions {
     return square(func_sigma) * exp(- dist / length_scale);
   }
   matrix matern32(matrix dist, real func_sigma, real length_scale) {
-    return square(func_sigma) * (1 + ((sqrt(3) * dist) / length_scale)) * exp(- (sqrt(3) * dist) / length_scale);
+    return square(func_sigma) * (1 + ((sqrt(3) * dist) / length_scale)) .* exp(- (sqrt(3) * dist) / length_scale);
   }
   matrix matern52(matrix dist, real func_sigma, real length_scale) {
-    return square(func_sigma) * (1 + ((sqrt(5) * dist) / length_scale) + ((5 * dist .* dist)/(3 * square(length_scale)))) * exp(- (sqrt(5) * dist) / length_scale);
+    return square(func_sigma) * (1 + ((sqrt(5) * dist) / length_scale) + ((5 * dist .* dist)/(3 * square(length_scale)))) .* exp(- (sqrt(5) * dist) / length_scale);
   }
 }
 
@@ -64,7 +64,7 @@ transformed parameters {
 
     data_sigma2 = square(data_sigma);
 
-    K = exp_quad(geodist, func_sigma, length_scale); // kernel
+    K = KERNEL(geodist, func_sigma, length_scale); // kernel
     // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
     for (i in 1:N)
       K[i,i] = K[i,i] + data_sigma2;

@@ -1,4 +1,5 @@
 library(rstan)
+library(geosphere)
 
 options(mc.cores = parallel::detectCores())
 rstan_options(auto_write = TRUE)
@@ -19,6 +20,7 @@ Tproj <- 21              # number of days to project forward
 C <- uk_cases[1:N,3:(T+2)]
 
 geoloc <- matrix(0, N, 2)
+geodist <- matrix(0, N, N)
 
 region_names <- metadata$AREA
 longitudes <- metadata$LONG
@@ -43,10 +45,17 @@ for (i in 1:N) {
     }
   }
 }
+
+for (i in 1:N) {
+  for (j in 1:N) {
+    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 1000  #  distance between two points on an ellipsoid (default is WGS84 ellipsoid), in km
+  }
+}
   
 
 cori_dat <- list(N = N, T = T, T0 = T0, Tproj = Tproj, D = D, C = C,  
                  geoloc = geoloc,
+                 geodist = geodist,
                  infprofile = infprofile)
 
 # fit <- stan(file = 'cori-simple.stan', data = cori_dat)

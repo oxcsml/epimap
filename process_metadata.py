@@ -6,11 +6,12 @@ _POPULATION_PATH = 'https://raw.githubusercontent.com/rs-delve/Rmap/master/uk_la
 _GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/b216b4c8a4e74f6fb692a1785255d777_0.geojson?outSR={%22latestWkid%22:27700,%22wkid%22:27700}'
 
 population_df = pd.read_excel(_POPULATION_PATH, sheet_name='MYE 5', skiprows=4)
-utla_population_df = population_df[['Code', 'Name', 'Estimated Population mid-2019', '2019 people per sq. km']].rename(columns={
+utla_population_df = population_df[['Code', 'Name', 'Estimated Population mid-2019', '2019 people per sq. km', 'Area (sq km)']].rename(columns={
     'Code': 'CODE',
     'Name': 'AREA',
     'Estimated Population mid-2019': 'POPULATION',
-    '2019 people per sq. km': 'DENSITY'
+    '2019 people per sq. km': 'DENSITY',
+    'Area (sq km)': 'SQUARE_KM_AREA'
 })
 
 # Update Buckinghamshire UTLA to use the county-code instead which is given in the GeoJSON

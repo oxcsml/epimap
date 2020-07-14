@@ -1,4 +1,5 @@
-pandas
-plotly
 dash
 folium
+pandas
+plotly
+pystan

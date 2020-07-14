@@ -40,3 +40,10 @@ vignettes/*.pdf
 
 # Temporary visualisation files
 choropleth.html
+
+# PyCharm files
+.idea*
+*__pycache__*
+
+# Serialized Python models
+*.pkl

@@ -47,3 +47,6 @@ choropleth.html
 
 # Serialized Python models
 *.pkl
+
+# Figures
+figs/*

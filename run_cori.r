@@ -76,8 +76,10 @@ cori_dat <- list(N = N, T = T, T0 = T0, Tproj = Tproj, D = D, C = C,
 # copy the stan file and put in the right kernel
 stan_file = readLines("cori-gp-immi.stan")
 stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
-writeLines(stan_file_out, sprintf('cori-gp-immi-%s.stan', opt$kernel))
-fit <- stan(file = sprintf('cori-gp-immi-%s.stan', opt$kernel), data = cori_dat, iter=4000, control = list(adapt_delta = .9))
+file = sprintf('cori-gp-immi-%s', opt$kernel)
+writeLines(stan_file_out, paste(file, '.stan'))
+
+fit <- stan(file = paste(file, '.stan'), data = cori_dat, iter=4000, control = list(adapt_delta = .9))
 # print(fit)
 
 print(summary(fit, pars=c("Ravg","length_scale","func_sigma","data_sigma","dispersion","immigration_rate"), probs=c(0.025, 0.5, 0.975))$summary)
@@ -99,5 +101,5 @@ sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
 
-write.csv(df, sprintf('RtCproj_cori-gp-immi-%s.csv', opt$kernel),row.names=FALSE)
+write.csv(df, paste('RtCproj_', file, '.csv'),row.names=FALSE)
 

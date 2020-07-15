@@ -1,0 +1,86 @@
+*{
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+.wrapper {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(1, 1fr);
+    grid-gap: 10px;
+    width: 100vw;
+    height: 100vh;
+}
+
+.left-pane {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.right-pane {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top:2em;
+}
+
+.background {
+    fill: none;
+    pointer-events: all;
+}
+
+.feature {
+    cursor: pointer;
+}
+
+.feature.active {
+    fill: orange;
+}
+
+.mesh {
+    fill: none;
+    stroke: #999;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.legend rect {
+    fill:white;
+    stroke:black;
+    opacity:0.8;
+}
+
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    vertical-align: middle;
+    padding: 10px;
+    font: 12px sans-serif;
+    background: #333;
+    color: #eee;
+    border: 0px;
+    border-radius: 8px;
+  }
+
+div.tooltip span.header {
+    font-weight: bold;
+}
+
+.actual-cases-line {
+    fill: none;
+    stroke: rgba(70, 130, 180, 0.4);
+    stroke-width: 1;
+}
+
+.smoothed-cases-line {
+    fill: none;
+    stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+}
+
+#chart {
+    margin-top:2em;
+}
+
+span.info-heading {
+    font-weight: bold;
+}

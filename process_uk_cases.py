@@ -14,4 +14,10 @@ uk_cases.loc[['Scotland'], '2020-06-15'] = np.round(
     (uk_cases.loc[['Scotland'], '2020-06-14'] +
      uk_cases.loc[['Scotland'], '2020-06-16']) / 2)
 
+# Merthyr Tydfil in Wales did a bulk correction (of 104) on 27 June. The
+# usual daily cases in the same period is around 2 per day.
+uk_cases.loc[[('Wales', 'Merthyr Tydfil')], '2020-06-27'] = np.round(
+    (uk_cases.loc[[('Wales', 'Merthyr Tydfil')], '2020-06-26'] +
+     uk_cases.loc[[('Wales', 'Merthyr Tydfil')], '2020-06-28']) / 2)
+
 uk_cases.to_csv('data/uk_cases.csv')

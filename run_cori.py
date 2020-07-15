@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pickle
 import pystan
@@ -6,9 +8,32 @@ from hashlib import md5
 from typing import Dict
 
 
+def plot_areas(out: pd.DataFrame, T_proj: int):
+    for index, row in out.iterrows():
+        print('Plotting', index)
+        lower = row[['C_' + str(t) + '_lower'
+                     for t in range(T_proj)]].to_numpy()
+        median = row[['C_' + str(t) + '_median'
+                      for t in range(T_proj)]].to_numpy()
+        upper = row[['C_' + str(t) + '_upper'
+                     for t in range(T_proj)]].to_numpy()
+
+        c = [153 / 255.0, 204 / 255.0, 255 / 255.0]
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        ax.fill_between(np.arange(T_proj) + 1, lower, upper, alpha=0.4,
+                        color=c, label='2.5% to 97.5% percentiles')
+        ax.plot(np.arange(T_proj) + 1, median, lw=4, color=c, label='median')
+        ax.legend(loc='upper left', fontsize=12)
+        ax.set_title(index, fontsize=12)
+        ax.set_xlabel('future days')
+        ax.set_ylabel('projected daily cases')
+        plt.savefig('figs/' + index + '.pdf')
+        plt.close()
+
+
 def post_process(df: pd.DataFrame,
                  cori_dat: Dict,
-                 fit):
+                 fit) -> pd.DataFrame:
     """Prints model summary statistics and creates CSV file."""
     parameters = ['Ravg', 'length_scale', 'func_sigma', 'data_sigma',
                   'dispersion', 'immigration_rate']
@@ -40,8 +65,7 @@ def post_process(df: pd.DataFrame,
                                'C_' + str(t) + '_upper']
         out = out.join(case_counts, how='inner')
 
-    out = out.sort_index()
-    out.to_csv('RtCproj-python.csv', float_format='%.5f')
+    return out.sort_index()
 
 
 def read_data():
@@ -93,7 +117,6 @@ def stanmodel_cache(model_code, model_name=None):
 
 def main(resample: bool=True,
          pkl_file: str='cori-gp-immi_fit.pkl'):
-
     # Avoids C++ recompilation if unnecessary in PyStan
     with open('cori-gp-immi.stan', 'r') as stan_file:
         model_code = stan_file.read()
@@ -112,7 +135,11 @@ def main(resample: bool=True,
     else:
         fit = pickle.load(open(pkl_file, 'rb'))
 
-    post_process(df, cori_dat, fit)
+    # Post-process the samples.
+    out = post_process(df, cori_dat, fit)
+
+    out.to_csv('RtCproj-python.csv', float_format='%.5f')
+    plot_areas(out, cori_dat['Tproj'])
 
 
 if __name__ == '__main__':

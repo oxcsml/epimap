@@ -41,9 +41,16 @@ vignettes/*.pdf
 # Temporary visualisation files
 choropleth.html
 
+*.rds
+*.csv
+*.html
+
 # PyCharm files
 .idea*
 *__pycache__*
 
 # Serialized Python models
 *.pkl
+
+# Figures
+figs/*

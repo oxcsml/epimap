@@ -1,5 +1,6 @@
 dash
 folium
+matplotlib
 pandas
 plotly
 pystan

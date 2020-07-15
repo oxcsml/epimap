@@ -1,0 +1,20 @@
+"""Pre-process data for the visualisation website."""
+
+import pandas as pd
+import logging
+import sys
+
+UK_CASES_PATH = 'uk_cases.csv'
+OUTPUT_PATH = 'site_data.csv'
+uk_cases = pd.read_csv(UK_CASES_PATH)
+
+df = uk_cases.set_index(['Country', 'Area name']).stack().to_frame().reset_index().rename(columns={
+    'Area name': 'area',
+    'level_2': 'Date',
+    0: 'cases_new'
+})
+df['cases_new_smoothed'] = df['cases_new'].rolling(7, center=True).mean()
+df['Date'] = pd.to_datetime(df['Date'])
+
+df.to_csv(OUTPUT_PATH, index=False)
+print('Wrote', OUTPUT_PATH)

@@ -89,13 +89,11 @@ app.layout = html.Div(children=[
                 style={
                     'width': '49%',
                     'height': '600pt',
-                    'border': 'none'
                 }),
     html.Iframe(srcDoc = open('Cprojmap.html', 'r').read(), 
                 style={
                     'width': '49%',
                     'height': '600pt',
-                    'border': 'none'
                 }),
     html.H3('UTLA Cases Time Series Plots'),
     dcc.Dropdown(

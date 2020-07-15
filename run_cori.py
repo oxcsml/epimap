@@ -1,5 +1,7 @@
+import geo.ellipsoid as geo
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pickle
 import pystan
@@ -9,6 +11,10 @@ from typing import Dict
 
 
 def plot_areas(out: pd.DataFrame, T_proj: int):
+
+    if not os.path.exists('figs'):
+        os.makedirs('figs')
+
     for index, row in out.iterrows():
         print('Plotting', index)
         lower = row[['C_' + str(t) + '_lower'
@@ -71,18 +77,29 @@ def post_process(df: pd.DataFrame,
 def read_data():
     """Reads UK cases and creates input for Stan model."""
     infection_profile = pd.read_csv('serial_interval.csv')['fit'].to_numpy()
-    uk_cases = pd.read_csv('uk_cases.csv').set_index('Area name')
-    metadata = pd.read_csv('metadata.csv').set_index('AREA')
+    uk_cases = pd.read_csv('data/uk_cases.csv').set_index('Area name')
+    metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
 
     df = metadata.join(uk_cases, how='inner')
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
     # Use England data.
-    df = df[df['Country'] == 'England']
-    non_date_columns = sum([not col.startswith('2020') for col in df.columns])
+    df = df[(df['Country'] == 'England') |
+            (df['Country'] == 'Scotland') |
+            (df['Country'] == 'Wales')]
 
+    non_date_columns = sum([not col.startswith('2020') for col in df.columns])
     # exclude the last 7 days (counts not reliable)
     cases = df.iloc[:, non_date_columns:-7].to_numpy().astype(int)
+
+    geoloc = df[['LAT', 'LONG']].to_numpy()
+    n, _ = geoloc.shape
+    geodist = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            # Vincenty's formula WGS84
+            geodist[i, j] = geo.distance(geoloc[i], geoloc[j]) / 1000
+            geodist[j, i] = geodist[i, j]
 
     cori_dat = {
         'N': cases.shape[0],
@@ -91,9 +108,11 @@ def read_data():
         'Tproj': 21,  # number of days to project forward
         'D': len(infection_profile),
         'C': cases,
-        'geoloc': df[['LAT', 'LONG']].to_numpy(),
+        'geoloc': geoloc,
+        'geodist': geodist,
         'infprofile': infection_profile
     }
+
     return df, cori_dat
 
 
@@ -115,25 +134,26 @@ def stanmodel_cache(model_code, model_name=None):
     return sm
 
 
-def main(resample: bool=True,
-         pkl_file: str='cori-gp-immi_fit.pkl'):
+def do_modeling(kernel: str='exp_quad',
+                pkl_file: str='cori-gp-immi-exp_quad_fit.pkl'):
     # Avoids C++ recompilation if unnecessary in PyStan
     with open('cori-gp-immi.stan', 'r') as stan_file:
         model_code = stan_file.read()
+        model_code = model_code.replace('KERNEL', kernel)
     sm = stanmodel_cache(model_code)
 
     # Read the input data.
     df, cori_dat = read_data()
 
-    # Sample from the model, or load samples from file.
-    if resample:
+    try:
+        fit = pickle.load(open(pkl_file, 'rb'))
+    except FileNotFoundError:
+        # Sample from the model, or load samples from file.
         fit = sm.sampling(data=cori_dat,
                           iter=4000,
                           control={'adapt_delta': 0.9})
         with open(pkl_file, 'wb') as f:
             pickle.dump(fit, f, protocol=-1)
-    else:
-        fit = pickle.load(open(pkl_file, 'rb'))
 
     # Post-process the samples.
     out = post_process(df, cori_dat, fit)
@@ -143,4 +163,4 @@ def main(resample: bool=True,
 
 
 if __name__ == '__main__':
-    main(resample=False)
+    do_modeling()

@@ -1,5 +1,6 @@
 dash
 folium
+geo-py
 matplotlib
 pandas
 plotly

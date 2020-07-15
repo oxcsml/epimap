@@ -84,3 +84,11 @@ div.tooltip span.header {
 span.info-heading {
     font-weight: bold;
 }
+
+h1, h2, h3, h4, h5, h6, p, span {
+    font-family: sans-serif;
+}
+
+.active {
+    font-weight: bold;
+}

@@ -13,7 +13,7 @@ var barHeight = 30;
 var margin = ({top: 20, right: 40, bottom: 30, left: 40})
 
 // Set up dimensions for chart
-var chart_margin = {top: 10, right: 30, bottom: 30, left: 60};
+var chart_margin = {top: 30, right: 30, bottom: 30, left: 60};
 var chart_svg = d3.select("#chart"),
     chart_width = +chart_svg.attr("width") - chart_margin.left - chart_margin.right,
     chart_height = +chart_svg.attr("height") - chart_margin.top - chart_margin.bottom;
@@ -54,6 +54,9 @@ var tooltip_info1 = tooltip_div.append("span")
 tooltip_div.append("br");
 var tooltip_info2 = tooltip_div.append("span")
     .attr("class", "info-row2");
+tooltip_div.append("br");
+var tooltip_info3 = tooltip_div.append("span")
+    .attr("class", "info-row3");
 
 // Load external data
 var load_cases = d3.csv(SITE_DATA_PATH).then(data=>{
@@ -92,6 +95,14 @@ function getRtForArea(area) {
     return `${rtMedian} [${rtLower} - ${rtUpper}]`;
 }
 
+function getCaseProjForArea(area) {
+    var rt = rtData.get(area);
+    var Cprojmedian = rt ? +rt.Cprojmedian.toFixed(2) : "?";
+    var Cprojlower = rt ? +rt.Cprojlower.toFixed(2) : "?";
+    var Cprojupper = rt ? +rt.Cprojupper.toFixed(2) : "?";
+    return `${Cprojmedian} [${Cprojlower} - ${Cprojupper}]`;
+}
+
 // Handle data loaded
 function ready(data) {
     var topo = data[0];
@@ -102,8 +113,15 @@ function ready(data) {
     var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdYlGn(1-t) )
         .domain(colorDomain);
 
+    minCases = 1;
+    maxCases = d3.max(rtData.values().map(r=>r.Cprojmedian));
+    console.log("minCases:", minCases, "maxCases:", maxCases);
+    const logScale = d3.scaleLog().domain([minCases, maxCases]);
+    const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
+
     console.log("Rt color scale domain:", rtColorScale.domain())
 
+    // TODO: Replace legend color scale with cases scale when selected.
     var axisScale = d3.scaleLinear()
         .range([margin.left, width - margin.right])
         .domain([colorDomain[0], colorDomain[2]]);
@@ -118,17 +136,27 @@ function ready(data) {
                 .tickSize(-barHeight)
         );
 
+    rtFillFn = d => {  // Fill based on value of Rt
+        var rt = rtData.get(d.properties.ctyua16nm);
+        if (!rt) {
+            return "#ccc";
+        }
+        return rtColorScale(rt.Rtmedian);
+    }
+
+    caseFillFn = d => { // Fill based on value of case projection
+        var rt = rtData.get(d.properties.ctyua16nm);
+        if (!rt) {
+            return "#ccc";
+        }
+        return caseColorScale(rt.Cprojmedian);
+    }
+
     // Draw the map
-    g.selectAll("path")
+    var map = g.selectAll("path")
         .data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2016__Boundaries).features)
         .enter().append("path")
-        .attr("fill", d => {  // Fill based on value of Rt
-            var rt = rtData.get(d.properties.ctyua16nm);
-            if (!rt) {
-                return "#ccc";
-            }
-            return rtColorScale(rt.Rtmedian);
-        })
+        .attr("fill", rtFillFn)
         .style("fill-opacity", 1)
         .on("mouseover", function(d) {  // Add Tooltip on hover
             tooltip_div.transition()
@@ -138,6 +166,7 @@ function ready(data) {
             tooltip_header.text(d.properties.ctyua16nm);
             tooltip_info1.text(`Last 7 days cases: TODO`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.ctyua16nm)}`);
+            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.ctyua16nm)}`);
 
             tooltip_div
               .style("left", (d3.event.pageX + 10) + "px")             
@@ -180,6 +209,41 @@ function ready(data) {
     map_svg.append('g')
         .call(axisBottom);
 
+    // Add Rt vs case projection selection
+    var showRt = map_svg.append("text")
+        .attr("x", margin.left)             
+        .attr("y", margin.top + 10)
+        .style("font-size", "16px")  
+        .style("cursor", "pointer")
+        .attr("class", "active")
+        .text("Rt")
+        .on("click", function() {
+            d3.select(this).attr("class", "active");
+        });
+
+    var showCases = map_svg.append("text")
+        .attr("x", margin.left)             
+        .attr("y", margin.top + 30)
+        .style("font-size", "16px")  
+        .style("cursor", "pointer")
+        .text("Case Projections");
+
+    showRt.on("click", () => {
+        if (showCases.classed("active")) {
+            map.attr("fill", rtFillFn);
+            // TODO: Switch the color scale
+        }
+        showRt.attr("class", "active");
+        showCases.attr("class", "");
+    });
+
+    showCases.on("click", () => {
+        if (showRt.classed("active")) {
+            map.attr("fill", caseFillFn);
+        }
+        showCases.attr("class", "active");
+        showRt.attr("class", "");
+    });
     
 }
 
@@ -236,8 +300,8 @@ function selectArea(area) {
 
     // Add a title
     chart_svg.append("text")
-        .attr("x", (width / 2))             
-        .attr("y", 0 - (chart_margin.top / 2))
+        .attr("x", (chart_width / 2))             
+        .attr("y", (chart_margin.top / 2))
         .attr("text-anchor", "middle")  
         .style("font-size", "16px")  
         .text(`COVID-19 Cases for ${area}`);

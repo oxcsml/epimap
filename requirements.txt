@@ -1,4 +1,7 @@
-pandas
-plotly
 dash
 folium
+geo-py
+matplotlib
+pandas
+plotly
+pystan

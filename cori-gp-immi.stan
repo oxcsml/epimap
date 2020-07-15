@@ -1,4 +1,19 @@
 // saved as schools.stan
+functions {
+  matrix exp_quad(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(dist));
+  }
+  matrix matern12(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * exp(- dist / length_scale);
+  }
+  matrix matern32(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * (1 + ((sqrt(3) * dist) / length_scale)) .* exp(- (sqrt(3) * dist) / length_scale);
+  }
+  matrix matern52(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * (1 + ((sqrt(5) * dist) / length_scale) + ((5 * dist .* dist)/(3 * square(length_scale)))) .* exp(- (sqrt(5) * dist) / length_scale);
+  }
+}
+
 data {
   int<lower=1> N;           // number of regions
   int<lower=1> T;           // number of days
@@ -6,8 +21,9 @@ data {
   int<lower=1> D;           // length of infection profile
   int<lower=0> Tproj;       // number of days to forward project
   int C[N, T];              // case counts
-  vector[2] geoloc[N];       // geo locations of regions
+  vector[2] geoloc[N];      // geo locations of regions
   vector[D] infprofile;     // infection profile
+  matrix[N,N] geodist;      // distance between locations
 }
 
 transformed data {
@@ -48,8 +64,11 @@ transformed parameters {
     matrix[N,N] K;
     matrix[N,N] L;
 
-    K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
-    for (i in 1:N) {
+    data_sigma2 = square(data_sigma);
+
+    K = KERNEL(geodist, func_sigma, length_scale); // kernel
+    // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
+    for (i in 1:N)
       K[i,i] = K[i,i] + data_sigma2;
       for (j in 1:N) {
         K[i,j] = K[i,j] + avg_sigma2;
@@ -70,10 +89,10 @@ model {
   dispersion ~ normal(0,5);
 
   // GP
-  length_scale ~ normal(0.0,1.0);
-  func_sigma ~ normal(0.0, 1.0);
-  data_sigma ~ normal(0.0, 1.0);
-  avg_sigma ~ normal(0.0, 1.0);
+  length_scale ~ normal(0.1,1.0);
+  func_sigma ~ normal(0.1, 1.0);
+  data_sigma ~ normal(0.1, 1.0);
+  avg_sigma ~ normal(0.1, 1.0);
   eta ~ std_normal();
 
   for (i in 1:T0) {
@@ -107,4 +126,3 @@ generated quantities {
 
 
 }
-

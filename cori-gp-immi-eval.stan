@@ -1,3 +1,18 @@
+functions {
+  matrix exp_quad(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(dist));
+  }
+  matrix matern12(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * exp(- dist / length_scale);
+  }
+  matrix matern32(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * (1 + ((sqrt(3) * dist) / length_scale)) .* exp(- (sqrt(3) * dist) / length_scale);
+  }
+  matrix matern52(matrix dist, real func_sigma, real length_scale) {
+    return square(func_sigma) * (1 + ((sqrt(5) * dist) / length_scale) + ((5 * dist .* dist)/(3 * square(length_scale)))) .* exp(- (sqrt(5) * dist) / length_scale);
+  }
+}
+
 data {
   int<lower=1> N;           // number of regions
   int<lower=1> D;           // length of infection profile
@@ -50,11 +65,11 @@ parameters {
   real<lower=0> length_scale;
   real<lower=0> func_sigma;
   real<lower=0> data_sigma;
-  real<lower=0> avg_sigma;
+  // real<lower=0> avg_sigma;
   vector[N] eta;
 
   real<lower=0> dispersion;
-  //real<lower=0> Ravg;
+  real<lower=0> Ravg;
   real<lower=0,upper=1> immigration_rate;
 }
 
@@ -63,30 +78,31 @@ transformed parameters {
 
   {
     real data_sigma2 = square(data_sigma);
-    real avg_sigma2 = square(avg_sigma);
+    // real avg_sigma2 = square(avg_sigma);
     matrix[N,N] K;
     matrix[N,N] L;
 
-    // GP prior. Squared exponential kernel.
+    // GP prior.
 
-    K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
+    // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
+    K = KERNEL(geodist, func_sigma, length_scale); // kernel
     for (i in 1:N) {
       K[i,i] = K[i,i] + data_sigma2;
-      for (j in 1:N) {
-        K[i,j] = K[i,j] + avg_sigma2;
-      }
+      // for (j in 1:N) {
+      //   K[i,j] = K[i,j] + avg_sigma2;
+      // }
     }
 
     L = cholesky_decompose(K);
-    Rt = exp(L * eta);
-    //Rt = Ravg * exp(L * eta);
+    // Rt = exp(L * eta);
+    Rt = Ravg * exp(L * eta);
   }
 }
 
 model {
   vector[Tlik] immigration;
 
-  //Ravg ~ normal(1.0,1.0);
+  Ravg ~ normal(1.0,1.0);
   immigration_rate ~ normal(.05, .05);
   dispersion ~ normal(0,5);
 
@@ -94,7 +110,7 @@ model {
   length_scale ~ normal(0.0,1.0);
   func_sigma ~ normal(0.0, 1.0);
   data_sigma ~ normal(0.0, 1.0);
-  avg_sigma ~ normal(0.0, 1.0);
+  // avg_sigma ~ normal(0.0, 1.0);
   eta ~ std_normal();
 
 
@@ -133,7 +149,7 @@ model {
 }
 
 generated quantities {
-  real Ravg = mean(Rt);
+  // real Ravg = mean(Rt);
   vector[Tpred] Ppred[N];
   vector[Tproj] Cproj[N]; // faster than matrix
 

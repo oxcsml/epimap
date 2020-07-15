@@ -47,11 +47,11 @@ parameters {
   real<lower=0> length_scale;
   real<lower=0> func_sigma;
   real<lower=0> data_sigma;
-  real<lower=0> avg_sigma;
+  // real<lower=0> avg_sigma;
   vector[N] eta;
 
   real<lower=0> dispersion;
-  //real<lower=0> Ravg;
+  real<lower=0> Ravg;
   real<lower=0,upper=1> immigration_rate;
 }
 
@@ -60,7 +60,7 @@ transformed parameters {
 
   {
     real data_sigma2 = square(data_sigma);
-    real avg_sigma2  = square(avg_sigma);
+    // real avg_sigma2  = square(avg_sigma);
     matrix[N,N] K;
     matrix[N,N] L;
 
@@ -68,31 +68,31 @@ transformed parameters {
 
     K = KERNEL(geodist, func_sigma, length_scale); // kernel
     // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
-    for (i in 1:N)
+    for (i in 1:N) {
       K[i,i] = K[i,i] + data_sigma2;
-      for (j in 1:N) {
-        K[i,j] = K[i,j] + avg_sigma2;
-      }
+      // for (j in 1:N) {
+      //   K[i,j] = K[i,j] + avg_sigma2;
+      // }
     }
 
     L = cholesky_decompose(K);
-    Rt = exp(L * eta);
-    //Rt = Ravg * exp(L * eta);
+    //Rt = exp(L * eta);
+    Rt = Ravg * exp(L * eta);
   }
 }
 
 model {
   vector[T0] immigration;
 
-  //Ravg ~ normal(1.0,1.0);
+  Ravg ~ normal(1.0,1.0);
   immigration_rate ~ normal(.05,.05);
   dispersion ~ normal(0,5);
 
   // GP
-  length_scale ~ normal(0.1,1.0);
+  length_scale ~ normal(0.1,5.0);
   func_sigma ~ normal(0.1, 1.0);
   data_sigma ~ normal(0.1, 1.0);
-  avg_sigma ~ normal(0.1, 1.0);
+  // avg_sigma ~ normal(0.1, 1.0);
   eta ~ std_normal();
 
   for (i in 1:T0) {
@@ -112,7 +112,7 @@ model {
 }
 
 generated quantities {
-  real Ravg = mean(Rt);
+  // real Ravg = mean(Rt);
 
   vector[Tproj] Cproj[N];
 

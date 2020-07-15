@@ -3,10 +3,10 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-k", "--kernel"), type="character", default="exp-quad", 
+  make_option(c("-k", "--kernel"), type="character", default="exp_quad", 
               help="kernel to use in the spatial prior GP")
 ); 
- 
+
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
@@ -57,7 +57,8 @@ for (i in 1:N) {
 
 for (i in 1:N) {
   for (j in i:N) {
-    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 1000  #  distance between two points on an ellipsoid (default is WGS84 ellipsoid), in km
+    # distance between two points on an ellipsoid (default is WGS84 ellipsoid), in units of 100km
+    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 100000
     geodist[j, i] = geodist[i, j]
   }
 }
@@ -68,18 +69,15 @@ cori_dat <- list(N = N, T = T, T0 = T0, Tproj = Tproj, D = D, C = C,
                  geodist = geodist,
                  infprofile = infprofile)
 
-
-
-# fit <- stan(file = 'cori-simple.stan', data = cori_dat)
-# fit <- stan(file = 'cori-gp.stan', data = cori_dat)
-
 # copy the stan file and put in the right kernel
 stan_file = readLines("cori-gp-immi.stan")
 stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
 file = sprintf('cori-gp-immi-%s', opt$kernel)
-writeLines(stan_file_out, paste(file, '.stan'))
+writeLines(stan_file_out, paste(file, '.stan',sep=''))
 
-fit <- stan(file = paste(file, '.stan'), data = cori_dat, iter=4000, control = list(adapt_delta = .9))
+# fit <- stan(file = 'cori-simple.stan', data = cori_dat)
+# fit <- stan(file = 'cori-gp.stan', data = cori_dat)
+fit <- stan(file = paste(file, '.stan',sep=''), data = cori_dat, iter=4000, control = list(adapt_delta = .9))
 # print(fit)
 
 print(summary(fit, pars=c("Ravg","length_scale","func_sigma","data_sigma","dispersion","immigration_rate"), probs=c(0.025, 0.5, 0.975))$summary)
@@ -101,5 +99,5 @@ sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
 
-write.csv(df, paste('RtCproj_', file, '.csv'),row.names=FALSE)
+write.csv(df, paste('RtCproj_',file,'.csv',sep=''),row.names=FALSE)
 

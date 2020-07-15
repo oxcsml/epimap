@@ -1,4 +1,14 @@
 library(rstan)
+library(geosphere)
+library(optparse)
+
+option_list = list(
+  make_option(c("-k", "--kernel"), type="character", default="exp_quad", 
+              help="kernel to use in the spatial prior GP")
+); 
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
 
 options(mc.cores = parallel::detectCores())
 # options(mc.cores = 3)
@@ -12,7 +22,7 @@ metadata <- read.csv("metadata.csv")
 
 N <- 149                 # number of regions in England only
 D <- 100                 # infection profile number of days
-Tignore <- 7
+Tignore <- 7             # counts in most recent 7 days may not be reliable?
 Tpred <- 7               # number of days held out for predictive probs eval
 Tlik <- 7                # number of days for likelihood to infer Rt
 Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
@@ -23,6 +33,7 @@ Tproj <- 21              # number of days to project forward
 Count <- uk_cases[1:N,3:(Tall+2)]
 
 geoloc <- matrix(0, N, 2)
+geodist <- matrix(0, N, N)
 
 region_names <- metadata$AREA
 longitudes <- metadata$LONG
@@ -48,16 +59,31 @@ for (i in 1:N) {
   }
 }
   
+for (i in 1:N) {
+  for (j in i:N) {
+    # distance between two points on an ellipsoid (default is WGS84 ellipsoid), in units of 100km
+    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 100000
+    geodist[j, i] = geodist[i, j]
+  }
+}
+
 
 cori_dat <- list(N = N, D = D, 
                  Tall = Tall, Tcond = Tcond, Tlik = Tlik, Tproj = Tproj, 
                  Count = Count,  
                  geoloc = geoloc,
+                 geodist = geodist,
                  infprofile = infprofile)
+
+# copy the stan file and put in the right kernel
+stan_file = readLines("cori-gp-immi.stan")
+stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
+file = sprintf('cori-gp-immi-eval-%s', opt$kernel)
+writeLines(stan_file_out, paste(file,'.stan',sep=''))
 
 # fit <- stan(file = 'cori-simple.stan', data = cori_dat)
 # fit <- stan(file = 'cori-gp.stan', data = cori_dat)
-fit <- stan(file = 'cori-gp-immi-eval.stan', 
+fit <- stan(file = paste(file,'.stan',sep=''), 
             data = cori_dat, 
             iter=4000, 
             control = list(adapt_delta = .9))

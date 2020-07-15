@@ -1,4 +1,4 @@
-name: Rmap
+name: Rmap2
 dependencies:
   - numpy
   - pandas
@@ -8,9 +8,15 @@ dependencies:
   - plotly
   - dash
   - folium
+  - geopy
+  - matplotlib
+  - pystan
   - r-data.table
   - r-envstats
   - r-rstan
   - r-ggplot2
+  - r-geosphere
+  - r-optparse
+  - r-BH
 channels:
   - conda-forge

@@ -1,7 +1,11 @@
 // Constants
-const TOPOJSON_PATH = "https://raw.githubusercontent.com/rs-delve/Rmap/master/uk_boundaries.json?token=ABFV53BX3YW3FJDUK4BFBFS7C4RJU";
-const DATA_PATH = "https://raw.githubusercontent.com/rs-delve/Rmap/master/RtCproj.csv?token=ABFV53DIFS3BWCRSDDTZKFK7C4KQW"
-const SITE_DATA_PATH = 'https://raw.githubusercontent.com/rs-delve/Rmap/master/site_data.csv?token=ABFV53FFK2TGLFOINXD6CEK7DASKQ'
+// const TOPOJSON_PATH = "https://raw.githubusercontent.com/rs-delve/Rmap/master/uk_boundaries.json?token=ABFV53BX3YW3FJDUK4BFBFS7C4RJU";
+// const DATA_PATH = "https://raw.githubusercontent.com/rs-delve/Rmap/master/RtCproj.csv?token=ABFV53DIFS3BWCRSDDTZKFK7C4KQW"
+// const SITE_DATA_PATH = 'https://raw.githubusercontent.com/rs-delve/Rmap/master/site_data.csv?token=ABFV53FFK2TGLFOINXD6CEK7DASKQ'
+
+const TOPOJSON_PATH = "uk_boundaries.json";
+const DATA_PATH = "RtCproj.csv";
+const SITE_DATA_PATH = "site_data.csv";
 
 // Set up dimensions for map
 var map_svg = d3.select("#map"),

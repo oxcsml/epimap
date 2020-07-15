@@ -1,6 +1,7 @@
 import geo.ellipsoid as geo
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pickle
 import pystan
@@ -10,6 +11,10 @@ from typing import Dict
 
 
 def plot_areas(out: pd.DataFrame, T_proj: int):
+
+    if not os.path.exists('figs'):
+        os.makedirs('figs')
+
     for index, row in out.iterrows():
         print('Plotting', index)
         lower = row[['C_' + str(t) + '_lower'

@@ -10,30 +10,27 @@ from hashlib import md5
 from typing import Dict
 
 
-def plot_areas(out: pd.DataFrame, T_proj: int):
-
+def plot_areas(case_predictions: pd.DataFrame):
     if not os.path.exists('figs'):
         os.makedirs('figs')
 
-    for index, row in out.iterrows():
-        print('Plotting', index)
-        lower = row[['C_' + str(t) + '_lower'
-                     for t in range(T_proj)]].to_numpy()
-        median = row[['C_' + str(t) + '_median'
-                      for t in range(T_proj)]].to_numpy()
-        upper = row[['C_' + str(t) + '_upper'
-                     for t in range(T_proj)]].to_numpy()
+    for area, area_df in case_predictions.groupby(level=0):
+        print('Plotting', area)
+        day = area_df.index.get_level_values(1)
+        lower = area_df['C_lower'].to_numpy()
+        median = area_df['C_median'].to_numpy()
+        upper = area_df['C_upper'].to_numpy()
 
-        c = [153 / 255.0, 204 / 255.0, 255 / 255.0]
+        color = [153 / 255.0, 204 / 255.0, 255 / 255.0]
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
-        ax.fill_between(np.arange(T_proj) + 1, lower, upper, alpha=0.4,
-                        color=c, label='2.5% to 97.5% percentiles')
-        ax.plot(np.arange(T_proj) + 1, median, lw=4, color=c, label='median')
+        ax.fill_between(day, lower, upper, alpha=0.4,
+                        color=color, label='2.5% to 97.5% percentiles')
+        ax.plot(day, median, lw=4, color=color, label='median')
         ax.legend(loc='upper left', fontsize=12)
-        ax.set_title(index, fontsize=12)
+        ax.set_title(area, fontsize=12)
         ax.set_xlabel('future days')
         ax.set_ylabel('projected daily cases')
-        plt.savefig('figs/' + index + '.pdf')
+        plt.savefig('figs/' + area + '.pdf')
         plt.close()
 
 
@@ -51,27 +48,29 @@ def post_process(df: pd.DataFrame,
 
     data = pd.DataFrame(data=fit['Rt'])
     summary = data.describe(percentiles=[0.025, 0.5, 0.975])
-    reproduction_number = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
-    reproduction_number['area'] = df.index
-    reproduction_number = reproduction_number.set_index('area')
-    reproduction_number.columns = ['Rtlower', 'Rtmedian', 'Rtupper']
+    reproduction_numbers = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
+    reproduction_numbers['area'] = df.index
+    reproduction_numbers = reproduction_numbers.set_index('area')
+    reproduction_numbers.columns = ['Rt_lower', 'Rt_median', 'Rt_upper']
 
     Cproj = fit['Cproj']
     T_proj = cori_dat['Tproj']
 
-    out = reproduction_number
+    cols = ['C_lower', 'C_median', 'C_upper']
+    case_predictions = pd.DataFrame(columns=cols + ['area', 'day'])
+
     for t in range(T_proj):
         data = pd.DataFrame(data=Cproj[:, :, t])
         summary = data.describe(percentiles=[0.025, 0.5, 0.975])
-        case_counts = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
-        case_counts['area'] = df.index
-        case_counts = case_counts.set_index('area')
-        case_counts.columns = ['C_' + str(t) + '_lower',
-                               'C_' + str(t) + '_median',
-                               'C_' + str(t) + '_upper']
-        out = out.join(case_counts, how='inner')
+        case_preds = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
+        case_preds.columns = cols
+        case_preds['area'] = df.index
+        case_preds['day'] = t + 1
+        case_predictions = case_predictions.append(case_preds)
 
-    return out.sort_index()
+    case_predictions.set_index(['area', 'day'], inplace=True)
+
+    return reproduction_numbers.sort_index(), case_predictions.sort_index()
 
 
 def read_data():
@@ -116,6 +115,85 @@ def read_data():
     return df, cori_dat
 
 
+def reinflate(reproduction_numbers: pd.DataFrame,
+              case_predictions: pd.DataFrame):
+
+    england_map = pd.read_csv('data/england_meta_areas.csv')
+    scotland_map = pd.read_csv('data/nhs_scotland_health_boards.csv')
+    metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
+
+    # Append a column containing the population ratios of the Upper Tier Local
+    # Authorities in the larger regions.
+    england_map = england_map.merge(metadata['POPULATION'],
+                                    left_on=['Meta area'],
+                                    right_on=['AREA'],
+                                    how='left') \
+                             .merge(metadata['POPULATION'],
+                                    left_on=['area'],
+                                    right_on=['AREA'],
+                                    how='left')
+    england_map['ratio'] = (england_map['POPULATION_y'] /
+                            england_map['POPULATION_x'])
+    england_map = england_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
+
+    scotland_map = scotland_map.merge(metadata['POPULATION'],
+                                      left_on=['NHS Scotland Health Board'],
+                                      right_on=['AREA'],
+                                      how='left') \
+                               .merge(metadata['POPULATION'],
+                                      left_on=['area'],
+                                      right_on=['AREA'],
+                                      how='left')
+    scotland_map['ratio'] = (scotland_map['POPULATION_y'] /
+                             scotland_map['POPULATION_x'])
+    scotland_map = scotland_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
+
+    # Reproduction numbers
+    england = england_map.merge(reproduction_numbers,
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left') \
+                         .set_index('area') \
+                         .drop(columns=['Meta area', 'ratio'])
+
+    scotland = scotland_map.merge(reproduction_numbers,
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left') \
+                           .set_index('area') \
+                           .drop(columns=['NHS Scotland Health Board',
+                                          'ratio'])
+
+    reproduction_numbers = reproduction_numbers.append(england) \
+                                               .append(scotland)
+
+    # Case predictions
+    england = england_map.merge(case_predictions.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
+    england['C_lower'] = england['C_lower'] * england['ratio']
+    england['C_median'] = england['C_median'] * england['ratio']
+    england['C_upper'] = england['C_upper'] * england['ratio']
+    england = england.drop(columns=['Meta area', 'ratio']) \
+                     .set_index(['area', 'day'])
+
+    scotland = scotland_map.merge(case_predictions.reset_index(level=1),
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left')
+    scotland['C_lower'] = scotland['C_lower'] * scotland['ratio']
+    scotland['C_median'] = scotland['C_median'] * scotland['ratio']
+    scotland['C_upper'] = scotland['C_upper'] * scotland['ratio']
+    scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
+                       .set_index(['area', 'day'])
+
+    case_predictions = case_predictions.append(england) \
+                                       .append(scotland)
+
+    return reproduction_numbers.sort_index(), case_predictions.sort_index()
+
+
 def stanmodel_cache(model_code, model_name=None):
     """Avoids recompiling the same Stan model if it's already compiled."""
     code_hash = md5(model_code.encode('ascii')).hexdigest()
@@ -137,7 +215,7 @@ def stanmodel_cache(model_code, model_name=None):
 def do_modeling(kernel: str='exp_quad',
                 pkl_file: str='cori-gp-immi-exp_quad_fit.pkl'):
     # Avoids C++ recompilation if unnecessary in PyStan
-    with open('cori-gp-immi.stan', 'r') as stan_file:
+    with open('stan_files/cori-gp-immi.stan', 'r') as stan_file:
         model_code = stan_file.read()
         model_code = model_code.replace('KERNEL', kernel)
     sm = stanmodel_cache(model_code)
@@ -156,10 +234,18 @@ def do_modeling(kernel: str='exp_quad',
             pickle.dump(fit, f, protocol=-1)
 
     # Post-process the samples.
-    out = post_process(df, cori_dat, fit)
+    reproduction_numbers, case_predictions = post_process(df, cori_dat, fit)
+    reproduction_numbers, case_predictions = reinflate(
+        reproduction_numbers, case_predictions)
 
-    out.to_csv('RtCproj-python.csv', float_format='%.5f')
-    plot_areas(out, cori_dat['Tproj'])
+    # Save the predictions to file.
+    if not os.path.exists('projections'):
+        os.makedirs('projections')
+    reproduction_numbers.to_csv('projections/Rt.csv', float_format='%.5f')
+    case_predictions.to_csv('projections/Cproj.csv', float_format='%.5f')
+
+    # Plot the predictions in a PDF for each region.
+    plot_areas(case_predictions)
 
 
 if __name__ == '__main__':

@@ -22,6 +22,7 @@ data {
   int<lower=0> Tproj;       // number of days to forecast
   int Count[N, Tall];       // case counts
   vector[2] geoloc[N];      // geo locations of regions
+  matrix[N,N] geodist;      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
 }
 
@@ -85,7 +86,8 @@ transformed parameters {
     // GP prior.
 
     // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
-    K = KERNEL(geodist, func_sigma, length_scale); // kernel
+    // K = KERNEL(geodist, func_sigma, length_scale); // kernel
+    K = square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(geodist));
     for (i in 1:N) {
       K[i,i] = K[i,i] + data_sigma2;
       // for (j in 1:N) {
@@ -107,7 +109,7 @@ model {
   dispersion ~ normal(0,5);
 
   // GP prior density
-  length_scale ~ normal(0.0,1.0);
+  length_scale ~ normal(0.0,10.0);
   func_sigma ~ normal(0.0, 1.0);
   data_sigma ~ normal(0.0, 1.0);
   // avg_sigma ~ normal(0.0, 1.0);

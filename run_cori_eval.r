@@ -76,7 +76,7 @@ cori_dat <- list(N = N, D = D,
                  infprofile = infprofile)
 
 # copy the stan file and put in the right kernel
-stan_file = readLines("cori-gp-immi.stan")
+stan_file = readLines("cori-gp-immi-eval.stan")
 stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
 file = sprintf('cori-gp-immi-eval-%s', opt$kernel)
 writeLines(stan_file_out, paste(file,'.stan',sep=''))

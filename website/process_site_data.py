@@ -5,8 +5,10 @@ import logging
 import sys
 
 UK_CASES_PATH = 'uk_cases.csv'
+RtCproj_PATH = '../RtCproj.csv'
 OUTPUT_PATH = 'site_data.csv'
 uk_cases = pd.read_csv(UK_CASES_PATH)
+RtCproj = pd.read_csv(RtCproj_PATH)
 
 df = uk_cases.set_index(['Country', 'Area name']).stack().to_frame().reset_index().rename(columns={
     'Area name': 'area',

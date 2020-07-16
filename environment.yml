@@ -1,4 +1,4 @@
-name: Rmap2
+name: Rmap
 dependencies:
   - numpy
   - pandas

@@ -1,7 +1,7 @@
 import pandas as pd
 
 _MOBILITY_PATH = 'https://www.gstatic.com/covid19/mobility/Global_Mobility_Report.csv'
-_OUTPUT_PATH = 'mobility.csv'
+_OUTPUT_PATH = 'data/mobility.csv'
 
 df = pd.read_csv(_MOBILITY_PATH)
 
@@ -16,6 +16,6 @@ columns = [
   'residential_percent_change_from_baseline']
   
 df = df[(df.country_region_code == "GB") & (~df.sub_region_1.isna())][columns].rename(columns={'sub_region_1': 'area'})
-df.to_csv('mobility.csv')
+df.to_csv('data/mobility.csv')
 
-print('Wrote mobility.csv')
+print('Wrote data/mobility.csv')

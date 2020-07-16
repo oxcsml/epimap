@@ -28,6 +28,7 @@ data {
   vector[2] geoloc[N];      // geo locations of regions
   matrix[N,N] geodist;      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
+  matrix[N,N] geodist;      // distance between locations
 }
 
 transformed data {

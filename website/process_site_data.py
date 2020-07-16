@@ -4,9 +4,9 @@ import pandas as pd
 import logging
 import sys
 
-UK_CASES_PATH = 'uk_cases.csv'
-RtCproj_PATH = '../RtCproj.csv'
-OUTPUT_PATH = 'site_data.csv'
+UK_CASES_PATH = '../data/uk_cases.csv'
+OUTPUT_PATH = '../data/site_data.csv'
+RtCproj_PATH = '../data/RtCproj.csv'
 uk_cases = pd.read_csv(UK_CASES_PATH)
 RtCproj = pd.read_csv(RtCproj_PATH)
 

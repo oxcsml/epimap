@@ -76,7 +76,7 @@ def post_process(df: pd.DataFrame,
 
 def read_data():
     """Reads UK cases and creates input for Stan model."""
-    infection_profile = pd.read_csv('serial_interval.csv')['fit'].to_numpy()
+    infection_profile = pd.read_csv('data/serial_interval.csv')['fit'].to_numpy()
     uk_cases = pd.read_csv('data/uk_cases.csv').set_index('Area name')
     metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
 

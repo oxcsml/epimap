@@ -23,6 +23,7 @@ data {
   int Count[N, Tall];       // case counts
   vector[2] geoloc[N];      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
+  matrix[N,N] geodist;      // distance between locations
 }
 
 transformed data {

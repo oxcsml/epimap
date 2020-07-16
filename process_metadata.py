@@ -2,7 +2,7 @@ import pandas as pd
 from urllib.request import urlopen
 import json
 
-_POPULATION_PATH = 'https://raw.githubusercontent.com/rs-delve/Rmap/master/uk_lad_population_estimates.xls?token=ABFV53GAC3YDYVNGGXSXXDS7CBBLW'
+_POPULATION_PATH = 'https://raw.githubusercontent.com/rs-delve/Rmap/master/data/uk_lad_population_estimates.xls?token=ABFV53GAC3YDYVNGGXSXXDS7CBBLW'
 _GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/b216b4c8a4e74f6fb692a1785255d777_0.geojson?outSR={%22latestWkid%22:27700,%22wkid%22:27700}'
 
 population_df = pd.read_excel(_POPULATION_PATH, sheet_name='MYE 5', skiprows=4)
@@ -66,4 +66,4 @@ df = df.append(scotland).append(england)
 
 df.to_csv('data/metadata.csv')
 
-print('Wrote metadata.csv')
+print('Wrote data/metadata.csv')

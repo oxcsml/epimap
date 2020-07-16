@@ -5,9 +5,9 @@ Setup conda environment:
 * conda activate Rmap
 
 Current process:
-* process_uk_cases.py to produce uk_cases.csv
-* process_mobility.py to produce mobility.csv
-* process_metadata.py to produce metadata.csv
+* process_uk_cases.py to produce data/uk_cases.csv
+* process_mobility.py to produce data/mobility.csv
+* process_metadata.py to produce data/metadata.csv
 * run_cori.r to estimate Rt's, saved to RtCproj.csv
 
 Visualisation

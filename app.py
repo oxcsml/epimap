@@ -14,7 +14,7 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/687f346f5023410ba86615655ff33ca9_1.geojson'
 DATA_PATH = 'RtCproj.csv'
-UK_CASES_PATH = 'uk_cases.csv'
+UK_CASES_PATH = 'data/uk_cases.csv'
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 with urlopen(GEO_JSON_URL) as response:

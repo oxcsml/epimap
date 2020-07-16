@@ -14,11 +14,11 @@ options(mc.cores = parallel::detectCores())
 # options(mc.cores = 3)
 rstan_options(auto_write = TRUE)
 
-infprofile <- read.csv("serial_interval.csv")$fit
+infprofile <- read.csv("data/serial_interval.csv")$fit
 
-uk_cases <- read.csv("uk_cases.csv")
+uk_cases <- read.csv("data/uk_cases.csv")
 
-metadata <- read.csv("metadata.csv")
+metadata <- read.csv("data/metadata.csv")
 
 N <- 149                 # number of regions in England only
 D <- 100                 # infection profile number of days
@@ -69,21 +69,24 @@ for (i in 1:N) {
 
 
 cori_dat <- list(N = N, D = D, 
-                 Tall = Tall, Tcond = Tcond, Tlik = Tlik, Tproj = Tproj, 
+                 Tall = Tall, 
+                 Tcond = Tcond, 
+                 Tlik = Tlik, 
+                 Tproj = Tproj, 
                  Count = Count,  
                  geoloc = geoloc,
                  geodist = geodist,
                  infprofile = infprofile)
 
 # copy the stan file and put in the right kernel
-stan_file = readLines("cori-gp-immi.stan")
+stan_file = readLines(paste('stan_files/', 'cori-gp-immi-eval.stan',sep=''))
 stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
 file = sprintf('cori-gp-immi-eval-%s', opt$kernel)
-writeLines(stan_file_out, paste(file,'.stan',sep=''))
+writeLines(stan_file_out, paste('stan_files/', file, '.stan',sep=''))
 
 # fit <- stan(file = 'cori-simple.stan', data = cori_dat)
 # fit <- stan(file = 'cori-gp.stan', data = cori_dat)
-fit <- stan(file = paste(file,'.stan',sep=''), 
+fit <- stan(file = paste('stan_files/', file, '.stan',sep=''), 
             data = cori_dat, 
             iter=4000, 
             control = list(adapt_delta = .9))
@@ -118,5 +121,5 @@ sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
 
-write.csv(df,"RtCproj.csv",row.names=FALSE)
-
+write.csv(df, paste('fits/', 'RtCproj_',file,'.csv',sep=''),row.names=FALSE)
+saveRDS(fit, paste('fits/', 'stanfit_',file,'.rds',sep=''))

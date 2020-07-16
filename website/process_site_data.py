@@ -4,9 +4,11 @@ import pandas as pd
 import logging
 import sys
 
-UK_CASES_PATH = 'data/uk_cases.csv'
-OUTPUT_PATH = 'data/site_data.csv'
+UK_CASES_PATH = '../data/uk_cases.csv'
+OUTPUT_PATH = '../data/site_data.csv'
+RtCproj_PATH = '../data/RtCproj.csv'
 uk_cases = pd.read_csv(UK_CASES_PATH)
+RtCproj = pd.read_csv(RtCproj_PATH)
 
 df = uk_cases.set_index(['Country', 'Area name']).stack().to_frame().reset_index().rename(columns={
     'Area name': 'area',

@@ -89,7 +89,7 @@ model {
   dispersion ~ normal(0,5);
 
   // GP
-  length_scale ~ normal(0.1,5.0);
+  length_scale ~ normal(0.1,10.0);
   func_sigma ~ normal(0.1, 1.0);
   data_sigma ~ normal(0.1, 1.0);
   // avg_sigma ~ normal(0.1, 1.0);

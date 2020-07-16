@@ -6,10 +6,14 @@ functions {
     return square(func_sigma) * exp(- dist / length_scale);
   }
   matrix matern32(matrix dist, real func_sigma, real length_scale) {
-    return square(func_sigma) * (1 + ((sqrt(3) * dist) / length_scale)) .* exp(- (sqrt(3) * dist) / length_scale);
+    return (square(func_sigma) + (square(func_sigma)*sqrt(3.0)/length_scale) * dist) .* 
+        exp((-sqrt(3.0)/length_scale) * dist) ;
   }
   matrix matern52(matrix dist, real func_sigma, real length_scale) {
-    return square(func_sigma) * (1 + ((sqrt(5) * dist) / length_scale) + ((5 * dist .* dist)/(3 * square(length_scale)))) .* exp(- (sqrt(5) * dist) / length_scale);
+    return square(func_sigma) * 
+        (1.0 + ((sqrt(5.0)/length_scale) * dist)  + 
+        ((5.0/(3.0 * square(length_scale))) * dist .* dist)) .* 
+        exp(- (sqrt(5.0)/length_scale)* dist);
   }
 }
 
@@ -86,8 +90,8 @@ transformed parameters {
     // GP prior.
 
     // K = cov_exp_quad(geoloc, func_sigma, length_scale); // kernel
-    // K = KERNEL(geodist, func_sigma, length_scale); // kernel
-    K = square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(geodist));
+    K = KERNEL(geodist, func_sigma, length_scale); // kernel
+    // K = square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(geodist));
     for (i in 1:N) {
       K[i,i] = K[i,i] + data_sigma2;
       // for (j in 1:N) {
@@ -105,13 +109,13 @@ model {
   vector[Tlik] immigration;
 
   Ravg ~ normal(1.0,1.0);
-  immigration_rate ~ normal(.05, .05);
-  dispersion ~ normal(0,5);
+  immigration_rate ~ normal(0.0, .1);
+  dispersion ~ normal(0.0,10.0);
 
   // GP prior density
-  length_scale ~ normal(0.0,10.0);
-  func_sigma ~ normal(0.0, 1.0);
-  data_sigma ~ normal(0.0, 1.0);
+  length_scale ~ normal(0.0,2.5);
+  func_sigma ~ normal(0.0, 0.5);
+  data_sigma ~ normal(0.0, 0.5);
   // avg_sigma ~ normal(0.0, 1.0);
   eta ~ std_normal();
 

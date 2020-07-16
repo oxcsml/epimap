@@ -3,7 +3,7 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-k", "--kernel"), type="character", default="exp_quad", 
+  make_option(c("-k", "--kernel"), type="character", default="matern32", 
               help="kernel to use in the spatial prior GP")
 ); 
 

@@ -103,6 +103,13 @@ Rt <- t(t(Rt))
 
 sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2]))
 
+s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
+Ppred <- s[,"mean"]
+Ppred <- t(t(Ppred))
+logpred <- log(Ppred)
+print(colMeans(logpred))
+
+
 s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
 Cproj <- s[,c("2.5%","50%","97.5%")]
 Cproj <- t(t(Cproj))

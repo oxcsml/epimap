@@ -6,7 +6,8 @@ functions {
     return square(func_sigma) * exp(- dist / length_scale);
   }
   matrix matern32(matrix dist, real func_sigma, real length_scale) {
-    return (square(func_sigma) + (square(func_sigma)*sqrt(3.0)/length_scale) * dist) .* 
+    return (square(func_sigma) + 
+        (square(func_sigma)*sqrt(3.0)/length_scale) * dist) .* 
         exp((-sqrt(3.0)/length_scale) * dist) ;
   }
   matrix matern52(matrix dist, real func_sigma, real length_scale) {
@@ -26,7 +27,6 @@ data {
   int<lower=0> Tproj;       // number of days to forecast
   int Count[N, Tall];       // case counts
   vector[2] geoloc[N];      // geo locations of regions
-  matrix[N,N] geodist;      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
 }
@@ -71,11 +71,11 @@ parameters {
   real<lower=0> length_scale;
   real<lower=0> func_sigma;
   real<lower=0> data_sigma;
-  // real<lower=0> avg_sigma;
+  real<lower=0> avg_sigma;
   vector[N] eta;
 
   real<lower=0> dispersion;
-  real<lower=0> Ravg;
+  // real<lower=0> Ravg;
   real<lower=0,upper=1> immigration_rate;
 }
 
@@ -84,7 +84,7 @@ transformed parameters {
 
   {
     real data_sigma2 = square(data_sigma);
-    // real avg_sigma2 = square(avg_sigma);
+    real avg_sigma2 = square(avg_sigma);
     matrix[N,N] K;
     matrix[N,N] L;
 
@@ -95,21 +95,19 @@ transformed parameters {
     // K = square(func_sigma) * exp( (-1.0 / (2.0 * square(length_scale))) * square(geodist));
     for (i in 1:N) {
       K[i,i] = K[i,i] + data_sigma2;
-      // for (j in 1:N) {
-      //   K[i,j] = K[i,j] + avg_sigma2;
-      // }
     }
+    K = K + avg_sigma2;
 
     L = cholesky_decompose(K);
-    // Rt = exp(L * eta);
-    Rt = Ravg * exp(L * eta);
+    Rt = exp(L * eta);
+    // Rt = Ravg * exp(L * eta);
   }
 }
 
 model {
   vector[Tlik] immigration;
 
-  Ravg ~ normal(1.0,1.0);
+  // Ravg ~ normal(1.0,1.0);
   immigration_rate ~ normal(0.0, .1);
   dispersion ~ normal(0.0,10.0);
 
@@ -117,7 +115,7 @@ model {
   length_scale ~ normal(0.0,2.5);
   func_sigma ~ normal(0.0, 0.5);
   data_sigma ~ normal(0.0, 0.5);
-  // avg_sigma ~ normal(0.0, 1.0);
+  avg_sigma ~ normal(0.0, 1.0);
   eta ~ std_normal();
 
 
@@ -156,7 +154,7 @@ model {
 }
 
 generated quantities {
-  // real Ravg = mean(Rt);
+  real Ravg = mean(Rt);
   vector[Tpred] Ppred[N];
   vector[Tproj] Cproj[N]; // faster than matrix
 

@@ -3,15 +3,26 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-k", "--kernel"), type="character", default="matern32", 
-              help="kernel to use in the spatial prior GP")
+  make_option(c("-k", "--kernel"), type="character", default="matern12", 
+              help="kernel to use in the spatial prior GP ([matern12]/matern32/matern52/exp_quad/none)"),
+  make_option(c("-m", "--metapop"), type="character", default="uniform1", 
+              help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
+  make_option(c("-l", "--likelihood"), type="character", default="negative_binomial", 
+              help="likelihood model ([negative_binomial]/poisson)"),
+  make_option(c("-c", "--chains"), type="integer", default=4,
+              help="number of MCMC chains [4]"),
+  make_option(c("-i", "--iterations"), type="integer", default=4000,
+              help="Length of MCMC chains [4000]")
 ); 
+
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
-options(mc.cores = parallel::detectCores())
-# options(mc.cores = 3)
+numchains = opt$chains
+numiters = opt$iterations
+
+options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 infprofile <- read.csv("data/serial_interval.csv")$fit
@@ -68,7 +79,7 @@ for (i in 1:N) {
 }
 
 
-cori_dat <- list(N = N, D = D, 
+Rmap_data <- list(N = N, D = D, 
                  Tall = Tall, 
                  Tcond = Tcond, 
                  Tlik = Tlik, 
@@ -79,16 +90,19 @@ cori_dat <- list(N = N, D = D,
                  infprofile = infprofile)
 
 # copy the stan file and put in the right kernel
-stan_file = readLines(paste('stan_files/', 'cori-gp-immi-eval.stan',sep=''))
-stan_file_out = gsub(pattern="KERNEL", replace=opt$kernel, x=stan_file)
-file = sprintf('cori-gp-immi-eval-%s', opt$kernel)
-writeLines(stan_file_out, paste('stan_files/', file, '.stan',sep=''))
+runname = sprintf('Rmap-%s-%s-%s', opt$kernel, opt$metapop, opt$likelihood)
+stan_file_name = paste('fits/', runname, '.stan', sep='')
+stan_file_content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
+stan_file_content = gsub(pattern="KERNEL", replace=opt$kernel, x=
+                    gsub(pattern="METAPOP", replace=opt$metapop, x=
+                    gsub(pattern="LIKELIHOOD", replace=opt$likelihood, x=
+                    stan_file_content)))
+writeLines(stan_file_content, stan_file_name)
 
-# fit <- stan(file = 'cori-simple.stan', data = cori_dat)
-# fit <- stan(file = 'cori-gp.stan', data = cori_dat)
-fit <- stan(file = paste('stan_files/', file, '.stan',sep=''), 
-            data = cori_dat, 
-            iter=4000, 
+fit <- stan(file = stan_file_name,
+            data = Rmap_data, 
+            iter = numiters, 
+            chains = numchains,
             control = list(adapt_delta = .9))
 # print(fit)
 
@@ -106,8 +120,8 @@ sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2]))
 s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
 Ppred <- s[,"mean"]
 Ppred <- t(t(Ppred))
-logpred <- log(Ppred)
-print(colMeans(logpred))
+logpred <- colMeans(log(Ppred))
+print(sprintf("log predictives = %f",rowMeans(logpred)))
 
 
 s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
@@ -128,5 +142,6 @@ sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
 
-write.csv(df, paste('fits/', 'RtCproj_',file,'.csv',sep=''),row.names=FALSE)
-saveRDS(fit, paste('fits/', 'stanfit_',file,'.rds',sep=''))
+write.csv(df, paste('fits/', 'RtCproj_', runfile, '.csv', sep=''),row.names=FALSE)
+saveRDS(fit, paste('fits/', 'stanfit_', runfile, '.rds', sep=''))
+

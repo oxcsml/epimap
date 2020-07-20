@@ -10,7 +10,8 @@ var map_svg = d3.select("#map"),
     height = +map_svg.attr("height");
 
 var g = map_svg.append("g");
-var barHeight = 30;
+var barHeight = 20;
+var barWidth = Math.floor(height / 3);
 var margin = ({top: 20, right: 40, bottom: 30, left: 40})
 
 // Set up dimensions for chart
@@ -182,18 +183,20 @@ function ready(data) {
 
     // TODO: Replace legend color scale with cases scale when selected.
     var axisScale = d3.scaleLinear()
-        .range([margin.left, width - margin.right])
+        .range([margin.left, margin.left + barWidth])
         .domain([colorDomain[0], colorDomain[2]]);
 
     var axisBottom = g => g
         .attr("class", `x-axis`)
-        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .attr("transform", `translate(${width-barHeight},${margin.top}) rotate(90)`)
         .call(
             d3.axisBottom(axisScale)
                 .tickValues(rtColorScale.ticks())
                 .tickFormat(rtColorScale.tickFormat())
                 .tickSize(-barHeight)
-        );
+        )
+        .selectAll("text")
+        .attr("transform", "translate(-5, 15) rotate(-90)");
 
     rtFillFn = d => {  // Fill based on value of Rt
         var rt = rtData.get(d.properties.ctyua17nm);
@@ -261,15 +264,22 @@ function ready(data) {
         .attr("stop-color", d => d.color);
 
     map_svg.append('g')
-        .attr("transform", `translate(0,${height - margin.bottom - barHeight})`)
+        .attr("transform", `translate(${width},${barHeight}) rotate(90)`)
         .append("rect")
         .attr('transform', `translate(${margin.left}, 0)`)
-        .attr("width", width - margin.right - margin.left)
+        .attr("width", barWidth)        
         .attr("height", barHeight)
         .style("fill", "url(#linear-gradient)");
-      
+
     map_svg.append('g')
         .call(axisBottom);
+
+    map_svg.append("text")
+        .attr("x", width-barHeight/2)       
+        .attr("y", margin.top + 30)
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")  
+        .text("Rt");
 
     // Add Rt vs case projection selection
     var showRt = map_svg.append("text")

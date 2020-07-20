@@ -26,7 +26,7 @@ functions {
   // Meta-population infection rate model choices
 
   matrix uniform1_metapop(
-      vector Rt, matrix convlik, real immigration_rate) {
+      vector Rt, matrix convlik, real coupling_rate) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -42,14 +42,14 @@ functions {
     for (j in 1:N)
       for (i in 1:T)
         convout[j,i] = (
-            (1.0-immigration_rate) *  Rt[j] * convlik[j,i] +
-            immigration_rate * convavg[i]
+            (1.0-coupling_rate) *  Rt[j] * convlik[j,i] +
+            coupling_rate * convavg[i]
         );
     return convout;
   }
 
   matrix uniform2_metapop(
-      vector Rt, matrix convlik, real immigration_rate) {
+      vector Rt, matrix convlik, real coupling_rate) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -65,14 +65,14 @@ functions {
     for (j in 1:N)
       for (i in 1:T)
         convout[j,i] = Rt[j] * (
-            (1.0-immigration_rate) * convlik[j,i] +
-            immigration_rate * convavg[i]
+            (1.0-coupling_rate) * convlik[j,i] +
+            coupling_rate * convavg[i]
         );
     return convout;
   }
 
   matrix none_metapop(
-      vector Rt, matrix convlik, real immigration_rate) {
+      vector Rt, matrix convlik, real coupling_rate) {
     int T = cols(convlik);
     int N = rows(convlik);
     matrix[N,T] convout;
@@ -154,7 +154,7 @@ parameters {
 
   real<lower=0> dispersion;
   // real<lower=0> Ravg;
-  real<lower=0,upper=1> immigration_rate;
+  real<lower=0,upper=1> coupling_rate;
 }
 
 transformed parameters {
@@ -181,11 +181,11 @@ transformed parameters {
 }
 
 model {
-  vector[Tlik] immigration;
+  vector[Tlik] coupling;
   matrix[N,Tlik] convout;
 
   // Ravg ~ normal(1.0,1.0);
-  immigration_rate ~ normal(0.0, .1);
+  coupling_rate ~ normal(0.0, .1);
   dispersion ~ normal(0.0,10.0);
 
   // GP prior density
@@ -197,21 +197,21 @@ model {
 
 
   // metapopulation infection rate model
-  convout = METAPOP_metapop(Rt,convlik,immigration_rate);
+  convout = METAPOP_metapop(Rt,convlik,coupling_rate);
 
-  /* old immigration code
+  /* old coupling code
   for (i in 1:Tlik) {
-    immigration[i] = 0.0;
+    coupling[i] = 0.0;
     for (j in 1:N)
-      immigration[i] += Rt[j] * convlik[j][i];
-    immigration[i] = immigration[i] / N;
+      coupling[i] += Rt[j] * convlik[j][i];
+    coupling[i] = coupling[i] / N;
   }
 
   for (j in 1:N) {
     for (i in 1:Tlik) {
       Count[j,Tcond+i] ~ neg_binomial_2(
-          (1.0-immigration_rate) *  Rt[j] * convlik[j,i] +
-          immigration_rate * immigration[i], dispersion);
+          (1.0-coupling_rate) *  Rt[j] * convlik[j,i] +
+          coupling_rate * coupling[i], dispersion);
     }
   }
   */
@@ -230,39 +230,39 @@ generated quantities {
 
   // predictive probability of future counts
   for (i in 1:Tpred) {
-    real immigration;
-    immigration = 0.0;
+    real convavg;
+    convavg = 0.0;
     for (j in 1:N) 
-      immigration += Rt[j] * convpred[j,i]; 
-    immigration = immigration / N;
+      convavg += Rt[j] * convpred[j,i]; 
+    convavg = convavg / N;
 
     for (j in 1:N) {
       Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-          (1.0-immigration_rate) *  Rt[j] * convpred[j,i] +
-          immigration_rate * immigration, 
+          (1.0-coupling_rate) *  Rt[j] * convpred[j,i] +
+          coupling_rate * convavg, 
           dispersion));
     }
   }
   // forecasting *mean* counts given parameters
   for (i in 1:Tproj) {
-    real immigration;
+    real convavg;
     vector[N] convprojall;
-    immigration = 0.0;
+    convavg = 0.0;
     for (j in 1:N) {
       convprojall[j] = convproj[j,i] + 
           dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
-      immigration += Rt[j] * convprojall[j];
+      convavg += Rt[j] * convprojall[j];
     }
-    immigration = immigration / N;
+    convavg = convavg / N;
 
     for (j in 1:N) {
       // Cproj[j,i] = neg_binomial_2_rng( 
-      //     (1.0-immigration_rate) *  Rt[j] * convprojall[j] +
-      //     immigration_rate * immigration, 
+      //     (1.0-coupling_rate) *  Rt[j] * convprojall[j] +
+      //     coupling_rate * convavg, 
       //     dispersion);
       Cproj[j,i] = ( 
-          (1.0-immigration_rate) *  Rt[j] * convprojall[j] +
-          immigration_rate * immigration);
+          (1.0-coupling_rate) *  Rt[j] * convprojall[j] +
+          coupling_rate * convavg);
     }
 
   }

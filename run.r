@@ -107,7 +107,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("Ravg","length_scale","func_sigma","data_sigma","dispersion","immigration_rate"), 
+    pars=c("Ravg","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
     probs=c(0.025, 0.5, 0.975))$summary)
 
 
@@ -119,9 +119,10 @@ sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2]))
 
 s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
 Ppred <- s[,"mean"]
-Ppred <- t(t(Ppred))
-logpred <- colMeans(log(Ppred))
-print(sprintf("log predictives = %f",rowMeans(logpred)))
+logpred <- log(Ppred)
+dim(logpred) <- c(Tpred,N)
+logpred <- t(logpred)
+sprintf("mean log predictives = %f",mean(logpred))
 
 
 s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
@@ -139,9 +140,15 @@ Cprojupper <- t(Cprojupper)
 
 sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
 
+df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
+colnames(df)[1] <- "area"
+for (i in 1:Tpred)
+  colnames(df)[i+1] <- sprintf('logpred_day%d',i)
+write.csv(df, paste('fits/', 'logpred_', runname, '.csv', sep=''),row.names=FALSE)
+
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
+write.csv(df, paste('fits/', 'logpred_', runname, '.csv', sep=''),row.names=FALSE)
 
-write.csv(df, paste('fits/', 'RtCproj_', runfile, '.csv', sep=''),row.names=FALSE)
-saveRDS(fit, paste('fits/', 'stanfit_', runfile, '.rds', sep=''))
+saveRDS(fit, paste('fits/', 'stanfit_', runname, '.rds', sep=''))
 

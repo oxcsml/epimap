@@ -10,7 +10,8 @@ var map_svg = d3.select("#map"),
     height = +map_svg.attr("height");
 
 var g = map_svg.append("g");
-var barHeight = 30;
+var barHeight = 20;
+var barWidth = Math.floor(height / 3);
 var margin = ({top: 20, right: 40, bottom: 30, left: 40})
 
 // Set up dimensions for chart
@@ -57,8 +58,8 @@ var chart_title = chart_svg.append("text")
 
 // Map and projection
 var projection = d3.geoMercator()
-        .center([-1.6,52.6])
-        .scale(4000)
+        .center([-3.5, 54])
+        .scale(3250)
         .translate([width/2, height/2]);
 var path = d3.geoPath().projection(projection);
 
@@ -182,21 +183,23 @@ function ready(data) {
 
     // TODO: Replace legend color scale with cases scale when selected.
     var axisScale = d3.scaleLinear()
-        .range([margin.left, width - margin.right])
+        .range([margin.left, margin.left + barWidth])
         .domain([colorDomain[0], colorDomain[2]]);
 
     var axisBottom = g => g
         .attr("class", `x-axis`)
-        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .attr("transform", `translate(${width-barHeight},${margin.top}) rotate(90)`)
         .call(
             d3.axisBottom(axisScale)
                 .tickValues(rtColorScale.ticks())
                 .tickFormat(rtColorScale.tickFormat())
                 .tickSize(-barHeight)
-        );
+        )
+        .selectAll("text")
+        .attr("transform", "translate(-5, 15) rotate(-90)");
 
     rtFillFn = d => {  // Fill based on value of Rt
-        var rt = rtData.get(d.properties.ctyua16nm);
+        var rt = rtData.get(d.properties.ctyua17nm);
         if (!rt) {
             return "#ccc";
         }
@@ -204,7 +207,7 @@ function ready(data) {
     }
 
     caseFillFn = d => { // Fill based on value of case projection
-        var caseProj = nextWeekCaseProj.get(d.properties.ctyua16nm);
+        var caseProj = nextWeekCaseProj.get(d.properties.ctyua17nm);
         if (!caseProj) {
             return "#ccc";
         }
@@ -213,7 +216,8 @@ function ready(data) {
 
     // Draw the map
     var map = g.selectAll("path")
-        .data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2016__Boundaries).features)
+        //.data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2016__Boundaries).features)
+        .data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2017__Boundaries_UK).features)
         .enter().append("path")
         .attr("fill", rtFillFn)
         .style("fill-opacity", 1)
@@ -222,10 +226,12 @@ function ready(data) {
               .duration(200)
               .style("opacity", .9);
             
-            tooltip_header.text(d.properties.ctyua16nm);
+            console.log(d.properties);
+
+            tooltip_header.text(d.properties.ctyua17nm);
             tooltip_info1.text(`Last 7 days cases: TODO`);
-            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.ctyua16nm)}`);
-            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.ctyua16nm)}`);
+            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.ctyua17nm)}`);
+            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.ctyua17nm)}`);
 
             tooltip_div
               .style("left", (d3.event.pageX + 10) + "px")             
@@ -236,12 +242,12 @@ function ready(data) {
             tooltip_div.style("opacity", 0);
             d3.select(this).style("fill-opacity", 1)
         })
-        .on("click", d => selectArea(d.properties.ctyua16nm))
+        .on("click", d => selectArea(d.properties.ctyua17nm))
         .attr("d", path)
         .attr("class", "feature")
 
     g.append("path")
-        .datum(topojson.mesh(topo, topo.objects.Counties_and_Unitary_Authorities__December_2016__Boundaries, (a, b) => a !== b ))
+        .datum(topojson.mesh(topo, topo.objects.Counties_and_Unitary_Authorities__December_2017__Boundaries_UK, (a, b) => a !== b ))
         .attr("class", "mesh")
         .attr("d", path);
 
@@ -258,15 +264,22 @@ function ready(data) {
         .attr("stop-color", d => d.color);
 
     map_svg.append('g')
-        .attr("transform", `translate(0,${height - margin.bottom - barHeight})`)
+        .attr("transform", `translate(${width},${barHeight}) rotate(90)`)
         .append("rect")
         .attr('transform', `translate(${margin.left}, 0)`)
-        .attr("width", width - margin.right - margin.left)
+        .attr("width", barWidth)        
         .attr("height", barHeight)
         .style("fill", "url(#linear-gradient)");
-      
+
     map_svg.append('g')
         .call(axisBottom);
+
+    map_svg.append("text")
+        .attr("x", width-barHeight/2)       
+        .attr("y", margin.top + 30)
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")  
+        .text("Rt");
 
     // Add Rt vs case projection selection
     var showRt = map_svg.append("text")

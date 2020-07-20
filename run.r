@@ -3,7 +3,7 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-k", "--kernel"), type="character", default="exp_quad", 
+  make_option(c("-k", "--kernel"), type="character", default="matern32", 
               help="kernel to use in the spatial prior GP")
 ); 
 
@@ -102,6 +102,13 @@ Rt <- s[,c("2.5%","50%","97.5%")]
 Rt <- t(t(Rt))
 
 sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2]))
+
+s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
+Ppred <- s[,"mean"]
+Ppred <- t(t(Ppred))
+logpred <- log(Ppred)
+print(colMeans(logpred))
+
 
 s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
 Cproj <- s[,c("2.5%","50%","97.5%")]

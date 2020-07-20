@@ -5,7 +5,7 @@ library(optparse)
 option_list = list(
   make_option(c("-k", "--kernel"), type="character", default="matern12", 
               help="kernel to use in the spatial prior GP ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-m", "--metapop"), type="character", default="uniform1", 
+  make_option(c("-m", "--metapop"), type="character", default="none", 
               help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
   make_option(c("-l", "--likelihood"), type="character", default="negative_binomial", 
               help="likelihood model ([negative_binomial]/poisson)"),
@@ -115,14 +115,14 @@ s <- summary(fit, pars="Rt", probs=c(0.025, .5, .975))$summary
 Rt <- s[,c("2.5%","50%","97.5%")]
 Rt <- t(t(Rt))
 
-sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2]))
+print(sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2])))
 
 s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
 Ppred <- s[,"mean"]
 logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
-sprintf("mean log predictives = %f",mean(logpred))
+print(sprintf("mean log predictives = %f",mean(logpred)))
 
 
 s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
@@ -138,7 +138,7 @@ Cprojlower <- t(Cprojlower)
 Cprojmedian <- t(Cprojmedian)
 Cprojupper <- t(Cprojupper)
 
-sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2]))
+print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2])))
 
 df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
 colnames(df)[1] <- "area"
@@ -148,7 +148,9 @@ write.csv(df, paste('fits/', 'logpred_', runname, '.csv', sep=''),row.names=FALS
 
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
-write.csv(df, paste('fits/', 'logpred_', runname, '.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', 'RtCproj_', runname, '.csv', sep=''),row.names=FALSE)
 
 saveRDS(fit, paste('fits/', 'stanfit_', runname, '.rds', sep=''))
+
+print(runname)
 

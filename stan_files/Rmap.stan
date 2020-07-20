@@ -190,31 +190,13 @@ model {
 
   // GP prior density
   eta ~ std_normal();
-  gp_length_scale ~ normal(0.0,5.0);
+  gp_length_scale ~ normal(0.0,2.5);
   gp_sigma ~ normal(0.0, 0.5);
   local_sigma ~ normal(0.0, 0.5);
   global_sigma ~ normal(0.0, 1.0);
 
-
   // metapopulation infection rate model
   convout = METAPOP_metapop(Rt,convlik,coupling_rate);
-
-  /* old coupling code
-  for (i in 1:Tlik) {
-    coupling[i] = 0.0;
-    for (j in 1:N)
-      coupling[i] += Rt[j] * convlik[j][i];
-    coupling[i] = coupling[i] / N;
-  }
-
-  for (j in 1:N) {
-    for (i in 1:Tlik) {
-      Count[j,Tcond+i] ~ neg_binomial_2(
-          (1.0-coupling_rate) *  Rt[j] * convlik[j,i] +
-          coupling_rate * coupling[i], dispersion);
-    }
-  }
-  */
 
   // compute likelihoods
   for (j in 1:N) 
@@ -225,46 +207,27 @@ model {
 
 generated quantities {
   real Ravg = mean(Rt);
-  vector[Tpred] Ppred[N];
-  vector[Tproj] Cproj[N]; // faster than matrix
+  matrix[N,Tpred] Ppred;
+  matrix[N,Tproj] Cproj; 
 
   // predictive probability of future counts
-  for (i in 1:Tpred) {
-    real convavg;
-    convavg = 0.0;
-    for (j in 1:N) 
-      convavg += Rt[j] * convpred[j,i]; 
-    convavg = convavg / N;
-
-    for (j in 1:N) {
-      Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-          (1.0-coupling_rate) *  Rt[j] * convpred[j,i] +
-          coupling_rate * convavg, 
-          dispersion));
-    }
+  {
+    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate);
+    for (i in 1:Tpred)
+      for (j in 1:N)
+        Ppred[j,i] = exp(LIKELIHOOD_likelihood_lpmf(Count[j,Tcur+i] |
+            convout[j,i], dispersion));
   }
+
   // forecasting *mean* counts given parameters
-  for (i in 1:Tproj) {
-    real convavg;
-    vector[N] convprojall;
-    convavg = 0.0;
-    for (j in 1:N) {
-      convprojall[j] = convproj[j,i] + 
-          dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
-      convavg += Rt[j] * convprojall[j];
+  {
+    matrix[N,1] convprojall;
+    for (i in 1:Tproj) {
+      for (j in 1:N) 
+        convprojall[j,1] = convproj[j,i] + 
+            dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
+      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate)[:,1];
     }
-    convavg = convavg / N;
-
-    for (j in 1:N) {
-      // Cproj[j,i] = neg_binomial_2_rng( 
-      //     (1.0-coupling_rate) *  Rt[j] * convprojall[j] +
-      //     coupling_rate * convavg, 
-      //     dispersion);
-      Cproj[j,i] = ( 
-          (1.0-coupling_rate) *  Rt[j] * convprojall[j] +
-          coupling_rate * convavg);
-    }
-
   }
 
 }

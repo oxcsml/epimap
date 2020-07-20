@@ -13,7 +13,7 @@ import numpy as np
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/687f346f5023410ba86615655ff33ca9_1.geojson'
-DATA_PATH = 'RtCproj.csv'
+DATA_PATH = 'fits/RtCproj_Rmap-none-uniform2-negative_binomial.csv'
 UK_CASES_PATH = 'data/uk_cases.csv'
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -23,6 +23,8 @@ with urlopen(GEO_JSON_URL) as response:
 df = pd.read_csv(DATA_PATH)
 cases_df = pd.read_csv(UK_CASES_PATH)
 cases_df = cases_df.set_index('Area name').drop('Country', axis=1)
+
+# df.Rtmedian = np.minimum(1.0,df.Rtmedian)
 
 minRt = np.floor(min(df.Rtmedian)*2.0)/2.0
 maxRt = np.ceil(max(df.Rtmedian)*2.0)/2.0
@@ -127,5 +129,5 @@ def update_cases_chart(area):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
+    # app.run_server(debug=True, port=8050)
     app.run_server(debug=True,host = '127.0.0.1')

@@ -77,6 +77,17 @@ div.tooltip span.header {
     stroke-width: 1.5;
 }
 
+.projected-cases-median-line {
+    fill: none;
+    stroke: rgb(139, 0, 0);
+    stroke-width: 1.5;
+}
+
+.projected-cases-area {
+    fill: rgb(139, 0, 0);
+    opacity: 0.4;
+}
+
 #chart {
     margin-top:2em;
 }
@@ -91,4 +102,8 @@ h1, h2, h3, h4, h5, h6, p, span {
 
 .active {
     font-weight: bold;
+}
+
+.info-row {
+    margin-bottom: 0.5em;
 }

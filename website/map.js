@@ -1,7 +1,8 @@
 // Constants
 const TOPOJSON_PATH = "uk_boundaries.json";
-const DATA_PATH = "RtCproj.csv";
+const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
+const CASE_PROJECTION_PATH = "Cproj.csv";
 
 // Set up dimensions for map
 var map_svg = d3.select("#map"),
@@ -26,10 +27,33 @@ var actualChartLine = chart_svg.append("path")
 var smoothedChartLine = chart_svg.append("path")
     .attr("class", "smoothed-cases-line")
 
+var projectedChartLine = chart_svg.append("path")
+    .attr("class", "projected-cases-median-line");
+
+var projectedArea = chart_svg.append("path")
+  .attr("class", "projected-cases-area");
+
 var casesLast7Info = d3.select("#cases-last7-info");
 var casesLast7PerInfo = d3.select("#cases-last7-per-info");
 var casesTotalInfo = d3.select("#cases-total-info");
 var rtInfo = d3.select("#rt-info");
+var caseProjInfo = d3.select("#case-proj-info");
+
+// Add the X Axis
+var chart_x_axis = chart_svg.append("g")
+    .attr("class", "chart-x-axis")
+    .attr("transform", "translate(0," + chart_height + ")");
+
+// Add the Y Axis
+var chart_y_axis = chart_svg.append("g")
+    .attr("class", "chart-y-axis");
+
+// Add a title
+var chart_title = chart_svg.append("text")
+    .attr("x", (chart_width / 2))             
+    .attr("y", (chart_margin.top / 2))
+    .attr("text-anchor", "middle")  
+    .style("font-size", "16px");  
 
 // Map and projection
 var projection = d3.geoMercator()
@@ -41,6 +65,8 @@ var path = d3.geoPath().projection(projection);
 // Data containers
 var rtData = d3.map();
 var caseTimeseries = d3.map();
+var caseProjTimeseries = d3.map();
+var nextWeekCaseProj = d3.map();
 
 // Tooltip container
 var tooltip_div = d3.select("body").append("div")
@@ -59,7 +85,7 @@ var tooltip_info3 = tooltip_div.append("span")
     .attr("class", "info-row3");
 
 // Load external data
-var load_cases = d3.csv(SITE_DATA_PATH).then(data=>{
+var loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
     data.forEach(d=>{
         if (!caseTimeseries.has(d.area)) {
             caseTimeseries.set(d.area, []);
@@ -71,18 +97,45 @@ var load_cases = d3.csv(SITE_DATA_PATH).then(data=>{
     });
 })
 
+var loadRt = d3.csv(RT_PATH).then(data => data.forEach(d => rtData.set(d.area, 
+    {
+        Rtlower: +d.Rt_lower,
+        Rtmedian: +d.Rt_median,
+        Rtupper: +d.Rt_upper,
+    })));
+
+var loadCaseProjections = d3.csv(CASE_PROJECTION_PATH).then(data => data.forEach(d => {
+    if (!caseProjTimeseries.has(d.area)) {
+        caseProjTimeseries.set(d.area, []);
+    }
+    d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
+    d.C_lower = +d.C_lower;
+    d.C_median = +d.C_median;
+    d.C_upper = +d.C_upper;
+
+    caseProjTimeseries.get(d.area).push(d);
+
+})).then(() => {
+    caseProjTimeseries.each((projections, area) => {
+        var caseProjLower = 0, caseProjMedian = 0, caseProjUpper = 0;
+        for (var i = 0; i < 7; i++) {
+            caseProjLower += projections[i].C_lower;
+            caseProjMedian += projections[i].C_median;
+            caseProjUpper += projections[i].C_upper;
+        }
+        nextWeekCaseProj.set(area, {
+            caseProjLower: caseProjLower,
+            caseProjMedian: caseProjMedian,
+            caseProjUpper: caseProjUpper
+        });
+    });
+});
+
 Promise.all([
     d3.json(TOPOJSON_PATH),
-    d3.csv(DATA_PATH).then(data => data.forEach(d => rtData.set(d.area, 
-        {
-            Rtlower: +d.Rtlower,
-            Rtmedian: +d.Rtmedian,
-            Rtupper: +d.Rtupper,
-            Cprojlower: +d.Cprojlower,
-            Cprojmedian: +d.Cprojmedian,
-            Cprojupper: +d.Cprojupper
-        }))),
-    load_cases
+    loadRt,
+    loadCaseProjections,
+    loadCases
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
 var colorDomain = [0, 1, 4];
@@ -96,11 +149,17 @@ function getRtForArea(area) {
 }
 
 function getCaseProjForArea(area) {
-    var rt = rtData.get(area);
-    var Cprojmedian = rt ? +rt.Cprojmedian.toFixed(2) : "?";
-    var Cprojlower = rt ? +rt.Cprojlower.toFixed(2) : "?";
-    var Cprojupper = rt ? +rt.Cprojupper.toFixed(2) : "?";
-    return `${Cprojmedian} [${Cprojlower} - ${Cprojupper}]`;
+    if (!nextWeekCaseProj.has(area)) {
+        return "Unknown";
+    }
+
+    var projection = nextWeekCaseProj.get(area);
+
+    var cprojmedian = projection.caseProjLower.toFixed(2);
+    var cprojlower = projection.caseProjMedian.toFixed(2);
+    var cprojupper = projection.caseProjUpper.toFixed(2);
+
+    return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
 
 // Handle data loaded
@@ -114,7 +173,7 @@ function ready(data) {
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = d3.max(rtData.values().map(r=>r.Cprojmedian));
+    maxCases = d3.max(nextWeekCaseProj.values().map(r=>r.caseProjMedian));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
@@ -145,11 +204,11 @@ function ready(data) {
     }
 
     caseFillFn = d => { // Fill based on value of case projection
-        var rt = rtData.get(d.properties.ctyua16nm);
-        if (!rt) {
+        var caseProj = nextWeekCaseProj.get(d.properties.ctyua16nm);
+        if (!caseProj) {
             return "#ccc";
         }
-        return caseColorScale(rt.Cprojmedian);
+        return caseColorScale(caseProj.caseProjMedian);
     }
 
     // Draw the map
@@ -250,17 +309,29 @@ function ready(data) {
 function selectArea(area) {
     d3.select("#data-heading").text(area);
 
-    chart_data = caseTimeseries.get(area);
-    if (!chart_data) {
+    var chartData = caseTimeseries.get(area);
+    if (!chartData) {
         console.log("ERROR: No chart data found for area ", area);
         return;
     }
-    
+    var projectionData = caseProjTimeseries.get(area);
+    if (!projectionData) {
+        console.log("ERROR: No projection data found for area ", area);
+        return;
+    }
+    console.log("Case projection data for " + area, projectionData);
+
+    var xDomain = d3.extent([...chartData.map(c=>c.Date), ...projectionData.map(p=>p.Date)]);
+    var yDomain = [0, d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_upper)])];
+
+    console.log("X Domain:", xDomain);
+    console.log("Y Domain:", yDomain);
+
     var x = d3.scaleTime()
-        .domain(d3.extent(chart_data, function(d) { return d.Date; }))
+        .domain(xDomain)
         .range([0, chart_width]);
     var y = d3.scaleLinear()
-        .domain([0, d3.max(chart_data, function(d) { return d.cases_new; })])
+        .domain(yDomain)
         .range([chart_height, 0]);
 
     // Define the lines
@@ -272,37 +343,44 @@ function selectArea(area) {
         .x(function(d) { return x(d.Date); })
         .y(function(d) { return y(d.cases_new_smoothed); });
 
+    var projectedCasesLine = d3.line()
+        .x(function(d) { return x(d.Date); })
+        .y(function(d) { return y(d.C_median); });
+
+    var projectedCasesArea = d3.area()
+        .x(function(d) { return x(d.Date); })
+        .y0(function(d) { return y(d.C_lower); })
+        .y1(function(d) { return y(d.C_upper); });
+
     actualChartLine
-        .datum(chart_data)
+        .datum(chartData)
         .transition()
         .duration(500)
         .attr("d", actualCasesLine);
 
     smoothedChartLine
-        .datum(chart_data)
+        .datum(chartData)
         .transition()
         .duration(500)
         .attr("d", smoothedCasesLine);
 
+    projectedArea
+        .datum(projectionData)
+        .transition()
+        .duration(500)
+        .attr("d", projectedCasesArea);
+
+    projectedChartLine
+        .datum(projectionData)
+        .transition()
+        .duration(500)
+        .attr("d", projectedCasesLine);
+
     rtInfo.text(getRtForArea(area));
+    caseProjInfo.text(getCaseProjForArea(area));
 
-    // TODO: Move these out of the update function
-    // Add the X Axis
-    chart_svg.append("g")
-        .attr("class", "chart-x-axis")
-        .attr("transform", "translate(0," + chart_height + ")")
-        .call(d3.axisBottom(x));
-
-    // Add the Y Axis
-    chart_svg.append("g")
-        .attr("class", "chart-y-axis")
-        .call(d3.axisLeft(y).ticks(5));
-
-    // Add a title
-    chart_svg.append("text")
-        .attr("x", (chart_width / 2))             
-        .attr("y", (chart_margin.top / 2))
-        .attr("text-anchor", "middle")  
-        .style("font-size", "16px")  
-        .text(`COVID-19 Cases for ${area}`);
+    chart_x_axis.call(d3.axisBottom(x));
+    chart_y_axis.call(d3.axisLeft(y).ticks(5));
+    chart_title.text(`COVID-19 Cases for ${area}`);
+    
 }

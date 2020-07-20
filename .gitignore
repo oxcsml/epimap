@@ -54,3 +54,6 @@ choropleth.html
 
 # Figures
 figs/*
+
+# OS Files
+.DS_Store

@@ -6,6 +6,7 @@ import pandas as pd
 import pickle
 import pystan
 
+from datetime import datetime, timedelta
 from hashlib import md5
 from typing import Dict, Tuple
 
@@ -36,8 +37,12 @@ def plot_areas(case_predictions: pd.DataFrame):
 
 def post_process(uk_cases: pd.DataFrame,
                  data: Dict,
-                 fit) -> Tuple[pd.DataFrame, pd.DataFrame]:
+                 fit,
+                 first_prediction_date: datetime) -> Tuple[pd.DataFrame,
+                                                           pd.DataFrame]:
     """Prints model summary statistics and creates CSV file."""
+
+    print(type(fit))
     parameters = ['Ravg', 'gp_length_scale', 'gp_sigma', 'global_sigma',
                   'local_sigma', 'dispersion', 'coupling_rate']
     for p in parameters:
@@ -65,7 +70,7 @@ def post_process(uk_cases: pd.DataFrame,
         case_preds = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
         case_preds.columns = cols
         case_preds['area'] = uk_cases.index
-        case_preds['day'] = t + 1
+        case_preds['day'] = first_prediction_date + timedelta(days=t)
         case_predictions = case_predictions.append(case_preds)
 
     case_predictions.set_index(['area', 'day'], inplace=True)
@@ -101,6 +106,9 @@ def read_data(t_ignore: int=7,
     # exclude the last 7 days (counts not reliable)
     cases = df.iloc[:, non_date_columns:-t_ignore].to_numpy().astype(int)
 
+    first_prediction_date = datetime.strptime(df.columns[-t_ignore],
+                                              '%Y-%m-%d')
+
     geoloc = df[['LAT', 'LONG']].to_numpy()
     n, _ = geoloc.shape
     geodist = np.zeros((n, n))
@@ -125,7 +133,7 @@ def read_data(t_ignore: int=7,
         'infprofile': infection_profile
     }
 
-    return df, data
+    return df, data, first_prediction_date
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
@@ -225,7 +233,7 @@ def stanmodel_cache(model_code, model_name=None):
 
 
 def do_modeling(kernel: str='matern12',
-                metapop: str='uniform1',
+                metapop: str='none',
                 likelihood: str='negative_binomial',
                 chains: int=4,
                 iterations: int=4000,
@@ -252,7 +260,7 @@ def do_modeling(kernel: str='matern12',
     sm, code_hash = stanmodel_cache(model_code)
 
     # Read the input data.
-    uk_cases, data = read_data()
+    uk_cases, data, first_prediction_date = read_data()
 
     # Use the MD5 hash of the model code if a file name is not provided.
     if pkl_file is None:
@@ -271,7 +279,8 @@ def do_modeling(kernel: str='matern12',
             pickle.dump(fit, f, protocol=-1)
 
     # Post-process the samples.
-    reproduction_numbers, case_predictions = post_process(uk_cases, data, fit)
+    reproduction_numbers, case_predictions = post_process(
+        uk_cases, data, fit, first_prediction_date)
     reproduction_numbers, case_predictions = reinflate(
         reproduction_numbers, case_predictions)
 

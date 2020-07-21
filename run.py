@@ -7,7 +7,7 @@ import pickle
 import pystan
 
 from hashlib import md5
-from typing import Dict
+from typing import Dict, Tuple
 
 
 def plot_areas(case_predictions: pd.DataFrame):
@@ -34,27 +34,27 @@ def plot_areas(case_predictions: pd.DataFrame):
         plt.close()
 
 
-def post_process(df: pd.DataFrame,
-                 cori_dat: Dict,
-                 fit) -> pd.DataFrame:
+def post_process(uk_cases: pd.DataFrame,
+                 data: Dict,
+                 fit) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Prints model summary statistics and creates CSV file."""
-    parameters = ['Ravg', 'length_scale', 'func_sigma', 'data_sigma',
-                  'dispersion', 'immigration_rate']
+    parameters = ['Ravg', 'gp_length_scale', 'gp_sigma', 'global_sigma',
+                  'local_sigma', 'dispersion', 'coupling_rate']
     for p in parameters:
-        data = pd.DataFrame(data=fit[p], columns=[p])
-        summary = data.describe(percentiles=[0.025, 0.5, 0.975])
+        df = pd.DataFrame(data=fit[p], columns=[p])
+        summary = df.describe(percentiles=[0.025, 0.5, 0.975])
         print(summary)
         print()
 
-    data = pd.DataFrame(data=fit['Rt'])
-    summary = data.describe(percentiles=[0.025, 0.5, 0.975])
+    df = pd.DataFrame(data=fit['Rt'])
+    summary = df.describe(percentiles=[0.025, 0.5, 0.975])
     reproduction_numbers = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
-    reproduction_numbers['area'] = df.index
+    reproduction_numbers['area'] = uk_cases.index
     reproduction_numbers = reproduction_numbers.set_index('area')
     reproduction_numbers.columns = ['Rt_lower', 'Rt_median', 'Rt_upper']
 
     Cproj = fit['Cproj']
-    T_proj = cori_dat['Tproj']
+    T_proj = data['Tproj']
 
     cols = ['C_lower', 'C_median', 'C_upper']
     case_predictions = pd.DataFrame(columns=cols + ['area', 'day'])
@@ -64,7 +64,7 @@ def post_process(df: pd.DataFrame,
         summary = data.describe(percentiles=[0.025, 0.5, 0.975])
         case_preds = summary.loc[['2.5%', '50%', '97.5%'], :].transpose()
         case_preds.columns = cols
-        case_preds['area'] = df.index
+        case_preds['area'] = uk_cases.index
         case_preds['day'] = t + 1
         case_predictions = case_predictions.append(case_preds)
 
@@ -73,8 +73,18 @@ def post_process(df: pd.DataFrame,
     return reproduction_numbers.sort_index(), case_predictions.sort_index()
 
 
-def read_data():
-    """Reads UK cases and creates input for Stan model."""
+def read_data(t_ignore: int=7,
+              t_likelihood: int=7,
+              t_predict: int=7):
+    """Reads UK cases and creates input for Stan model.
+
+    :param t_ignore: The number of most recent days for which the case counts
+    are not reliable.
+    :param t_likelihood: The number of days for the likelihood to infer Rt.
+    :param t_predict: The number of days held out for predictive probabilities
+    evaluation.
+    """
+
     infection_profile = pd.read_csv('data/serial_interval.csv')['fit'].to_numpy()
     uk_cases = pd.read_csv('data/uk_cases.csv').set_index('Area name')
     metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
@@ -82,42 +92,44 @@ def read_data():
     df = metadata.join(uk_cases, how='inner')
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
-    # Use England data.
+    # Use England, Scotland and Wales data.
     df = df[(df['Country'] == 'England') |
             (df['Country'] == 'Scotland') |
             (df['Country'] == 'Wales')]
 
     non_date_columns = sum([not col.startswith('2020') for col in df.columns])
     # exclude the last 7 days (counts not reliable)
-    cases = df.iloc[:, non_date_columns:-7].to_numpy().astype(int)
+    cases = df.iloc[:, non_date_columns:-t_ignore].to_numpy().astype(int)
 
     geoloc = df[['LAT', 'LONG']].to_numpy()
     n, _ = geoloc.shape
     geodist = np.zeros((n, n))
     for i in range(n):
         for j in range(i + 1, n):
-            # Vincenty's formula WGS84
+            # Vincenty's formula WGS84.
             geodist[i, j] = geo.distance(geoloc[i], geoloc[j]) / 1000
             geodist[j, i] = geodist[i, j]
 
-    cori_dat = {
+    t_cond = cases.shape[1] - t_likelihood - t_predict
+
+    data = {
         'N': cases.shape[0],
-        'T': cases.shape[1],
-        'T0': 7,  # number of days to average over to estimate Rt
-        'Tproj': 21,  # number of days to project forward
         'D': len(infection_profile),
-        'C': cases,
+        'Tall': cases.shape[1],
+        'Tcond': t_cond,
+        'Tlik': t_likelihood,
+        'Tproj': 21,  # number of days to project forward
+        'Count': cases,
         'geoloc': geoloc,
         'geodist': geodist,
         'infprofile': infection_profile
     }
 
-    return df, cori_dat
+    return df, data
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
               case_predictions: pd.DataFrame):
-
     england_map = pd.read_csv('data/england_meta_areas.csv')
     scotland_map = pd.read_csv('data/nhs_scotland_health_boards.csv')
     metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
@@ -209,32 +221,57 @@ def stanmodel_cache(model_code, model_name=None):
             pickle.dump(sm, f)
     else:
         print('Using cached StanModel')
-    return sm
+    return sm, code_hash
 
 
-def do_modeling(kernel: str='exp_quad',
-                pkl_file: str='cori-gp-immi-exp_quad_fit.pkl'):
+def do_modeling(kernel: str='matern12',
+                metapop: str='uniform1',
+                likelihood: str='negative_binomial',
+                chains: int=4,
+                iterations: int=4000,
+                pkl_file: str=None):
+    """Runs the Stan model, saves samples, and writes predictions to file.
+
+    :param kernel: The kernel to use in the spatial prior GP. Options are
+    `matern12`, `matern32`, `matern52`, `exp_quad` or `none`
+    :param metapop: The metapopulation model for inter-region cross
+    infections. Options are `uniform1`, `uniform2` or `none`.
+    :param likelihood: The likelihood model. Options are `negative_binomial`
+    or `poisson`.
+    :param chains: The number of MCMC chains.
+    :param iterations: The length of each MCMC chain.
+    :param pkl_file: The output file for samples.
+    """
+
     # Avoids C++ recompilation if unnecessary in PyStan
-    with open('stan_files/cori-gp-immi.stan', 'r') as stan_file:
+    with open('stan_files/Rmap.stan', 'r') as stan_file:
         model_code = stan_file.read()
-        model_code = model_code.replace('KERNEL', kernel)
-    sm = stanmodel_cache(model_code)
+        model_code = model_code.replace('KERNEL', kernel) \
+            .replace('METAPOP', metapop) \
+            .replace('LIKELIHOOD', likelihood)
+    sm, code_hash = stanmodel_cache(model_code)
 
     # Read the input data.
-    df, cori_dat = read_data()
+    uk_cases, data = read_data()
+
+    # Use the MD5 hash of the model code if a file name is not provided.
+    if pkl_file is None:
+        pkl_file = code_hash + '.pkl'
 
     try:
+        # Load samples from the model from a file.
         fit = pickle.load(open(pkl_file, 'rb'))
     except FileNotFoundError:
-        # Sample from the model, or load samples from file.
-        fit = sm.sampling(data=cori_dat,
-                          iter=4000,
-                          control={'adapt_delta': 0.9})
+        # Sample from the model.
+        fit = sm.sampling(data=data,
+                          iter=iterations,
+                          control={'adapt_delta': 0.9},
+                          chains=chains)
         with open(pkl_file, 'wb') as f:
             pickle.dump(fit, f, protocol=-1)
 
     # Post-process the samples.
-    reproduction_numbers, case_predictions = post_process(df, cori_dat, fit)
+    reproduction_numbers, case_predictions = post_process(uk_cases, data, fit)
     reproduction_numbers, case_predictions = reinflate(
         reproduction_numbers, case_predictions)
 

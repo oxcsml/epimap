@@ -57,3 +57,6 @@ figs/*
 
 # OS Files
 .DS_Store
+
+# vim swap files
+*/**/.*.sw*

@@ -23,6 +23,18 @@ functions {
     return rep_matrix(0.0, rows(dist), cols(dist));
   }
 
+  real local_var(real local_sigma2) {
+    return local_sigma2;
+  }
+
+  real global_var(real global_sigma2) {
+    return global_sigma2;
+  }
+
+  real none_var(real param) {
+    return 0.000000001; // a small but positive number for numerical stability
+  }
+
   // Meta-population infection rate model choices
 
   matrix uniform1_metapop(
@@ -161,22 +173,20 @@ transformed parameters {
   vector[N] Rt;                 // instantaneous reproduction number
 
   {
-    real local_sigma2 = square(local_sigma);
-    real global_sigma2 = square(global_sigma);
     matrix[N,N] K;
     matrix[N,N] L;
+    real local_sigma2 = square(local_sigma);
+    real global_sigma2 = square(global_sigma);
 
     // GP prior.
-
-    K = KERNEL_kernel(geodist, gp_sigma, gp_length_scale); // kernel
+    K = SPATIAL_kernel(geodist, gp_sigma, gp_length_scale); // kernel
     for (i in 1:N) {
-      K[i,i] = K[i,i] + local_sigma2;
+      K[i,i] = K[i,i] + LOCAL_var(local_sigma2);
     }
-    K = K + global_sigma2;
+    K = K + GLOBAL_var(global_sigma2);
 
     L = cholesky_decompose(K);
     Rt = exp(L * eta);
-    // Rt = Ravg * exp(L * eta);
   }
 }
 
@@ -191,8 +201,8 @@ model {
   // GP prior density
   eta ~ std_normal();
   gp_length_scale ~ normal(0.0,2.5);
-  gp_sigma ~ normal(0.0, 0.5);
-  local_sigma ~ normal(0.0, 0.5);
+  gp_sigma ~ normal(0.0, 1.0);
+  local_sigma ~ normal(0.0, 1.0);
   global_sigma ~ normal(0.0, 1.0);
 
   // metapopulation infection rate model
@@ -201,7 +211,7 @@ model {
   // compute likelihoods
   for (j in 1:N) 
     for (i in 1:Tlik) 
-      Count[j,Tcond+i] ~ LIKELIHOOD_likelihood(convout[j,i], dispersion);
+      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], dispersion);
 
 }
 
@@ -215,7 +225,7 @@ generated quantities {
     matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate);
     for (i in 1:Tpred)
       for (j in 1:N)
-        Ppred[j,i] = exp(LIKELIHOOD_likelihood_lpmf(Count[j,Tcur+i] |
+        Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
             convout[j,i], dispersion));
   }
 

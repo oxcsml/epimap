@@ -24,7 +24,7 @@ numchains = opt$chains
 numiters = opt$iterations
 
 # If using Slurm, override other CLI options and use grid instead.
-if (opt$task_id >= 0) {
+if (opt$task_id > 0) {
   kernels = c("matern12", "matern32", "matern52", "exp_quad", "none")
   metapops = c("uniform1", "uniform2", "none")
   likelihoods = c("negative_binomial", "poisson")

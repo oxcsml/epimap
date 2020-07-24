@@ -4,20 +4,33 @@ library(optparse)
 
 option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-l", "--localkernel"),   type="character",   default="none",    help="Use local kernel ([local]/none)"),
+  make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]")
+  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
+  make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
-
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 numchains = opt$chains
 numiters = opt$iterations
+
+# If using Slurm, override other CLI options and use grid instead.
+if (opt$task_id > 0) {
+  grid = expand.grid(
+    spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
+    localkernel=c("local","none"),
+    globalkernel=c("global","none"),
+    metapop=c("uniform1", "uniform2", "none"), 
+    observation=c("negative_binomial", "poisson")
+  )
+  grid = sapply(grid, as.character)
+  opt = as.list(grid[opt$task_id, ])  
+}
 
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
@@ -77,7 +90,8 @@ for (i in 1:N) {
 
 
 Rmap_data <- list(
-  N = N, D = D, 
+  N = N, 
+  D = D, 
   Tall = Tall,
   Tcond = Tcond,
   Tlik = Tlik,
@@ -92,13 +106,16 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-# copy the stan file and put in the right kernel
 runname = sprintf('Rmap-%s-%s-%s-%s-%s', 
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
   opt$metapop, 
   opt$observation)
+print(runname)
+
+
+# copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
 content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)

@@ -106,6 +106,12 @@ functions {
     return neg_binomial_2_lpmf(count | mean, dispersion);
   }
 
+  real gig_lpdf(real x, int p, real a, real b) {
+    return p * 0.5 * log(a / b)
+      - log(2 * modified_bessel_second_kind(p, sqrt(a * b)))
+      + (p - 1) * log(x)
+      - (a * x + b / x) * 0.5;
+  }
 }
 
 data {
@@ -200,7 +206,8 @@ model {
 
   // GP prior density
   eta ~ std_normal();
-  gp_length_scale ~ normal(0.0,2.5);
+  // gp_length_scale ~ normal(0.0,2.5);
+  gp_length_scale ~ gig(2, 2.0, 2.0);
   gp_sigma ~ normal(0.0, 1.0);
   local_sigma ~ normal(0.0, 1.0);
   global_sigma ~ normal(0.0, 1.0);
@@ -216,9 +223,22 @@ model {
 }
 
 generated quantities {
-  real Ravg = mean(Rt);
+  real R0;
   matrix[N,Tpred] Ppred;
   matrix[N,Tproj] Cproj; 
+
+  // Estimated R0 over all areas
+  {
+    real convsum = 0.0;
+    R0 = 0.0;
+    for (i in 1:Tlik) {
+      for (j in 1:N) {
+        R0 += Rt[j] * convlik[j,i];
+        convsum += convlik[j,i];
+      }
+    }
+    R0 = R0 / convsum;
+  }
 
   // predictive probability of future counts
   {

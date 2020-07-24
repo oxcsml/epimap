@@ -3,7 +3,7 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
+  make_option(c("-s", "--spatialkernel"), type="character",default="none",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
@@ -133,7 +133,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("Ravg","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 

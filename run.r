@@ -12,15 +12,27 @@ option_list = list(
   make_option(c("-c", "--chains"), type="integer", default=4,
               help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"), type="integer", default=4000,
-              help="Length of MCMC chains [4000]")
+              help="Length of MCMC chains [4000]"),
+  make_option(c("-t", "--task_id"), type="integer", default=0,
+              help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
-
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 numchains = opt$chains
 numiters = opt$iterations
+
+# If using Slurm, override other CLI options and use grid instead.
+if (opt$task_id >= 0) {
+  kernels = c("matern12", "matern32", "matern52", "exp_quad", "none")
+  metapops = c("uniform1", "uniform2", "none")
+  likelihoods = c("negative_binomial", "poisson")
+
+  grid = expand.grid(kernel=kernels, metapop=metapops, likelihood=likelihoods)
+  grid = sapply(grid, as.character)
+  opt = as.list(grid[opt$task_id, ])  
+}
 
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)

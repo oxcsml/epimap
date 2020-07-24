@@ -3,24 +3,34 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-k", "--kernel"), type="character", default="matern12", 
-              help="kernel to use in the spatial prior GP ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-m", "--metapop"), type="character", default="none", 
-              help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
-  make_option(c("-l", "--likelihood"), type="character", default="negative_binomial", 
-              help="likelihood model ([negative_binomial]/poisson)"),
-  make_option(c("-c", "--chains"), type="integer", default=4,
-              help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"), type="integer", default=4000,
-              help="Length of MCMC chains [4000]")
+  make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
+  make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
+  make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
+  make_option(c("-o", "--observation"),   type="character",default="negative_binomial", help="observation model ([negative_binomial]/poisson)"),
+  make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
+  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
+  make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
-
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 numchains = opt$chains
 numiters = opt$iterations
+
+# If using Slurm, override other CLI options and use grid instead.
+if (opt$task_id > 0) {
+  grid = expand.grid(
+    spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
+    localkernel=c("local","none"),
+    globalkernel=c("global","none"),
+    metapop=c("uniform1", "uniform2", "none"), 
+    observation=c("negative_binomial", "poisson")
+  )
+  grid = sapply(grid, as.character)
+  opt = as.list(grid[opt$task_id, ])  
+}
 
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
@@ -31,11 +41,11 @@ uk_cases <- read.csv("data/uk_cases.csv")
 
 metadata <- read.csv("data/metadata.csv")
 
-N <- 149                 # number of regions in England only
-D <- 100                 # infection profile number of days
-Tignore <- 7             # counts in most recent 7 days may not be reliable?
-Tpred <- 7               # number of days held out for predictive probs eval
-Tlik <- 7                # number of days for likelihood to infer Rt
+N <- 185      # 149 number of regions in England & Wales only. 185 scotland too
+D <- 100      # infection profile number of days
+Tignore <- 7  # counts in most recent 7 days may not be reliable?
+Tpred <- 7    # number of days held out for predictive probs eval
+Tlik <- 7     # number of days for likelihood to infer Rt
 Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
 Tproj <- 21              # number of days to project forward
@@ -79,25 +89,41 @@ for (i in 1:N) {
 }
 
 
-Rmap_data <- list(N = N, D = D, 
-                 Tall = Tall, 
-                 Tcond = Tcond, 
-                 Tlik = Tlik, 
-                 Tproj = Tproj, 
-                 Count = Count,  
-                 geoloc = geoloc,
-                 geodist = geodist,
-                 infprofile = infprofile)
+Rmap_data <- list(
+  N = N, 
+  D = D, 
+  Tall = Tall,
+  Tcond = Tcond,
+  Tlik = Tlik,
+  Tproj = Tproj,
+  Count = Count,
+  geoloc = geoloc,
+  geodist = geodist,
+  infprofile = infprofile
+  # local_sd = opt$local_sd,
+  # global_sd = opt$global_sd,
+  # gp_sd = opt$gp_sd,
+  # gp_length_scale_sd = opt$gp_length_scale_sd
+)
+
+runname = sprintf('Rmap-%s-%s-%s-%s-%s', 
+  opt$spatialkernel, 
+  opt$localkernel, 
+  opt$globalkernel, 
+  opt$metapop, 
+  opt$observation)
+print(runname)
+
 
 # copy the stan file and put in the right kernel
-runname = sprintf('Rmap-%s-%s-%s', opt$kernel, opt$metapop, opt$likelihood)
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-stan_file_content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
-stan_file_content = gsub(pattern="KERNEL", replace=opt$kernel, x=
-                    gsub(pattern="METAPOP", replace=opt$metapop, x=
-                    gsub(pattern="LIKELIHOOD", replace=opt$likelihood, x=
-                    stan_file_content)))
-writeLines(stan_file_content, stan_file_name)
+content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
+content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
+content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
+content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
+content = gsub(pattern="METAPOP", replace=opt$metapop, content)
+content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
+writeLines(content, stan_file_name)
 
 fit <- stan(file = stan_file_name,
             data = Rmap_data, 
@@ -108,10 +134,10 @@ fit <- stan(file = stan_file_name,
 
 print(summary(fit, 
     pars=c("Ravg","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
-    probs=c(0.025, 0.5, 0.975))$summary)
+    probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
-s <- summary(fit, pars="Rt", probs=c(0.025, .5, .975))$summary
+s <- summary(fit, pars="Rt", probs=c(0.025, 0.25, .5, 0.75, .975))$summary
 Rt <- s[,c("2.5%","50%","97.5%")]
 Rt <- t(t(Rt))
 
@@ -144,13 +170,13 @@ df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
 colnames(df)[1] <- "area"
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
-write.csv(df, paste('fits/', 'logpred_', runname, '.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),row.names=FALSE)
 
 df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
 colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
-write.csv(df, paste('fits/', 'RtCproj_', runname, '.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_RtCproj', '.csv', sep=''),row.names=FALSE)
 
-saveRDS(fit, paste('fits/', 'stanfit_', runname, '.rds', sep=''))
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 

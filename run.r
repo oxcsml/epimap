@@ -3,7 +3,7 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-s", "--spatialkernel"), type="character",default="none",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
+  make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
@@ -170,7 +170,8 @@ df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
 colnames(df)[1] <- "area"
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
-write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
+    row.names=FALSE)
 
 
 dates <- as.Date(colnames(uk_cases)[2+(Tcond+Tlik)], format='X%Y.%m.%d')
@@ -180,16 +181,22 @@ areas <- rep(uk_cases[1:N,2],Tproj)
 dim(areas) <- c(N,Tproj)
 areas <- t(areas)
 dim(areas) <- c(N*Tproj)
-df <- data.frame(Area = areas, Date = dates, Cproj = Cproj)
+df <- data.frame(area = areas, Date = dates, Cproj = Cproj)
 colnames(df)[3:5] <- c("C_lower","C_median","C_upper")
 df[,3:5] <- format(df[,3:5],digits=2)
-write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
+    row.names=FALSE)
+write.csv(df, paste('website/Cproj.csv', sep=''),
+    row.names=FALSE)
 
 areas <- uk_cases[1:N,2]
-df <- data.frame(Area = areas, Rt = Rt)
+df <- data.frame(area = areas, Rt = Rt)
 colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
 df[,2:4] <- format(df[,2:4],digits=2)
-write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
+    row.names=FALSE)
+write.csv(df, paste('website/Rt.csv', sep=''),
+    row.names=FALSE)
 
 
 

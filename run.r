@@ -133,7 +133,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("Ravg","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -170,11 +170,39 @@ df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
 colnames(df)[1] <- "area"
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
-write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),row.names=FALSE)
+write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
+    row.names=FALSE)
 
-df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
-colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
-write.csv(df, paste('fits/', runname, '_RtCproj', '.csv', sep=''),row.names=FALSE)
+
+dates <- as.Date(colnames(uk_cases)[2+(Tcond+Tlik)], format='X%Y.%m.%d')
+dates <- seq(dates,by=1,length.out=Tproj+1)[2:(Tproj+1)]
+dates <- rep(dates,N)
+areas <- rep(uk_cases[1:N,2],Tproj)
+dim(areas) <- c(N,Tproj)
+areas <- t(areas)
+dim(areas) <- c(N*Tproj)
+df <- data.frame(area = areas, Date = dates, Cproj = Cproj)
+colnames(df)[3:5] <- c("C_lower","C_median","C_upper")
+df[,3:5] <- format(df[,3:5],digits=2)
+write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
+    row.names=FALSE)
+write.csv(df, paste('website/Cproj.csv', sep=''),
+    row.names=FALSE)
+
+areas <- uk_cases[1:N,2]
+df <- data.frame(area = areas, Rt = Rt)
+colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
+df[,2:4] <- format(df[,2:4],digits=2)
+write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
+    row.names=FALSE)
+write.csv(df, paste('website/Rt.csv', sep=''),
+    row.names=FALSE)
+
+
+
+# df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
+# colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
+# write.csv(df, paste('fits/', runname, '_RtCproj', '.csv', sep=''),row.names=FALSE)
 
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 

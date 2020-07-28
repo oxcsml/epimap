@@ -38,7 +38,7 @@ functions {
   // Meta-population infection rate model choices
 
   matrix uniform1_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
+      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -61,7 +61,7 @@ functions {
   }
 
   matrix uniform2_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
+      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -83,8 +83,25 @@ functions {
     return convout;
   }
 
+  matrix radiation_metapop(
+      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
+    int T = cols(convlik);
+    int N = rows(convlik);
+    matrix[N,T] convout;
+    
+    for (i in 1:T) {
+      for (j in 1:N) {
+        convout[j,i] = Rt[j] * (1.0-coupling_rate) * convlik[j,i];
+        for (k in 1:N) {
+          convout[j,i] += Rt[k] * coupling_rate * convlik[k,i] * flux[k,j];
+        } 
+      }
+    }
+    return convout;
+  }
+
   matrix none_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
+      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
     int T = cols(convlik);
     int N = rows(convlik);
     matrix[N,T] convout;
@@ -98,12 +115,12 @@ functions {
 
   // Case count likelihood choices
 
-  real poisson_likelihood_lpmf(int count, real mean, real dispersion) {
+  real poisson_likelihood_lpmf(int count, real mean, real precision) {
     return poisson_lpmf(count | mean);
   }
 
-  real negative_binomial_likelihood_lpmf(int count, real mean, real dispersion) {
-    return neg_binomial_2_lpmf(count | mean, dispersion);
+  real negative_binomial_likelihood_lpmf(int count, real mean, real precision) {
+    return neg_binomial_2_lpmf(count | mean, precision);
   }
 
   real gig_lpdf(real x, int p, real a, real b) {
@@ -125,6 +142,7 @@ data {
   vector[2] geoloc[N];      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
+  matrix[N,N] flux;         // fluxes for radiation metapopulation model
 }
 
 transformed data {
@@ -170,7 +188,7 @@ parameters {
   real<lower=0> global_sigma;
   vector[N] eta;
 
-  real<lower=0> dispersion;
+  real<lower=0> precision;
   // real<lower=0> Ravg;
   real<lower=0,upper=1> coupling_rate;
 }
@@ -202,7 +220,7 @@ model {
 
   // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .1);
-  dispersion ~ normal(0.0,10.0);
+  precision ~ normal(0.0,10.0);
 
   // GP prior density
   eta ~ std_normal();
@@ -213,12 +231,12 @@ model {
   global_sigma ~ normal(0.0, 1.0);
 
   // metapopulation infection rate model
-  convout = METAPOP_metapop(Rt,convlik,coupling_rate);
+  convout = METAPOP_metapop(Rt,convlik,coupling_rate,flux);
 
   // compute likelihoods
   for (j in 1:N) 
     for (i in 1:Tlik) 
-      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], dispersion);
+      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], precision);
 
 }
 
@@ -242,11 +260,11 @@ generated quantities {
 
   // predictive probability of future counts
   {
-    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate);
+    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate,flux);
     for (i in 1:Tpred)
       for (j in 1:N)
         Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
-            convout[j,i], dispersion));
+            convout[j,i], precision));
   }
 
   // forecasting *mean* counts given parameters
@@ -255,8 +273,8 @@ generated quantities {
     for (i in 1:Tproj) {
       for (j in 1:N) 
         convprojall[j,1] = convproj[j,i] + 
-            dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
-      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate)[:,1];
+            dot_product(Cproj[j][1:(i-1)], infprofile_rev[(D-i+2):D]);
+      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate,flux)[:,1];
     }
   }
 

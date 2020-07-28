@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# Vim
+**/.*.sw*
+
+**/.*mypy_cache

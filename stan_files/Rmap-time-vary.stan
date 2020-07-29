@@ -306,10 +306,10 @@ generated quantities {
 
   // forecasting *mean* counts given parameters
   {
-    matrix[N,1] convprojall;
+    real convprojall[1,N,1];
     for (i in 1:Tproj) {
       for (j in 1:N) 
-        convprojall[j,1] = convproj[1,j,i] + 
+        convprojall[1,j,1] = convproj[1,j,i] + 
             dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
       Cproj[:,i] = METAPOP_metapop(Rt[:,M],convprojall,coupling_rate)[:,1];
     }

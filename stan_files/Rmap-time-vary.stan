@@ -37,28 +37,28 @@ functions {
 
   // Meta-population infection rate model choices
 
-  matrix uniform1_metapop(
+  real[,,] uniform1_metapop(
       matrix Rt, real[,,] convlik, real coupling_rate) {
     // Rt N*M
     // convlik [M,N,T]
 
     int M = size(convlik);
-    int N = size(convlik[0]);
-    int T = size(convlik[0,0]);
+    int N = size(convlik[1]);
+    int T = size(convlik[1,1]);
 
-    real conv_avg[M,T]
+    real convavg[M,T];
     real convout[M,N,T];
     
-    conv_avg = rep_array(0.0, M,T)
+    convavg = rep_array(0.0, M,T);
 
     // accessing in optimal order. See https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html
     for (k in 1:M) {
-      for (j in 1:N)
+      for (j in 1:N) {
         for (i in 1:T) {
-          convavg[k,i] += convlik[k,j,i];
+          convavg[k,i] += convlik[k,j,i] / N;
+        }
       }
     }
-    convavg = convavg / N;
 
     for (k in 1:M)
       for (j in 1:N)
@@ -70,28 +70,28 @@ functions {
     return convout;
   }
 
-  matrix uniform2_metapop(
+  real[,,] uniform2_metapop(
       matrix Rt, real[,,] convlik, real coupling_rate) {
     // Rt N*M
     // convlik [M,N,T]
 
     int M = size(convlik);
-    int N = size(convlik[0]);
-    int T = size(convlik[0,0]);
+    int N = size(convlik[1]);
+    int T = size(convlik[1,1]);
 
-    real conv_avg[M,T]
+    real convavg[M,T];
     real convout[M,N,T];
     
-    conv_avg = rep_array(0.0, M,T)
+    convavg = rep_array(0.0, M,T);
 
     // accessing in optimal order. See https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html
     for (k in 1:M) {
       for (j in 1:N)
         for (i in 1:T) {
-          convavg[k,i] += convlik[k,j,i];
+          convavg[k,i] += convlik[k,j,i] / N;
       }
     }
-    convavg = convavg / N;
+    // convavg = convavg / N;
 
     for (k in 1:M)
       for (j in 1:N)
@@ -104,14 +104,14 @@ functions {
     return convout;
   }
 
-  matrix none_metapop(
+  real[,,] none_metapop(
       matrix Rt, real[,,] convlik, real coupling_rate) {
     // Rt N*M
     // convlik [M,N,T]
 
     int M = size(convlik);
-    int N = size(convlik[0]);
-    int T = size(convlik[0,0]);
+    int N = size(convlik[1]);
+    int T = size(convlik[1,1]);
 
     real convout[M,N,T];
 
@@ -206,6 +206,7 @@ parameters {
   real<lower=0> gp_time_sigma;
   
   real<lower=0> local_sigma;
+  real<lower=0> global_sigma;
 
   vector[N*M] eta;
   vector[N*M] epislon;
@@ -223,8 +224,8 @@ transformed parameters {
     matrix[M,M] K_time;
     matrix[N,N] L_space;
     matrix[M,M] L_time;
-    // real local_sigma2 = square(local_sigma);
-    // real global_sigma2 = square(global_sigma);
+    real local_sigma2 = square(local_sigma);
+    real global_sigma2 = square(global_sigma);
 
     // GP prior.
     K_space = SPATIAL_kernel(geodist, gp_space_sigma, gp_space_length_scale); // space kernel
@@ -262,7 +263,7 @@ model {
   gp_time_sigma ~ normal(0.0, 0.5);
 
   local_sigma ~ normal(0.0, 0.5);
-  // global_sigma ~ normal(0.0, 1.0);
+  global_sigma ~ normal(0.0, 1.0);
 
   // metapopulation infection rate model
   convout = METAPOP_metapop(Rt,convlik,coupling_rate);
@@ -278,7 +279,7 @@ model {
 generated quantities {
   row_vector[M] R0;
   real Ppred[N,Tpred];
-  real Cproj[N,Tproj]; 
+  matrix[N,Tproj] Cproj; 
 
   // Estimated R0 over all areas
   {
@@ -310,8 +311,8 @@ generated quantities {
     for (i in 1:Tproj) {
       for (j in 1:N) 
         convprojall[1,j,1] = convproj[1,j,i] + 
-            dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
-      Cproj[:,i] = METAPOP_metapop(Rt[:,M],convprojall,coupling_rate)[:,1];
+            dot_product(Cproj[j,1:(i-1)], infprofile_rev[D-i+2:D]);
+      Cproj[:,i] = to_vector(METAPOP_metapop(to_matrix(Rt[:,M]),convprojall,coupling_rate)[1,:,1]);
     }
   }
 

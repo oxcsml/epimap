@@ -3,14 +3,15 @@ library(geosphere)
 library(optparse)
 
 option_list = list(
-  make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
-  make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
-  make_option(c("-o", "--observation"),   type="character",default="negative_binomial", help="observation model ([negative_binomial]/poisson)"),
-  make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
-  make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
+  make_option(c("-s", "--spatialkernel"), type="character", default="matern12",           help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
+  make_option(c("-l", "--localkernel"),   type="character", default="local",              help="Use local kernel ([local]/none)"),
+  make_option(c("-g", "--globalkernel"),  type="character", default="global",             help="Use global kernel ([global]/none)"),
+  make_option(c("-m", "--metapop"),       type="character", default="uniform1",           help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
+  make_option(c("-o", "--observation"),   type="character", default="negative_binomial",  help="observation model ([negative_binomial]/poisson)"),
+  make_option(c("-c", "--chains"),        type="integer",   default=4,                    help="number of MCMC chains [4]"),
+  make_option(c("-i", "--iterations"),    type="integer",   default=4000,                 help="Length of MCMC chains [4000]"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=1,                    help="Number of periods to fit Rt in"),
+  make_option(c("-t", "--task_id"),       type="integer",   default=0,                    help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -42,7 +43,7 @@ uk_cases <- read.csv("data/uk_cases.csv")
 metadata <- read.csv("data/metadata.csv")
 
 N <- 185      # 149 number of regions in England & Wales only. 185 scotland too
-M <- 1        # Testing with 1 time period
+M <- opt$time_steps        # Testing with 1 time period
 D <- 100      # infection profile number of days
 Tignore <- 7  # counts in most recent 7 days may not be reliable?
 Tpred <- 7    # number of days held out for predictive probs eval
@@ -94,7 +95,7 @@ times = (1:M) * Tstep
 timedist = matrix(0, M, M)
 for (i in 1:M) {
   for (j in 1:M) {
-    times[i, j] = abs(times[i] - times[j])
+    timedist[i, j] = abs(times[i] - times[j]) * Tstep
   }
 }
 
@@ -106,6 +107,7 @@ Rmap_data <- list(
   Tcond = Tcond,
   Tlik = Tlik,
   Tproj = Tproj,
+  Tstep=Tstep,
   Count = Count,
   # geoloc = geoloc,
   geodist = geodist,
@@ -117,12 +119,13 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s', 
+runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s', 
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
   opt$metapop, 
-  opt$observation)
+  opt$observation,
+  opt$time_steps)
 print(runname)
 
 

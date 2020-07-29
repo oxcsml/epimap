@@ -6,7 +6,7 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="radiation",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/radiation/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/[radiation_in]/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
@@ -55,7 +55,7 @@ metadata <- metadata[ind,]
 N <- nrow(uk_cases) # 149 number of regions in England & Wales only. 185 scotland too
 D <- 100      # infection profile number of days
 Tignore <- 3  # counts in most recent 7 days may not be reliable?
-Tpred <- 0    # number of days held out for predictive probs eval
+Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
 Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
@@ -159,7 +159,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","precision","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -234,4 +234,6 @@ write.csv(df, paste('website/Rt.csv', sep=''),
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
+
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","precision","coupling_rate"))
 

@@ -37,8 +37,8 @@ functions {
 
   // Meta-population infection rate model choices
 
-  matrix uniform1_metapop(
-      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
+  matrix uniform_out_metapop(
+      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -60,8 +60,8 @@ functions {
     return convout;
   }
 
-  matrix uniform2_metapop(
-      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
+  matrix uniform_in_metapop(
+      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
     int T = cols(convlik);
     int N = rows(convlik);
     row_vector[T] convavg;
@@ -83,8 +83,8 @@ functions {
     return convout;
   }
 
-  matrix radiation_metapop(
-      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
+  matrix radiation_out_metapop(
+      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
     int T = cols(convlik);
     int N = rows(convlik);
     matrix[N,T] convout;
@@ -100,8 +100,26 @@ functions {
     return convout;
   }
 
+  matrix radiation_in_metapop(
+      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
+    int T = cols(convlik);
+    int N = rows(convlik);
+    matrix[N,T] convout;
+    
+    for (i in 1:T) {
+      for (j in 1:N) {
+        convout[j,i] = Rt[j] * (
+            (1.0-coupling_rate) * convlik[j,i] + 
+            coupling_rate * convflux[j,i]
+        );
+      }
+    }
+    return convout;
+  }
+
+
   matrix none_metapop(
-      vector Rt, matrix convlik, real coupling_rate, matrix flux) {
+      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
     int T = cols(convlik);
     int N = rows(convlik);
     matrix[N,T] convout;
@@ -111,6 +129,20 @@ functions {
         convout[j,i] = Rt[j] * convlik[j,i];
 
     return convout;
+  }
+  matrix compute_flux(matrix convlik, matrix flux) {
+    int T = cols(convlik);
+    int N = rows(convlik);
+    matrix[N,T] convflux;
+    for (i in 1:T) {
+      for (j in 1:N) {
+        convflux[j,i] = 0.0;
+        for (k in 1:N) {
+          convflux[j,i] += convlik[k,i] * flux[k,j];
+        }
+      }
+    }
+    return convflux;
   }
 
   // Case count likelihood choices
@@ -154,7 +186,9 @@ transformed data {
 
   // precompute convolutions between Count and infprofile 
   matrix[N,Tlik] convlik;      // for use in likelihood computation
+  matrix[N,Tlik] convlikflux;  // for use in likelihood computation
   matrix[N,Tpred] convpred;    // for use in predictive probs of future counts
+  matrix[N,Tpred] convpredflux;// for use in predictive probs of future counts
   matrix[N,Tproj] convproj;    // for use in forecasting into future 
 
   // reverse infection profile
@@ -179,6 +213,8 @@ transformed data {
       convproj[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1]);
     }
   }
+  convlikflux = compute_flux(convlik,flux);
+  convpredflux = compute_flux(convpred,flux);
 }
 
 parameters {
@@ -219,19 +255,19 @@ model {
   matrix[N,Tlik] convout;
 
   // Ravg ~ normal(1.0,1.0);
-  coupling_rate ~ normal(0.0, .1);
+  coupling_rate ~ normal(0.0, .5);
   precision ~ normal(0.0,10.0);
 
   // GP prior density
   eta ~ std_normal();
-  // gp_length_scale ~ normal(0.0,2.5);
-  gp_length_scale ~ gig(2, 2.0, 2.0);
+  gp_length_scale ~ normal(0.0,5.0);
+  // gp_length_scale ~ gig(2, 2.0, 2.0);
   gp_sigma ~ normal(0.0, 1.0);
   local_sigma ~ normal(0.0, 1.0);
   global_sigma ~ normal(0.0, 1.0);
 
   // metapopulation infection rate model
-  convout = METAPOP_metapop(Rt,convlik,coupling_rate,flux);
+  convout = METAPOP_metapop(Rt,convlik,coupling_rate,flux,convlikflux);
 
   // compute likelihoods
   for (j in 1:N) 
@@ -260,7 +296,7 @@ generated quantities {
 
   // predictive probability of future counts
   {
-    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate,flux);
+    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate,flux,convpredflux);
     for (i in 1:Tpred)
       for (j in 1:N)
         Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
@@ -270,11 +306,13 @@ generated quantities {
   // forecasting *mean* counts given parameters
   {
     matrix[N,1] convprojall;
+    matrix[N,1] convprojflux;
     for (i in 1:Tproj) {
       for (j in 1:N) 
         convprojall[j,1] = convproj[j,i] + 
             dot_product(Cproj[j][1:(i-1)], infprofile_rev[(D-i+2):D]);
-      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate,flux)[:,1];
+      convprojflux = compute_flux(convprojall,flux);
+      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate,flux,convprojflux)[:,1];
     }
   }
 

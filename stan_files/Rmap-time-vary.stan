@@ -38,60 +38,88 @@ functions {
   // Meta-population infection rate model choices
 
   matrix uniform1_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
-    int T = cols(convlik);
-    int N = rows(convlik);
-    row_vector[T] convavg;
-    matrix[N,T] convout;
-    
-    for (i in 1:T) {
-      convavg[i] = 0.0;
-      for (j in 1:N)
-        convavg[i] += Rt[j] * convlik[j,i];
-      convavg[i] = convavg[i] / N;
-    }
+      matrix Rt, real[,,] convlik, real coupling_rate) {
+    // Rt N*M
+    // convlik [M,N,T]
 
-    for (j in 1:N)
-      for (i in 1:T)
-        convout[j,i] = (
-            (1.0-coupling_rate) *  Rt[j] * convlik[j,i] +
-            coupling_rate * convavg[i]
-        );
+    int M = size(convlik);
+    int N = size(convlik[0]);
+    int T = size(convlik[0,0]);
+
+    real conv_avg[M,T]
+    real convout[M,N,T];
+    
+    conv_avg = rep_array(0.0, M,T)
+
+    // accessing in optimal order. See https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html
+    for (k in 1:M) {
+      for (j in 1:N)
+        for (i in 1:T) {
+          convavg[k,i] += convlik[k,j,i];
+      }
+    }
+    convavg = convavg / N;
+
+    for (k in 1:M)
+      for (j in 1:N)
+        for (i in 1:T)
+          convout[k,j,i] = (
+              (1.0-coupling_rate) *  Rt[j, k] * convlik[k,j,i] +
+              coupling_rate * convavg[k,i]
+          );
     return convout;
   }
 
   matrix uniform2_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
-    int T = cols(convlik);
-    int N = rows(convlik);
-    row_vector[T] convavg;
-    matrix[N,T] convout;
-    
-    for (i in 1:T) {
-      convavg[i] = 0.0;
-      for (j in 1:N)
-        convavg[i] += convlik[j,i];
-      convavg[i] = convavg[i] / N;
-    }
+      matrix Rt, real[,,] convlik, real coupling_rate) {
+    // Rt N*M
+    // convlik [M,N,T]
 
-    for (j in 1:N)
-      for (i in 1:T)
-        convout[j,i] = Rt[j] * (
-            (1.0-coupling_rate) * convlik[j,i] +
-            coupling_rate * convavg[i]
-        );
+    int M = size(convlik);
+    int N = size(convlik[0]);
+    int T = size(convlik[0,0]);
+
+    real conv_avg[M,T]
+    real convout[M,N,T];
+    
+    conv_avg = rep_array(0.0, M,T)
+
+    // accessing in optimal order. See https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html
+    for (k in 1:M) {
+      for (j in 1:N)
+        for (i in 1:T) {
+          convavg[k,i] += convlik[k,j,i];
+      }
+    }
+    convavg = convavg / N;
+
+    for (k in 1:M)
+      for (j in 1:N)
+        for (i in 1:T)
+          convout[k,j,i] = Rt[j,k] * (
+              (1.0-coupling_rate) * convlik[k,j,i] +
+              coupling_rate * convavg[k,i]
+          );
+
     return convout;
   }
 
   matrix none_metapop(
-      vector Rt, matrix convlik, real coupling_rate) {
-    int T = cols(convlik);
-    int N = rows(convlik);
-    matrix[N,T] convout;
+      matrix Rt, real[,,] convlik, real coupling_rate) {
+    // Rt N*M
+    // convlik [M,N,T]
 
-    for (j in 1:N)
-      for (i in 1:T)
-        convout[j,i] = Rt[j] * convlik[j,i];
+    int M = size(convlik);
+    int N = size(convlik[0]);
+    int T = size(convlik[0,0]);
+
+    real convout[M,N,T];
+
+    // accessing in optimal order. See https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html
+    for (k in 1:M)
+      for (j in 1:N)
+        for (i in 1:T)
+          convout[k,j,i] = Rt[j, k] * convlik[k,j,i];
 
     return convout;
   }
@@ -122,8 +150,9 @@ data {
   int<lower=1> Tcond;       // number of days we will condition on
   int<lower=1> Tlik;        // number of days for likelihood computation
   int<lower=0> Tproj;       // number of days to forecast
-  int Count[N*M, Tall];   // case counts, ordered [loc_1 time_1, loc_1 time_2, ..., loc_2 time_1, ...]
-  // vector[2] geoloc[N];      // geo locations of regions
+  int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
+  int Count[N, Tall];       // case counts,
+  // vector[2] geoloc[N];   // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
   matrix[M,M] timedist;     // distance between time samples
@@ -137,30 +166,34 @@ transformed data {
   vector[D] infprofile_rev; // reversed infection profile
 
   // precompute convolutions between Count and infprofile 
-  matrix[N*M,Tlik] convlik;      // for use in likelihood computation
-  matrix[N*M,Tpred] convpred;    // for use in predictive probs of future counts
-  matrix[N*M,Tproj] convproj;    // for use in forecasting into future 
+  real convlik[M,N,Tlik];   // for use in likelihood computation. Batches of N places repeated for M time segments (i.e. [N=1 M=1, N=2 M=1, ..., N=N M=1, N=1 M=2, ...])
+  real convpred[1,N,Tpred];    // for use in predictive probs of future counts. Extra dimension at front for cosistency (makes function definition much cleaner)
+  real convproj[1,N,Tproj];    // for use in forecasting into future. Extra dimension at front for cosistency (makes function definition much cleaner)
 
   // reverse infection profile
   for (i in 1:D)
     infprofile_rev[i] = infprofile[D-i+1];
 
-  for (j in 1:(N*M)) {
+  for (j in 1:N) {
     for (i in 1:Tall)
       Creal[j,i] = Count[j,i];
 
     // precompute convolutions between counts and infprofile
-    for (i in 1:Tlik) {
-      int L = min(D,Tcond+i-1); // length of infection profile that overlaps with case counts 
-      convlik[j,i] = dot_product(Creal[j][Tcond-L+i:Tcond-1+i], infprofile_rev[D-L+1:D]);
+    // compute for each time offset - NOTE: not the fastest ordering of these access options (see https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html), but assuming okay as this is only done once
+    for (k in 1:M){
+      for (i in 1:Tlik) {
+        int L = min(D,Tcond+i-1-((M-k) * Tstep)); // length of infection profile that overlaps with case counts 
+        convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[D-L+1:D]);
+      }
     }
+    
     for (i in 1:Tpred) {
       int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convpred[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[D-L+1:D]);
+      convpred[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[D-L+1:D]);
     }
     for (i in 1:Tproj) {
       int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convproj[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1]);
+      convproj[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1]);
     }
   }
 }
@@ -183,7 +216,7 @@ parameters {
 }
 
 transformed parameters {
-  vector[N] Rt;                 // instantaneous reproduction number
+  matrix[N, M] Rt;                 // instantaneous reproduction number.
 
   {
     matrix[N,N] K_space;
@@ -197,23 +230,22 @@ transformed parameters {
     K_space = SPATIAL_kernel(geodist, gp_space_sigma, gp_space_length_scale); // space kernel
     K_time  = TEMPORAL_kernel(timedist, gp_time_sigma, gp_time_length_scale); // time kernel
 
-    // for (i in 1:N) {
-    //   K[i,i] = K[i,i] + LOCAL_var(local_sigma2);
-    // }
-    // K = K + GLOBAL_var(global_sigma2);
+    for (i in 1:N) {
+      K_space[i,i] = K_space[i,i] + LOCAL_var(local_sigma2);
+    }
+    K_space = K_space + GLOBAL_var(global_sigma2);
 
     L_space = cholesky_decompose(K_space);
     L_time = cholesky_decompose(K_time);
 
-    //  Compute (K_time (*) K_space) * eta via efficient kronecker trick
-    // TODO: Will need to change LOCAL_var to work on stds not vars
-    Rt = exp(to_vector(K_space * to_matrix(eta, N, M) * K_time') + (epislon * LOCAL_var(local_sigma)));
+    // Compute (K_time (*) K_space) * eta via efficient kronecker trick. Don't reshape back to vector for convinience.
+    Rt = exp(L_space * to_matrix(eta, N, M) * L_time');
   }
 }
 
 model {
   vector[Tlik] coupling;
-  matrix[N*M,Tlik] convout;
+  real convout[M,N,Tlik];
 
   // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .1);
@@ -236,47 +268,50 @@ model {
   convout = METAPOP_metapop(Rt,convlik,coupling_rate);
 
   // compute likelihoods
-  for (j in 1:(N*M)) 
+  for (k in 1:M)
     for (i in 1:Tlik) 
-      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], dispersion);
+      for (j in 1:N) 
+        Count[j,Tcond+i-((M-k)*Tstep)] ~ OBSERVATION_likelihood(convout[k,j,i], dispersion);
 
 }
 
 generated quantities {
-  real R0;
-  matrix[N,Tpred] Ppred;
-  matrix[N,Tproj] Cproj; 
+  row_vector[M] R0;
+  real Ppred[N,Tpred];
+  real Cproj[N,Tproj]; 
 
   // Estimated R0 over all areas
   {
-    real convsum = 0.0;
-    R0 = 0.0;
-    for (i in 1:Tlik) {
-      for (j in 1:(N*M)) {
-        R0 += Rt[j] * convlik[j,i];
-        convsum += convlik[j,i];
+    for (k in 1:M){
+      real convsum = 0.0;
+      R0[k] = 0.0;
+      for (i in 1:Tlik) {
+        for (j in 1:N) {
+          R0[k] += Rt[j, k] * convlik[k,j,i];
+          convsum += convlik[k,j,i];
+        }
       }
+      R0[k] = R0[k] / convsum;
     }
-    R0 = R0 / convsum;
   }
 
   // predictive probability of future counts
   {
-    matrix[(N*M),Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate);
-    for (i in 1:Tpred)
-      for (j in 1:N)
+    real convout[1,N,Tpred] = METAPOP_metapop(Rt,convpred,coupling_rate);
+    for (j in 1:N)
+      for (i in 1:Tpred)
         Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
-            convout[j,i], dispersion));
+            convout[1,j,i], dispersion));
   }
 
   // forecasting *mean* counts given parameters
   {
-    matrix[(N*M),1] convprojall;
+    matrix[N,1] convprojall;
     for (i in 1:Tproj) {
-      for (j in 1:(N*M)) 
-        convprojall[j,1] = convproj[j,i] + 
+      for (j in 1:N) 
+        convprojall[j,1] = convproj[1,j,i] + 
             dot_product(Cproj[j][1:(i-1)], infprofile_rev[D-i+2:D]);
-      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate)[:,1];
+      Cproj[:,i] = METAPOP_metapop(Rt[:,M],convprojall,coupling_rate)[:,1];
     }
   }
 

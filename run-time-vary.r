@@ -47,6 +47,7 @@ D <- 100      # infection profile number of days
 Tignore <- 7  # counts in most recent 7 days may not be reliable?
 Tpred <- 7    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
+Tstep <- 7    # number of days to step for each time step of Rt prediction
 Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
 Tproj <- 21              # number of days to project forward
@@ -89,7 +90,13 @@ for (i in 1:N) {
   }
 }
 
+times = (1:M) * Tstep
 timedist = matrix(0, M, M)
+for (i in 1:M) {
+  for (j in 1:M) {
+    times[i, j] = abs(times[i] - times[j])
+  }
+}
 
 Rmap_data <- list(
   N = N, 

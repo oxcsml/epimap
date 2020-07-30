@@ -11,7 +11,7 @@ option_list = list(
   make_option(c("-c", "--chains"),        type="integer",   default=4,                    help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=4000,                 help="Length of MCMC chains [4000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=1,                    help="Number of periods to fit Rt in"),
-  make_option(c("-t", "--task_id"),       type="integer",   default=0,                    help="Task ID for Slurm usage. By default, turned off [0].")
+  make_option(c("-t", "--task_id"),       type="integer",   default=1,                    help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -30,7 +30,10 @@ if (opt$task_id > 0) {
     observation=c("negative_binomial", "poisson")
   )
   grid = sapply(grid, as.character)
-  opt = as.list(grid[opt$task_id, ])  
+  update = as.list(grid[opt$task_id, ]) 
+  for (name in names(update)){
+    opt[name] = update[name]
+  }
 }
 
 options(mc.cores = min(numchains,parallel::detectCores()))

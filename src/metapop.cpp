@@ -1,112 +1,149 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <string>
+#include <valarray>
+#include <iterator>
 #include <experimental/iterator>
-
+#include "csv.h"
+#include "mobility.h"
+#include "xtensor/xarray.hpp"
 
 using std::cout;
 using std::endl;
 using std::vector;
 using std::string;
 using std::ofstream;
+using std::valarray;
 
 void print_vector(vector<int> &vec);
-void write_csv(const char* fname, const vector<vector<int>> data, const vector<string> names);
+std::tuple<int, string> parse_cmd(int argc, char** argv);
+template <typename dtype> vector<vector<dtype>> valarrays_to_vector(const vector<valarray<dtype>> &arr);
+template <typename dtype> void write_csv(
+        const char* fname, const vector<vector<dtype>> &data, const vector<string> &names);
 
-class CSVWriter; 
+// I think these are beta, alpha and gamma respectively
+const double attack = 1 / 5. ; // force of attack
+const double latent = 1 / 5.; // the mean of this variable is 1 / latent period
+const double inf_period = 1 / 14.; // length of period infected before recovering or dying
 
-class CSVWriter {
-    private:
-        std::ofstream file;
+/*
+ * Integrate metapopulation modelling and put outputs to csv (maybe can use matrices for this?)
+ * Read R_t in from a csv too (make python stuff to look at this)
+ * Make some sort of visualisation so it looks like it's working
+ * Figure out how to tune the R_t and find out what the right parameters for it should be (speak to bobby)
+ * Speak to YW about the results
+ *
+ */
+// Later, use the seir initial values to calculate nppl
+// for now ca just put itin here since eventually will habe multiple populations anyway
+// can just remove the nppl argument because it's irrelevant!
+// 
+// --- Turn these populations into things that interact
+// --- find some way of testing it?
+// --- add in mobility data
+// --- add in time varying R_t
+// --- send it on to YW
+    
+//const string OUTPUT_FOLDER = "../outputs/";
 
-    public:
-        template <class vec> void write_row(const vec &data);
-        void write_header(const vector<std::string> &names);
-        void flush();
-        void close();
-        const char delimiter[3] = ", ";
-        const char newline[2] = "\n";
 
-    CSVWriter(const char* fname) : file(fname) {};
-};
 
-void CSVWriter::write_header(const vector<std::string> &names) {
-    file << "index" << delimiter;
-    write_row(names);
-} 
+int main(int argc, char** argv) {
 
-template <class vec> void CSVWriter::write_row(const vec &data){
-    std::copy(data.begin(), data.end(), std::experimental::make_ostream_joiner(file, delimiter));
-    file << newline;
-} 
+    auto [timesteps, output_folder] = parse_cmd(argc, argv);
+    
+    valarray<double> s, e, i, r, n;
+    // need some way of initialising the values
+    s = {980, 20, 9, 80, 880};
+    e = {10, 880,  990, 900, 20};
+    i = {10, 100,  1, 20, 100};
+    r = {0, 0, 0, 0, 0};
+    n = s + e + i + r;
 
-const float attack = 1 / 5. ; // force of attack
-const float latent = 1 / 5.; // the mean of this variable is 1 / latent period
-const float inf_period = 1 / 14.; // length of period infected before recovering or dying
+    vector<valarray<double>> susceptible = {s};
+    vector<valarray<double>> exposed = {e};
+    vector<valarray<double>> infected = {i};
+    vector<valarray<double>> recovered = {r};
+    vector<valarray<double>> population = {n};
+    
+    valarray<double> ones = s;
+    std::fill(begin(ones), end(ones), 1);
 
-int main() {
-    const int timesteps = 100;
-    const int nppl = 1000;
+    vector<valarray<double>> mob_data = {
+        ones,
+        ones,
+        ones,
+        ones,
+        ones
+    };
 
-    vector<int> infected  = {10}; 
-    vector<int> susceptible = {980};
-    vector<int> exposed = {10}; 
-    vector<int> recovered  = {0}; 
-   
-    for (int t=0; t != timesteps; t++) {
-        susceptible.push_back(susceptible[t] - attack * infected[t] * susceptible[t] / nppl);
-        exposed.push_back(exposed[t] + attack * infected[t] * susceptible[t] / nppl - latent * exposed[t]);
-        infected.push_back(infected[t] + latent * exposed[t] - inf_period * infected[t]);
-        recovered.push_back(recovered[t] + inf_period * infected[t]);
+    MobilityMatrix<double> mobility(mob_data);
+
+    for (int t=0; t != timesteps; ++t) {
+        valarray<double> sn = s / n;
+        s = s - attack * i * s / n + mobility.vecmulr(sn);
+        e = e + attack * i * s / n - latent * e;
+        i = i + latent * e - inf_period * i;
+        r = r + inf_period * i;
+        //n = n;
+
+        susceptible.push_back(s);
+        exposed.push_back(e);
+        infected.push_back(i);
+        recovered.push_back(r);
+        population.push_back(n);
     } 
-  
 
-    const vector<vector<int>> data = {susceptible, exposed, infected, recovered};
-    const vector<string> names = {"susceptible", "exposed", "infected", "recovered"};
-    
-    const vector<int> test_data = {0, 1, 2, 3, 4, 5};
-    CSVWriter writer("test.csv");
-    writer.write_header(names);
-    writer.write_row(test_data);
+    const vector<string> region_names = {"0", "1", "2", "3", "4"};
+    const vector<string> filenames = {"susceptible.csv", "exposed.csv", "infected.csv", "recovered.csv", "population.csv"};
+    vector<vector<valarray<double>>> all_data = {susceptible, exposed, infected, recovered, population};
 
-    write_csv("output.csv", data, names);
-    
-    //cout << "R_eff is " << attack / inf_period << endl;
-    //print_vector(susceptible);
-    //print_vector(infected);
+    for (vector<string>::size_type i=0; i < filenames.size(); ++i) {
+        const vector<vector<double>> data = valarrays_to_vector(all_data[i]);
+        write_csv((output_folder + filenames[i]).c_str(), data, region_names);
+    };
+
+    cout << "R_eff is " << attack / inf_period << endl;
     
     return 0;
 } 
 
-void print_vector(vector<int> &vec) {
-    for (const int& i : vec) 
-        std::cout << i << ' ';
-    std::cout << '\n';
-} 
-
-
-void write_csv(const char* fname, const vector<vector<int>> data, const vector<string> names){
-/** Write data to csv
-   Will write only the number of rows corresponding to the length of the shortest
-   vector given
-*/
-
-    vector<vector<int>::size_type> lengths;
-    for (const auto &vec: data) {
-        lengths.push_back(vec.size());
+std::tuple<int, string> parse_cmd(int argc, char** argv) {
+    int timesteps;
+    string output_folder;
+    
+    if (argc < 3) {
+        throw std::domain_error(
+                "Not enough arguments given. Must be given integer number of timesteps and path to output folder."
+                );
+    } else {
+       timesteps = std::stoi(argv[1]);
+       output_folder = argv[2];
     } 
 
-    vector<int>::size_type  min_length = *std::min_element(lengths.begin(), lengths.end());
+    std::tuple<int, string> tup(timesteps, output_folder);
+    return tup;
+} 
 
-    CSVWriter writer(fname);
-    writer.write_header(names);
+template <typename dtype>
+vector<vector<dtype>> valarrays_to_vector(const vector<valarray<dtype>> &arr) {
+    vector<vector<dtype>> outvec;
+    for (const auto &vec : arr) {
+        vector<dtype> newvec;
+        std::copy(begin(vec), end(vec), std::back_inserter(newvec));
+        outvec.push_back(newvec);
+    } 
+    return outvec;
+} 
 
-    for (unsigned int t=0; t < min_length; ++t) {
-        vector<int> row;
-        row.push_back(t);
-        for (const auto &vec: data) {
-            row.push_back(vec[t]);
-        };
-        writer.write_row(row);
+template <typename dtype>
+void write_csv(const char* fname, const vector<vector<dtype>> &data, const vector<string> &names){
+    //* Write data 'matrix' to csv
+    //Data should be the rows of the csv file
+    //Names are the headers
+    CSVWriter writer(fname, names);
+    for (const auto &vec : data) {
+        writer.write_row(vec);
     };
 } 

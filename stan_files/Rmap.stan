@@ -223,6 +223,7 @@ parameters {
   real<lower=0> local_sigma;
   real<lower=0> global_sigma;
   vector[N] eta;
+  vector[N] local_sigma2;
 
   real<lower=0> precision;
   // real<lower=0> Ravg;
@@ -235,13 +236,12 @@ transformed parameters {
   {
     matrix[N,N] K;
     matrix[N,N] L;
-    real local_sigma2 = square(local_sigma);
     real global_sigma2 = square(global_sigma);
 
     // GP prior.
     K = SPATIAL_kernel(geodist, gp_sigma, gp_length_scale); // kernel
     for (i in 1:N) {
-      K[i,i] = K[i,i] + LOCAL_var(local_sigma2);
+      K[i,i] = K[i,i] + LOCAL_var(local_sigma2[i]);
     }
     K = K + GLOBAL_var(global_sigma2);
 
@@ -263,7 +263,8 @@ model {
   gp_length_scale ~ normal(0.0,5.0);
   // gp_length_scale ~ gig(2, 2.0, 2.0);
   gp_sigma ~ normal(0.0, 1.0);
-  local_sigma ~ normal(0.0, 1.0);
+  for (i in 1:N) 
+    local_sigma2[i] ~ gamma(0.5, 0.5);
   global_sigma ~ normal(0.0, 1.0);
 
   // metapopulation infection rate model

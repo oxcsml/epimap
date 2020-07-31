@@ -1,19 +1,24 @@
 fname = metapop
+data_dir = $(repos)/metapop/data
 
 compile:
 	clang++ -Wall -Wextra -Wpedantic -o3 -std=c++17 -I${CONDA_PREFIX}/include -o $(fname) csv.cpp $(fname).cpp
 
+data:
+	python make_data.py $(data_dir)
+
 execute:
-	./$(fname) 150 $(repos)/metapop/data
+	./$(fname) 150 $(data_dir)
 
 run:
 	make compile && make execute
 
 chart:
-	python plot.py $(repos)/metapop/outputs/
+	python plot.py $(data_dir)/outputs
 
 clean:
 	rm metapop
 
-data:
-	python make_data.py ${repos}/metapop/data
+full:
+	make data && make compile && make execute && make chart
+

@@ -7,10 +7,13 @@
 #include <iterator>
 #include <experimental/iterator>
 #include "csv.h"
-#include "mobility.h"
+
 #include "xtensor/xarray.hpp"
 #include "xtensor/xcsv.hpp"
 #include "xtensor/xbuilder.hpp"
+#include "xtensor/xview.hpp"
+
+#include "xtensor/xio.hpp"
 
 using std::cout;
 using std::endl;
@@ -20,41 +23,45 @@ using std::ifstream;
 using std::ofstream;
 
 std::tuple<int, string> parse_cmd(int argc, char** argv);
-template <typename dtype> vector<vector<dtype>> valarrays_to_vector(const vector<valarray<dtype>> &arr);
 template <typename dtype> void write_csv(
-        const char* fname, const vector<vector<dtype>> &data, const vector<string> &names);
+        const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names);
 
 // I think these are beta, alpha and gamma respectively
 const double attack = 1 / 5. ; // force of attack
 const double latent = 1 / 5.; // the mean of this variable is 1 / latent period
 const double inf_period = 1 / 14.; // length of period infected before recovering or dying
 
+template <typename dtype>
+xt::xarray<dtype> load_csv(const string fpath) {
+    ifstream file;
+    file.open(fpath);
+    auto data =  xt::load_csv<dtype>(file);
+    return data;
+};
+
 int main(int argc, char** argv) {
 
     auto [timesteps, data_dir] = parse_cmd(argc, argv);
     string output_folder = data_dir + "/outputs";
-    cout << "output folder is: " << output_folder << endl;
-    
-    xt::xarray<double> s, e, i, r, n;
-    // need some way of initialising the values
-    s = {980, 20, 9, 80, 880};
-    e = {10, 880,  990, 900, 20};
-    i = {10, 100,  1, 20, 100};
-    r = {0, 0, 0, 0, 0};
-    n = s + e + i + r;
 
-    tuple<xt::xarray<double>> susceptible = {s};
-    tuple<xt::xarray<double>> exposed = {e};
-    tuple<xt::xarray<double>> infected = {i};
-    tuple<xt::xarray<double>> recovered = {r};
-    tuple<xt::xarray<double>> population = {n};
+    auto mobility = load_csv<double>(data_dir + "/mobility.csv");
+    auto initial = load_csv<double>(data_dir + "/initial-values.csv");
 
-    ifstream file;
-    file.open(data_dir + "/mobility.csv");
-    auto mobility =  xt::load_csv<double>(file);
+    xt::xarray<double> init;
+    auto s = xt::row(initial, 0);
+    auto e = xt::row(initial, 1);
+    auto i = xt::row(initial, 2);
+    auto r = xt::row(initial, 3);
+    auto n = s + e + i + r;
+
+    vector<xt::xarray<double>> susceptible = {s};
+    vector<xt::xarray<double>> exposed = {e};
+    vector<xt::xarray<double>> infected = {i};
+    vector<xt::xarray<double>> recovered = {r};
+    vector<xt::xarray<double>> population = {n};
+
 
     for (int t=0; t != timesteps; ++t) {
-        //xt::xarray<double> sn = s / n;
         s = s - attack * i * s / n;
         e = e + attack * i * s / n - latent * e;
         i = i + latent * e - inf_period * i;
@@ -69,12 +76,19 @@ int main(int argc, char** argv) {
     } 
 
     const vector<string> region_names = {"0", "1", "2", "3", "4"};
-    const vector<string> filenames = {"susceptible.csv", "exposed.csv", "infected.csv", "recovered.csv", "population.csv"};
-    vector<vector<valarray<double>>> all_data = {susceptible, exposed, infected, recovered, population};
+    const vector<string> filenames = {
+        "susceptible.csv"
+		"exposed.csv"
+		"infected.csv"
+		"recovered.csv"
+		"population.csv"
+    };
+    vector<vector<xt::xarray<double>>> all_data = {susceptible, exposed, infected, recovered, population};
 
     for (vector<string>::size_type i=0; i < filenames.size(); ++i) {
-        const vector<vector<double>> data = valarrays_to_vector(all_data[i]);
-        write_csv((output_folder + filenames[i]).c_str(), data, region_names);
+        // change write csv argument types
+        //
+        write_csv((output_folder + filenames[i]).c_str(), all_data[i], region_names);
     };
 
     cout << "R_eff is " << attack / inf_period << endl;
@@ -119,12 +133,12 @@ std::tuple<int, string> parse_cmd(int argc, char** argv) {
     
 
 template <typename dtype>
-void write_csv(const char* fname, const vector<vector<dtype>> &data, const vector<string> &names){
-    //* Write data 'matrix' to csv
+void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names){
     //Data should be the rows of the csv file
     //Names are the headers
     CSVWriter writer(fname, names);
     for (const auto &vec : data) {
-        writer.write_row(vec);
+        std::vector<dtype> row(vec.begin(), vec.end());
+        writer.write_row(row);
     };
 } 

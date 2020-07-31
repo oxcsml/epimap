@@ -17,12 +17,12 @@ class MobilityMatrix {
 
     public:
         MobilityMatrix(std::vector<std::valarray<dtype>> &data) : rows(data) {};
-        std::valarray<dtype> vecmulr(std::valarray<dtype> &vec);
+        std::valarray<dtype> vecmulr(const std::valarray<dtype> &vec);
 
 };
 
 template <typename dtype>
-std::valarray<dtype> MobilityMatrix<dtype>::vecmulr(std::valarray<dtype> &vec) {
+std::valarray<dtype> MobilityMatrix<dtype>::vecmulr(const std::valarray<dtype> &vec) {
     std::vector<dtype> temp; 
     for (const auto &row: rows) {
         temp.push_back(inner(row, vec));

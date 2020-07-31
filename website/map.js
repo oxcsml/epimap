@@ -184,7 +184,7 @@ Promise.all([
     loadCases
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
-var colorDomain = [0, 1, 4];
+var colorDomain = [0.5, 1.0, 1.5];
 
 function getRtForArea(area) {
     var rt = rtData.get(area);

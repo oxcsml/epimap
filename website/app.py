@@ -13,7 +13,8 @@ import numpy as np
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/687f346f5023410ba86615655ff33ca9_1.geojson'
-DATA_PATH = 'RtCproj.csv'
+DATA_PATH = 'fits/Rmap-exp_quad-none-negative_binomial_RtCproj.csv'
+print(DATA_PATH)
 UK_CASES_PATH = 'data/uk_cases.csv'
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -24,10 +25,13 @@ df = pd.read_csv(DATA_PATH)
 cases_df = pd.read_csv(UK_CASES_PATH)
 cases_df = cases_df.set_index('Area name').drop('Country', axis=1)
 
-minRt = np.floor(min(df.Rtmedian)*2.0)/2.0
-maxRt = np.ceil(max(df.Rtmedian)*2.0)/2.0
-Rtbins = np.exp(np.linspace(np.log(minRt),np.log(maxRt),7))
+
+minRt = 0.5 # np.floor(min(df.Rtmedian)*2.0)/2.0
+maxRt = 1.5 # np.ceil(max(df.Rtmedian)*2.0)/2.0
+Rtbins = np.exp(np.linspace(np.log(minRt),np.log(maxRt),9))
 print(Rtbins)
+
+df.Rtmedian = np.minimum(maxRt,np.maximum(minRt,df.Rtmedian))
 
 minCproj = np.ceil(min(df.Cprojmedian))
 maxCproj = np.ceil(max(df.Cprojmedian))
@@ -84,7 +88,8 @@ Cprojchoropleth.add_to(Cprojmap)
 Cprojmap_html = Cprojmap.save('Cprojmap.html')
 
 app.layout = html.Div(children=[
-    html.H1(children='UKLA Rt and projected case counts estimates'),
+    html.H1(children=DATA_PATH),
+    html.H2(children='UKLA Rt and projected case counts estimates'),
     html.Iframe(srcDoc = open('Rtmap.html', 'r').read(), 
                 style={
                     'width': '49%',
@@ -127,5 +132,5 @@ def update_cases_chart(area):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
+    # app.run_server(debug=True, port=8050)
     app.run_server(debug=True,host = '127.0.0.1')

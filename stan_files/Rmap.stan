@@ -147,13 +147,18 @@ functions {
 
   // Case count likelihood choices
 
-  real poisson_likelihood_lpmf(int count, real mean, real precision) {
-    return poisson_lpmf(count | mean);
+  real poisson_likelihood_lpmf(int count, real mu, real precision) {
+    return poisson_lpmf(count | mu);
   }
 
-  real negative_binomial_likelihood_lpmf(int count, real mean, real precision) {
-    return neg_binomial_2_lpmf(count | mean, precision);
+  real negative_binomial_2_likelihood_lpmf(int count, real mu, real precision) {
+    return neg_binomial_2_lpmf(count | mu, precision);
   }
+
+  real negative_binomial_3_likelihood_lpmf(int count, real mu, real x) {
+    return neg_binomial_2_lpmf(count | mu, mu / x);
+  }
+
 
   real gig_lpdf(real x, int p, real a, real b) {
     return p * 0.5 * log(a / b)
@@ -220,10 +225,10 @@ transformed data {
 parameters {
   real<lower=0> gp_length_scale;
   real<lower=0> gp_sigma;
-  real<lower=0> local_sigma;
   real<lower=0> global_sigma;
+  real<lower=0> local_sigma2[N];
+  real<lower=0> local_scale;
   vector[N] eta;
-  vector[N] local_sigma2;
 
   real<lower=0> precision;
   // real<lower=0> Ravg;
@@ -260,13 +265,14 @@ model {
 
   // GP prior density
   eta ~ std_normal();
-  gp_length_scale ~ normal(0.0,5.0);
-  // gp_length_scale ~ gig(2, 2.0, 2.0);
-  gp_sigma ~ normal(0.0, 1.0);
-  for (i in 1:N) 
-    local_sigma2[i] ~ gamma(0.5, 0.5);
-  global_sigma ~ normal(0.0, 1.0);
-
+  // gp_length_scale ~ normal(0.0,5.0);
+  gp_length_scale ~ gig(2, 2.0, 2.0);
+  gp_sigma ~ normal(0.0, 0.5);
+  global_sigma ~ normal(0.0, 0.5);
+  local_scale ~ normal(0.0, 0.1);
+  for (i in 1:N) {
+    local_sigma2[i] ~ exponential(0.5 / square(local_scale));
+  }
   // metapopulation infection rate model
   convout = METAPOP_metapop(Rt,convlik,coupling_rate,flux,convlikflux);
 

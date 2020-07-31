@@ -4,12 +4,12 @@ library(optparse)
 
 option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-l", "--localkernel"),   type="character",default="none",    help="Use local kernel ([local]/none)"),
-  make_option(c("-g", "--globalkernel"),  type="character",default="none",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="radiation_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/[radiation_in]/none)"),
+  make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
+  make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/[radiation_in]/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial_3", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
+  make_option(c("-i", "--iterations"),    type="integer",  default=6000,     help="Length of MCMC chains [4000]"),
   make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -235,5 +235,5 @@ saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 
-pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate"))
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"))
 

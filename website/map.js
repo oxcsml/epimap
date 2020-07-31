@@ -15,7 +15,7 @@ var barWidth = Math.floor(height / 3);
 var margin = ({top: 20, right: 40, bottom: 30, left: 40})
 
 // Set up dimensions for chart
-var chart_margin = {top: 30, right: 30, bottom: 30, left: 60};
+var chart_margin = {top: 30, right: 30, bottom: 30, left: 30};
 var chart_svg = d3.select("#chart"),
     chart_width = +chart_svg.attr("width") - chart_margin.left - chart_margin.right,
     chart_height = +chart_svg.attr("height") - chart_margin.top - chart_margin.bottom;
@@ -43,11 +43,12 @@ var caseProjInfo = d3.select("#case-proj-info");
 // Add the X Axis
 var chart_x_axis = chart_svg.append("g")
     .attr("class", "chart-x-axis")
-    .attr("transform", "translate(0," + chart_height + ")");
+    .attr("transform", `translate(0,${chart_height})`);
 
 // Add the Y Axis
 var chart_y_axis = chart_svg.append("g")
-    .attr("class", "chart-y-axis");
+    .attr("class", "chart-y-axis")
+    .attr("transform", `translate(${chart_margin.left},0)`);
 
 // Add a title
 var chart_title = chart_svg.append("text")
@@ -63,11 +64,46 @@ var projection = d3.geoMercator()
         .translate([width/2, height/2]);
 var path = d3.geoPath().projection(projection);
 
+// Zooming
+var zoomIn = map_svg.append("g").append("text")
+    .attr("x", width-barHeight/2)
+    .attr("y", Math.floor(height / 3) + margin.top + 70)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("text-anchor", "middle")
+    .attr("id", "zoom_in")
+    .style("cursor", "pointer")
+    .text("+");
+
+var zoomIn = map_svg.append("g").append("text")
+    .attr("x", width-barHeight/2)
+    .attr("y", Math.floor(height / 3) + margin.top + 90)
+    .attr("width", 20)
+    .attr("height", 20)
+    .attr("text-anchor", "middle")
+    .attr("id", "zoom_out")
+    .style("cursor", "pointer")
+    .text("-");
+
+let zoom = d3.zoom()
+    .on("zoom", ()=>g.selectAll("path").attr("transform", d3.event.transform));
+
+map_svg.call(zoom)
+    .on("dblclick.zoom", null);
+
+d3.select("#zoom_in").on("click", function() {
+    zoom.scaleBy(g.transition().duration(750), 1.2);
+});
+d3.select("#zoom_out").on("click", function() {
+    zoom.scaleBy(g.transition().duration(750), 0.8);
+});
+
 // Data containers
 var rtData = d3.map();
 var caseTimeseries = d3.map();
 var caseProjTimeseries = d3.map();
 var nextWeekCaseProj = d3.map();
+var caseHistory = d3.map();
 
 // Tooltip container
 var tooltip_div = d3.select("body").append("div")
@@ -96,7 +132,16 @@ var loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
         d.cases_new_smoothed = +d.cases_new_smoothed
         caseTimeseries.get(d.area).push(d);
     });
-})
+}).then(() => {
+    caseTimeseries.each((cases, area) => {
+        var casesLast7Day = cases.slice(1).slice(-7).map(c=>c.cases_new).reduce((a,b)=>a+b);
+        var casesTotal = cases.map(c=>c.cases_new).reduce((a,b)=>a+b);
+        caseHistory.set(area, {
+            casesLast7Day: casesLast7Day,
+            casesTotal: casesTotal
+        });
+    });
+});
 
 var loadRt = d3.csv(RT_PATH).then(data => data.forEach(d => rtData.set(d.area, 
     {
@@ -163,6 +208,16 @@ function getCaseProjForArea(area) {
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
 
+function getCaseHistoryForArea(area) {
+    if (!caseHistory.has(area)) {
+        return {
+            casesLast7Day: "Unknown",
+            casesTotal: "Unknown"
+        };
+    }
+    return caseHistory.get(area);
+}
+
 // Handle data loaded
 function ready(data) {
     var topo = data[0];
@@ -179,22 +234,30 @@ function ready(data) {
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
 
-    console.log("Rt color scale domain:", rtColorScale.domain())
+    console.log("logScale.ticks:", logScale.ticks());
 
-    // TODO: Replace legend color scale with cases scale when selected.
-    var axisScale = d3.scaleLinear()
+    var rtAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
         .domain([colorDomain[0], colorDomain[2]]);
 
-    var axisBottom = g => g
+    var caseAxisScale = d3.scaleLinear()
+        .range([margin.left, margin.left + barWidth])
+        .domain([minCases, maxCases]);
+
+    var rtAxisFn = () => d3.axisBottom(rtAxisScale)
+        .tickValues(rtColorScale.ticks())
+        .tickFormat(rtColorScale.tickFormat())
+        .tickSize(-barHeight);
+
+    var caseAxisFn = () => d3.axisBottom(caseAxisScale)
+        .tickValues(logScale.ticks(2))
+        .tickFormat(d=>d)
+        .tickSize(-barHeight);
+
+    var axisBottom = map_svg.append("g")
         .attr("class", `x-axis`)
         .attr("transform", `translate(${width-barHeight},${margin.top}) rotate(90)`)
-        .call(
-            d3.axisBottom(axisScale)
-                .tickValues(rtColorScale.ticks())
-                .tickFormat(rtColorScale.tickFormat())
-                .tickSize(-barHeight)
-        )
+        .call(rtAxisFn)
         .selectAll("text")
         .attr("transform", "translate(-5, 15) rotate(-90)");
 
@@ -216,7 +279,6 @@ function ready(data) {
 
     // Draw the map
     var map = g.selectAll("path")
-        //.data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2016__Boundaries).features)
         .data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2017__Boundaries_UK).features)
         .enter().append("path")
         .attr("fill", rtFillFn)
@@ -229,12 +291,12 @@ function ready(data) {
             console.log(d.properties);
 
             tooltip_header.text(d.properties.ctyua17nm);
-            tooltip_info1.text(`Last 7 days cases: TODO`);
+            tooltip_info1.text(`Last 7 days cases: ${getCaseHistoryForArea(d.properties.ctyua17nm).casesLast7Day}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.ctyua17nm)}`);
             tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.ctyua17nm)}`);
 
             tooltip_div
-              .style("left", (d3.event.pageX + 10) + "px")             
+              .style("left", (d3.event.pageX + 20) + "px")             
               .style("top", (d3.event.pageY - 28) + "px");
             d3.select(this).style("fill-opacity", 0.5);
         })
@@ -254,27 +316,33 @@ function ready(data) {
     // Draw the color scale
     const defs = map_svg.append("defs");
   
-    const linearGradient = defs.append("linearGradient")
-        .attr("id", "linear-gradient");
+    const rtGradient = defs.append("linearGradient")
+        .attr("id", "rt-gradient");
 
-    linearGradient.selectAll("stop")
+    const caseGradient = defs.append("linearGradient")
+        .attr("id", "case-gradient");
+
+    rtGradient.selectAll("stop")
         .data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100*i/n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
 
-    map_svg.append('g')
+    caseGradient.selectAll("stop")
+        .data(logScale.ticks().map((t, i, n) => ({ offset: `${100*i/n.length}%`, color: caseColorScale(t) })))
+        .enter().append("stop")
+        .attr("offset", d => d.offset)
+        .attr("stop-color", d => d.color);
+
+    var legend = map_svg.append('g')
         .attr("transform", `translate(${width},${barHeight}) rotate(90)`)
         .append("rect")
         .attr('transform', `translate(${margin.left}, 0)`)
         .attr("width", barWidth)        
         .attr("height", barHeight)
-        .style("fill", "url(#linear-gradient)");
+        .style("fill", "url(#rt-gradient)");
 
-    map_svg.append('g')
-        .call(axisBottom);
-
-    map_svg.append("text")
+    legendText = map_svg.append("text")
         .attr("x", width-barHeight/2)       
         .attr("y", margin.top + 30)
         .attr("text-anchor", "middle")
@@ -288,10 +356,7 @@ function ready(data) {
         .style("font-size", "16px")  
         .style("cursor", "pointer")
         .attr("class", "active")
-        .text("Rt")
-        .on("click", function() {
-            d3.select(this).attr("class", "active");
-        });
+        .text("Rt");
 
     var showCases = map_svg.append("text")
         .attr("x", margin.left)             
@@ -303,7 +368,11 @@ function ready(data) {
     showRt.on("click", () => {
         if (showCases.classed("active")) {
             map.attr("fill", rtFillFn);
-            // TODO: Switch the color scale
+            legend.style("fill", "url(#rt-gradient)");
+            axisBottom.call(rtAxisFn)
+                .selectAll("text")
+                .attr("transform", "translate(-5, 15) rotate(-90)");
+            legendText.text("Rt");
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
@@ -312,6 +381,11 @@ function ready(data) {
     showCases.on("click", () => {
         if (showRt.classed("active")) {
             map.attr("fill", caseFillFn);
+            legend.style("fill", "url(#case-gradient)");
+            axisBottom.call(caseAxisFn)
+                .selectAll("text")
+                .attr("transform", "translate(-5, 15) rotate(-90)");
+            legendText.text("Cases");
         }
         showCases.attr("class", "active");
         showRt.attr("class", "");
@@ -342,7 +416,7 @@ function selectArea(area) {
 
     var x = d3.scaleTime()
         .domain(xDomain)
-        .range([0, chart_width]);
+        .range([chart_margin.left, chart_width-chart_margin.right]);
     var y = d3.scaleLinear()
         .domain(yDomain)
         .range([chart_height, 0]);
@@ -389,6 +463,9 @@ function selectArea(area) {
         .duration(500)
         .attr("d", projectedCasesLine);
 
+    var caseHistory = getCaseHistoryForArea(area);
+    casesLast7Info.text(caseHistory.casesLast7Day);
+    casesTotalInfo.text(caseHistory.casesTotal);
     rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
 

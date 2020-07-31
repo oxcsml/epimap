@@ -168,6 +168,8 @@ functions {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////
+
 data {
   int<lower=1> N;           // number of regions
   int<lower=1> D;           // length of infection profile
@@ -181,6 +183,8 @@ data {
   matrix[N,N] geodist;      // distance between locations
   matrix[N,N] flux;         // fluxes for radiation metapopulation model
 }
+
+///////////////////////////////////////////////////////////////////////////
 
 transformed data {
   int Tcur = Tcond+Tlik;    // index of day on which we are estimating Rt
@@ -222,6 +226,8 @@ transformed data {
   convpredflux = compute_flux(convpred,flux);
 }
 
+///////////////////////////////////////////////////////////////////////////
+
 parameters {
   real<lower=0> gp_length_scale;
   real<lower=0> gp_sigma;
@@ -233,6 +239,9 @@ parameters {
   // real<lower=0> Ravg;
   real<lower=0,upper=1> coupling_rate;
 }
+
+
+///////////////////////////////////////////////////////////////////////////
 
 transformed parameters {
   vector[N] Rt;                 // instantaneous reproduction number
@@ -254,6 +263,9 @@ transformed parameters {
     Rt = exp(L * eta);
   }
 }
+
+
+///////////////////////////////////////////////////////////////////////////
 
 model {
   vector[Tlik] coupling;
@@ -280,6 +292,10 @@ model {
       Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], precision);
 
 }
+
+
+
+///////////////////////////////////////////////////////////////////////////
 
 generated quantities {
   real R0;

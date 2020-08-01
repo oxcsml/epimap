@@ -4,12 +4,12 @@ library(optparse)
 
 option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-l", "--localkernel"),   type="character",   default="local",    help="Use local kernel ([local]/none)"),
-  make_option(c("-g", "--globalkernel"),  type="character",   default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="uniform1",   help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
-  make_option(c("-o", "--observation"),   type="character",default="negative_binomial", help="observation model ([negative_binomial]/poisson)"),
+  make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
+  make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/[radiation_in]/none)"),
+  make_option(c("-o", "--observation"),   type="character",default="negative_binomial_3", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"),    type="integer",  default=4000,     help="Length of MCMC chains [4000]"),
+  make_option(c("-i", "--iterations"),    type="integer",  default=6000,     help="Length of MCMC chains [4000]"),
   make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -38,15 +38,26 @@ rstan_options(auto_write = TRUE)
 infprofile <- read.csv("data/serial_interval.csv")$fit
 
 uk_cases <- read.csv("data/uk_cases.csv")
+ind <- sapply(uk_cases[,2], function(s) 
+    !(s %in% c('Outside Wales','Unknown','...17','...18'))
+)
+uk_cases <- uk_cases[ind,]
 
+
+# Assumes that metadata contains all areas in uk_cases and area names match perfectly
 metadata <- read.csv("data/metadata.csv")
+ind <- sapply(metadata[,1], function(s) 
+    s %in% uk_cases[,2]
+)
+metadata <- metadata[ind,]
 
-N <- 185      # 149 number of regions in England & Wales only. 185 scotland too
+
+N <- nrow(uk_cases) # 149 number of regions in England & Wales only. 185 scotland too
 D <- 100      # infection profile number of days
-Tignore <- 7  # counts in most recent 7 days may not be reliable?
-Tpred <- 7    # number of days held out for predictive probs eval
+Tignore <- 3  # counts in most recent 3 days may not be reliable?
+Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
-Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
+Tall <- ncol(uk_cases)-2-Tignore  # number of days in time series used.
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
 Tproj <- 21              # number of days to project forward
 
@@ -55,6 +66,7 @@ Count <- uk_cases[1:N,3:(Tall+2)]
 
 geoloc <- matrix(0, N, 2)
 geodist <- matrix(0, N, N)
+population <- rep(0.0, N)
 
 region_names <- metadata$AREA
 longitudes <- metadata$LONG
@@ -68,18 +80,21 @@ for (i in 1:N) {
       print(sprintf("Found regions %s, using first", paste(region_names[j]), collapse=","))
     geoloc[i, 1] = longitudes[j[1]]
     geoloc[i, 2] = latitudes[j[1]]
+    population[i] = metadata$POPULATION[j[1]]
   } else {
     print(sprintf("Cannot find region '%s'",region_name))
     for (r in 1:length(region_names)) {
       if (length(grep(region_names[r], region_name))>0) {
         geoloc[i, 1] = longitudes[r]
         geoloc[i, 2] = latitudes[r]
+        population[i] = metadata$POPULATION[r]
         print(sprintf("...found region '%s'",region_names[r]))
       }
     }
   }
 }
-  
+
+# compute distances between areas. Straight line, not actual travel distance. 
 for (i in 1:N) {
   for (j in i:N) {
     # distance between two points on an ellipsoid (default is WGS84 ellipsoid), in units of 100km
@@ -88,6 +103,16 @@ for (i in 1:N) {
   }
 }
 
+# compute fluxes for radiation model
+flux <- matrix(0, N, N)
+for (i in 1:N) {
+  mi = population[i]
+  js = order(geodist[i,])[2:N]
+  nj = population[js]
+  sij = cumsum(c(0.0,nj))[1:(N-1)]
+  flux[i,js] = mi*nj/((mi+sij)*(mi+nj+sij))
+  flux[i,i] = 1.0 - sum(flux[i,js]) # this statement weird, as fluxes don't sum to 1, unlike as claimed in Simini paper
+}
 
 Rmap_data <- list(
   N = N, 
@@ -99,6 +124,7 @@ Rmap_data <- list(
   Count = Count,
   geoloc = geoloc,
   geodist = geodist,
+  flux = flux,
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,
@@ -133,7 +159,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -173,11 +199,12 @@ for (i in 1:Tpred)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
     row.names=FALSE)
 
+inquotes <- function(s) paste('"',s,'"',sep='')
 
 dates <- as.Date(colnames(uk_cases)[2+(Tcond+Tlik)], format='X%Y.%m.%d')
 dates <- seq(dates,by=1,length.out=Tproj+1)[2:(Tproj+1)]
 dates <- rep(dates,N)
-areas <- rep(uk_cases[1:N,2],Tproj)
+areas <- rep(sapply(uk_cases[1:N,2],inquotes),Tproj)
 dim(areas) <- c(N,Tproj)
 areas <- t(areas)
 dim(areas) <- c(N*Tproj)
@@ -185,18 +212,18 @@ df <- data.frame(area = areas, Date = dates, Cproj = Cproj)
 colnames(df)[3:5] <- c("C_lower","C_median","C_upper")
 df[,3:5] <- format(df[,3:5],digits=2)
 write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
-    row.names=FALSE)
+    row.names=FALSE,quote=FALSE)
 write.csv(df, paste('website/Cproj.csv', sep=''),
-    row.names=FALSE)
+    row.names=FALSE,quote=FALSE)
 
-areas <- uk_cases[1:N,2]
+areas <- sapply(uk_cases[1:N,2],inquotes)
 df <- data.frame(area = areas, Rt = Rt)
 colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
 df[,2:4] <- format(df[,2:4],digits=2)
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
-    row.names=FALSE)
+    row.names=FALSE,quote=FALSE)
 write.csv(df, paste('website/Rt.csv', sep=''),
-    row.names=FALSE)
+    row.names=FALSE,quote=FALSE)
 
 
 
@@ -207,4 +234,6 @@ write.csv(df, paste('website/Rt.csv', sep=''),
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
+
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"))
 

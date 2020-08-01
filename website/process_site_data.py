@@ -19,9 +19,9 @@ df = uk_cases.set_index(['Country', 'Area name']).stack().to_frame().reset_index
 df['cases_new_smoothed'] = df['cases_new'].rolling(7, center=True).mean()
 df['Date'] = pd.to_datetime(df['Date'])
 
-# Remove the last 7 days of actual cases which are exluded in the modelling due to being unreliable
+# Remove the last 3 days of actual cases which are exluded in the modelling due to being unreliable
 max_date = df['Date'].max()
-df = df[df['Date'] < max_date - pd.offsets.Day(7)]
+df = df[df['Date'] < max_date - pd.offsets.Day(3)]
 
 df.to_csv(OUTPUT_PATH, index=False)
 print('Wrote', OUTPUT_PATH)

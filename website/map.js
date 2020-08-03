@@ -1,5 +1,5 @@
 // Constants
-const TOPOJSON_PATH = "uk_boundaries.json";
+const TOPOJSON_PATH = "uk_lad_boundaries.json";
 const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
@@ -262,7 +262,7 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
 
     rtFillFn = d => {  // Fill based on value of Rt
-        var rt = rtData.get(d.properties.ctyua17nm);
+        var rt = rtData.get(d.properties.lad20nm);
         if (!rt) {
             return "#ccc";
         }
@@ -270,7 +270,7 @@ function ready(data) {
     }
 
     caseFillFn = d => { // Fill based on value of case projection
-        var caseProj = nextWeekCaseProj.get(d.properties.ctyua17nm);
+        var caseProj = nextWeekCaseProj.get(d.properties.lad20nm);
         if (!caseProj) {
             return "#ccc";
         }
@@ -279,7 +279,7 @@ function ready(data) {
 
     // Draw the map
     var map = g.selectAll("path")
-        .data(topojson.feature(topo, topo.objects.Counties_and_Unitary_Authorities__December_2017__Boundaries_UK).features)
+        .data(topojson.feature(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC).features)
         .enter().append("path")
         .attr("fill", rtFillFn)
         .style("fill-opacity", 1)
@@ -290,10 +290,10 @@ function ready(data) {
             
             console.log(d.properties);
 
-            tooltip_header.text(d.properties.ctyua17nm);
-            tooltip_info1.text(`Last 7 days cases: ${getCaseHistoryForArea(d.properties.ctyua17nm).casesLast7Day}`);
-            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.ctyua17nm)}`);
-            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.ctyua17nm)}`);
+            tooltip_header.text(d.properties.lad20nm);
+            tooltip_info1.text(`Last 7 days cases: ${getCaseHistoryForArea(d.properties.lad20nm).casesLast7Day}`);
+            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm)}`);
+            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.lad20nm)}`);
 
             tooltip_div
               .style("left", (d3.event.pageX + 20) + "px")             
@@ -304,12 +304,12 @@ function ready(data) {
             tooltip_div.style("opacity", 0);
             d3.select(this).style("fill-opacity", 1)
         })
-        .on("click", d => selectArea(d.properties.ctyua17nm))
+        .on("click", d => selectArea(d.properties.lad20nm))
         .attr("d", path)
         .attr("class", "feature")
 
     g.append("path")
-        .datum(topojson.mesh(topo, topo.objects.Counties_and_Unitary_Authorities__December_2017__Boundaries_UK, (a, b) => a !== b ))
+        .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
         .attr("class", "mesh")
         .attr("d", path);
 

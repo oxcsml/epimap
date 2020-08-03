@@ -232,19 +232,25 @@ def stanmodel_cache(model_code, model_name=None):
     return sm, code_hash
 
 
-def do_modeling(kernel: str='matern12',
+def do_modeling(spatialkernel: str='matern12',
+                localkernel: str='local',
+                globalkernel: str='global',
                 metapop: str='none',
-                likelihood: str='negative_binomial',
+                observation: str='negative_binomial',
                 chains: int=4,
                 iterations: int=4000,
                 pkl_file: str=None):
     """Runs the Stan model, saves samples, and writes predictions to file.
 
-    :param kernel: The kernel to use in the spatial prior GP. Options are
+    :param spatialkernel: The kernel to use in the spatial prior GP. Options are
     `matern12`, `matern32`, `matern52`, `exp_quad` or `none`
+    :param globalkernel: Whether to include a local kernel. Options are
+    `global` or `none`
+    :param localkernel: Whether to include a local kernel. Options are
+    `local` or `none`
     :param metapop: The metapopulation model for inter-region cross
     infections. Options are `uniform1`, `uniform2` or `none`.
-    :param likelihood: The likelihood model. Options are `negative_binomial`
+    :param observation: The observation model. Options are `negative_binomial`
     or `poisson`.
     :param chains: The number of MCMC chains.
     :param iterations: The length of each MCMC chain.
@@ -254,9 +260,12 @@ def do_modeling(kernel: str='matern12',
     # Avoids C++ recompilation if unnecessary in PyStan
     with open('stan_files/Rmap.stan', 'r') as stan_file:
         model_code = stan_file.read()
-        model_code = model_code.replace('KERNEL', kernel) \
+        model_code = model_code \
+            .replace('SPATIAL', spatialkernel) \
+            .replace('LOCAL', localkernel) \
+            .replace('GLOBAL', globalkernel) \
             .replace('METAPOP', metapop) \
-            .replace('LIKELIHOOD', likelihood)
+            .replace('OBSERVATION', observation)
     sm, code_hash = stanmodel_cache(model_code)
 
     # Read the input data.

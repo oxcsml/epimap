@@ -151,7 +151,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","gp_time_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -207,10 +207,11 @@ write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
 write.csv(df, paste('website/Cproj.csv', sep=''),
     row.names=FALSE)
 
-areas <- uk_cases[1:N,2]
-df <- data.frame(area = areas, Rt = Rt)
-colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
-df[,2:4] <- format(df[,2:4],digits=2)
+areas <- rep(uk_cases[1:N,2], each=M)
+times <- rep(1:M, N)
+df <- data.frame(area = areas, time=times, Rt = Rt)
+colnames(df)[3:5] <- c("Rt_lower","Rt_median","Rt_upper")
+df[,3:5] <- format(df[,3:5],digits=2)
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE)
 write.csv(df, paste('website/Rt.csv', sep=''),

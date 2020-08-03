@@ -31,7 +31,7 @@ if __name__ == "__main__":
             ).swaplevel(axis=1)
 
     regions = outputs.columns.levels[0]
-    fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=True)
+    fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=False)
     for ax, region in zip(axarr.flat, regions):
         ax.set_title(region, x=0.95, y=0.95, ha="right", va="top")
         outputs[region].plot(ax=ax, legend=False)

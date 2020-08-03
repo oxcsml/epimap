@@ -1,7 +1,7 @@
 import numpy as np
 from covid19_datasets import UKCovid19Data
 
-uk_data = UKCovid19Data()
+uk_data = UKCovid19Data(england_area_type=UKCovid19Data.ENGLAND_LOWER_TIER_AUTHORITY)
 uk_cases = uk_data.get_cases_data()
 
 # Scotland has a few negative case counts (usually -1, at most -4, and these

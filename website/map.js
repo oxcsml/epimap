@@ -184,7 +184,7 @@ Promise.all([
     loadCases
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
-var colorDomain = [0.5, 1.0, 1.5];
+var colorDomain = [0.5, 1.0, 2.0];
 
 function getRtForArea(area) {
     var rt = rtData.get(area);
@@ -229,7 +229,7 @@ function ready(data) {
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = d3.max(nextWeekCaseProj.values().map(r=>r.caseProjMedian));
+    maxCases = 100; // d3.max(nextWeekCaseProj.values().map(r=>r.caseProjMedian));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
@@ -409,7 +409,7 @@ function selectArea(area) {
     console.log("Case projection data for " + area, projectionData);
 
     var xDomain = d3.extent([...chartData.map(c=>c.Date), ...projectionData.map(p=>p.Date)]);
-    var yDomain = [0, d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_upper)])];
+    var yDomain = [0, 100]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
     console.log("X Domain:", xDomain);
     console.log("Y Domain:", yDomain);

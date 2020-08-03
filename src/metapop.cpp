@@ -3,8 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <valarray>
 #include <iterator>
+#include <filesystem>
 #include <experimental/iterator>
 #include "csv.h"
 
@@ -12,8 +12,7 @@
 #include "xtensor/xcsv.hpp"
 #include "xtensor/xbuilder.hpp"
 #include "xtensor/xview.hpp"
-
-#include "xtensor/xio.hpp"
+#include "xtensor-blas/xlinalg.hpp"
 
 using std::cout;
 using std::endl;
@@ -22,14 +21,16 @@ using std::string;
 using std::ifstream;
 using std::ofstream;
 
+namespace fs = std::filesystem;
+
 std::tuple<int, string> parse_cmd(int argc, char** argv);
-template <typename dtype> void write_csv(
-        const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names);
+template <typename dtype> 
+void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names);
 
 // I think these are beta, alpha and gamma respectively
-const double attack = 1 / 5. ; // force of attack
-const double latent = 1 / 5.; // the mean of this variable is 1 / latent period
-const double inf_period = 1 / 14.; // length of period infected before recovering or dying
+const double beta = 1/5. ; // force of attack, typical time between contacts is 1/beta
+const double a = 1 / 5.; // the average incubation period is 1/a
+const double inf_period = 1 / 14.; // 1 / length of period infected before recovering or dying (this is gamma on wiki)
 
 template <typename dtype>
 xt::xarray<dtype> load_csv(const string fpath) {
@@ -39,20 +40,28 @@ xt::xarray<dtype> load_csv(const string fpath) {
     return data;
 };
 
+
 int main(int argc, char** argv) {
-
     auto [timesteps, data_dir] = parse_cmd(argc, argv);
-    string output_folder = data_dir + "/outputs";
+    fs::path data_folder = data_dir;
+    fs::path output_folder = data_dir / std::filesystem::path("outputs");
+    
+    auto mobility = load_csv<double>(data_folder / fs::path("mobility.csv"));
+    auto initial = load_csv<double>(data_folder / fs::path("initial-values-seed.csv"));
 
-    auto mobility = load_csv<double>(data_dir + "/mobility.csv");
-    auto initial = load_csv<double>(data_dir + "/initial-values.csv");
+    cout << "Mobility patterns are:\n" << mobility  << endl;
+    cout << "Initial values are:\n" << initial << endl;
+    cout << "a is " << 1 / a << endl;
+    cout << "Infectious period is " << 1 / inf_period << endl;
+    cout << "R_eff is " << beta / inf_period << endl;
 
-    xt::xarray<double> init;
+    // note that these are views, so will modify the array initial
     auto s = xt::row(initial, 0);
     auto e = xt::row(initial, 1);
     auto i = xt::row(initial, 2);
     auto r = xt::row(initial, 3);
-    auto n = s + e + i + r;
+    auto n = xt::zeros_like(xt::row(initial, 0));
+    n += s + e + i + r;
 
     vector<xt::xarray<double>> susceptible = {s};
     vector<xt::xarray<double>> exposed = {e};
@@ -60,13 +69,15 @@ int main(int argc, char** argv) {
     vector<xt::xarray<double>> recovered = {r};
     vector<xt::xarray<double>> population = {n};
 
-
+    auto emigrate = xt::sum(mobility, 0);
     for (int t=0; t != timesteps; ++t) {
-        s = s - attack * i * s / n;
-        e = e + attack * i * s / n - latent * e;
-        i = i + latent * e - inf_period * i;
-        r = r + inf_period * i;
-        //n = n;
+        auto st=susceptible[t], et=exposed[t], it=infected[t], rt=recovered[t];
+        auto sn = st/n;
+        s -= beta * it * sn + xt::linalg::dot(mobility, sn) - emigrate * sn; 
+        e += beta * it * sn - a * et + xt::linalg::dot(mobility, et/n) - emigrate * (et/n); 
+        i += a * et - inf_period * it + xt::linalg::dot(mobility, it/n) - emigrate * (it/n); 
+        r += inf_period * it + xt::linalg::dot(mobility, rt/n) - emigrate * (rt/n); 
+        n += xt::linalg::dot(mobility, n) - emigrate * n;
 
         susceptible.push_back(s);
         exposed.push_back(e);
@@ -77,21 +88,19 @@ int main(int argc, char** argv) {
 
     const vector<string> region_names = {"0", "1", "2", "3", "4"};
     const vector<string> filenames = {
-        "susceptible.csv"
-		"exposed.csv"
-		"infected.csv"
-		"recovered.csv"
-		"population.csv"
+        "susceptible.csv",
+		"exposed.csv"    ,
+		"infected.csv"   ,
+		"recovered.csv"  ,
+		"population.csv" 
     };
     vector<vector<xt::xarray<double>>> all_data = {susceptible, exposed, infected, recovered, population};
 
     for (vector<string>::size_type i=0; i < filenames.size(); ++i) {
-        // change write csv argument types
-        //
-        write_csv((output_folder + filenames[i]).c_str(), all_data[i], region_names);
+        std::filesystem::path fname = filenames[i];
+        auto outpath = output_folder / fname;
+        write_csv((outpath).c_str(), all_data[i], region_names);
     };
-
-    cout << "R_eff is " << attack / inf_period << endl;
     
     return 0;
 } 
@@ -124,6 +133,8 @@ std::tuple<int, string> parse_cmd(int argc, char** argv) {
 // Later, use the seir initial values to calculate nppl
 // for now ca just put itin here since eventually will habe multiple populations anyway
 // can just remove the nppl argument because it's irrelevant!
+//
+// load beta, alpha, gamma from file
 // 
 // --- Turn these populations into things that interact
 // --- find some way of testing it?

@@ -42,7 +42,6 @@ def post_process(uk_cases: pd.DataFrame,
                                                            pd.DataFrame]:
     """Prints model summary statistics and creates CSV file."""
 
-    print(type(fit))
     parameters = ['Ravg', 'gp_length_scale', 'gp_sigma', 'global_sigma',
                   'local_sigma', 'dispersion', 'coupling_rate']
     for p in parameters:
@@ -97,7 +96,7 @@ def read_data(t_ignore: int=7,
     df = metadata.join(uk_cases, how='inner')
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
-    # Use England, Scotland and Wales data.
+    # Use England, Scotland, Wales data.
     df = df[(df['Country'] == 'England') |
             (df['Country'] == 'Scotland') |
             (df['Country'] == 'Wales')]
@@ -112,11 +111,40 @@ def read_data(t_ignore: int=7,
     geoloc = df[['LAT', 'LONG']].to_numpy()
     n, _ = geoloc.shape
     geodist = np.zeros((n, n))
+    population = df['POPULATION'].to_numpy()
+
     for i in range(n):
         for j in range(i + 1, n):
             # Vincenty's formula WGS84.
             geodist[i, j] = geo.distance(geoloc[i], geoloc[j]) / 1000
             geodist[j, i] = geodist[i, j]
+
+    # Compute fluxes for radiation model; see "A universal model for mobility
+    # and migration patterns" by Simini et al, Nature 484, 96–100(2012).
+    flux = np.zeros((n, n))
+
+    for i in range(n):
+        source_population = population[i]
+        # The distances from the source population, excluding the source.
+        sorted_distance_indices = np.argsort(geodist[i, :])[1:]
+        # The sorted destination populations.
+        sorted_destination_populations = population[sorted_distance_indices]
+
+        # The total population in a circle with radius geodist[i, :], excluding
+        # the source population (which is already not in the cumulative sum)
+        # and the destination population (which is subtracted).
+        population_within_radius = np.cumsum(
+            sorted_destination_populations) - sorted_destination_populations
+
+        flx = (source_population * sorted_destination_populations /
+               (source_population + population_within_radius) /
+               (source_population + sorted_destination_populations +
+                population_within_radius))
+
+        flux[i, sorted_distance_indices] = flx
+        # According to Simini et al, `flx` should sum to one, but it sums to
+        # `1 - source_population / sum(population)`.
+        flux[i, i] = 1 - sum(flx)
 
     t_cond = cases.shape[1] - t_likelihood - t_predict
 
@@ -130,6 +158,7 @@ def read_data(t_ignore: int=7,
         'Count': cases,
         'geoloc': geoloc,
         'geodist': geodist,
+        'flux': flux,
         'infprofile': infection_profile
     }
 
@@ -235,8 +264,8 @@ def stanmodel_cache(model_code, model_name=None):
 def do_modeling(spatialkernel: str='matern12',
                 localkernel: str='local',
                 globalkernel: str='global',
-                metapop: str='none',
-                observation: str='negative_binomial',
+                metapop: str='radiation_uniform_in',
+                observation: str='negative_binomial_3',
                 chains: int=4,
                 iterations: int=4000,
                 pkl_file: str=None):

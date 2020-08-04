@@ -132,7 +132,8 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-%s-%s-%s-%s-%s', 
+runname = sprintf('Rmap-s-%s-%s-%s-%s-%s', 
+  as.character(Sys.time(),format='%Y:%m:%d-%H:%M:%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -159,7 +160,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 

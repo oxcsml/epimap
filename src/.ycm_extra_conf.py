@@ -14,8 +14,10 @@ def Settings(**kwargs):
             "-Wextra",
             "-Wpedantic",
             "-std=c++17",
-            "-isystem", f"{environ}",
+            # "-isystem", f"{environ}",
             "-I",
             f"{environ}/include",
+            "-I",
+            f"./include",
         ]
     }

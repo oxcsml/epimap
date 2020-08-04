@@ -2,13 +2,20 @@ fname = metapop
 data_dir = $(repos)/metapop/data
 
 compile:
-	clang++ -Wall -Wextra -Wpedantic -o3 -std=c++17 -I${CONDA_PREFIX}/include -lblas -o $(fname) csv.cpp $(fname).cpp
+	clang++ -o3 -std=c++17 -I${CONDA_PREFIX}/include -I./include -lblas -o $(fname) $(fname).cpp \
+		#-Wall -Wextra -Wpedantic 
 
 data:
 	python make_data.py $(data_dir)
 
 execute:
-	./$(fname) 150 $(data_dir)
+	./$(fname) \
+	--a 0.25 \
+	--gamma 0.25 \
+	--mobility $(data_dir)/basic-mobility.csv \
+	--init $(data_dir)/basic-initial-values.csv \
+	--rt $(data_dir)/basic-rt.csv \
+    --output $(data_dir)/outputs \
 
 run:
 	make compile && make execute

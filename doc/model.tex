@@ -27,7 +27,7 @@
 \maketitle
 
 The metapopulation model is a combination of a simple SEIR model (without vital dynamics)
-combined with metapopulation formulating that follows~\cite{Li489}.
+combined with metapopulation formulating that follows~\cite{Li490}.
 $S$, $E$, $I$ and $R$ have the usual meaning and the index represents region.
 $M_{ij}$ is a matrix with entries that give the number of people travelling from region $i$ 
 to region $j$ in a timestep (assumed to be constant in time).
@@ -48,7 +48,7 @@ The parameter $\gamma$ represents the typical length of time for an infected per
 either recover or die.
 In this model, we recover a localised and time-varying reproduction number of
 \[
-    R_i(t) = \frac{1}{\gamma} \beta_i(t).
+    R_i(t) = \frac{\beta_i(t)}{\gamma}  .
 \]
 
 

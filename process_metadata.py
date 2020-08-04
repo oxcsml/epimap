@@ -3,10 +3,10 @@ from urllib.request import urlopen
 import json
 
 _POPULATION_PATH = 'data/uk_lad_population_estimates.xls'
-_GEO_JSON_URL = 'http://geoportal1-ons.opendata.arcgis.com/datasets/b216b4c8a4e74f6fb692a1785255d777_0.geojson?outSR={%22latestWkid%22:27700,%22wkid%22:27700}'
+_TOPO_JSON_URL = 'website/uk_lad_boundaries.json'
 
 population_df = pd.read_excel(_POPULATION_PATH, sheet_name='MYE 5', skiprows=4)
-utla_population_df = population_df[['Code', 'Name', 'Estimated Population mid-2019', '2019 people per sq. km', 'Area (sq km)']].rename(columns={
+lad_population_df = population_df[['Code', 'Name', 'Estimated Population mid-2019', '2019 people per sq. km', 'Area (sq km)']].rename(columns={
     'Code': 'CODE',
     'Name': 'AREA',
     'Estimated Population mid-2019': 'POPULATION',
@@ -14,20 +14,15 @@ utla_population_df = population_df[['Code', 'Name', 'Estimated Population mid-20
     'Area (sq km)': 'SQUARE_KM_AREA'
 })
 
-# Update Buckinghamshire UTLA to use the county-code instead which is given in the GeoJSON
-utla_population_df.CODE = utla_population_df.CODE.replace({
-    'E06000060': 'E10000002'
-})
-
-with urlopen(_GEO_JSON_URL) as response:
-    local_authorities_official = json.load(response)
+with open(_TOPO_JSON_URL) as f:
+    local_authorities_official = json.load(f)
 
 meta_df = pd.DataFrame(
-    [(l['properties']['ctyua19cd'], l['properties']['ctyua19nm'], l['properties']['lat'], l['properties']['long'])
-        for l in local_authorities_official['features']],
+    [(l['properties']['lad20cd'], l['properties']['lad20nm'], l['properties']['lat'], l['properties']['long'])
+        for l in local_authorities_official['objects']['Local_Authority_Districts__May_2020__Boundaries_UK_BFC']['geometries']],
     columns=['CODE', 'AREA', 'LAT', 'LONG'])
 
-df = pd.merge(utla_population_df, meta_df, how='right', on=['CODE', 'AREA'])
+df = pd.merge(lad_population_df, meta_df, how='right', on=['CODE', 'AREA'])
 
 df = df.set_index('AREA')
 df = df.loc[:, ~df.columns.str.contains('^Unnamed')]

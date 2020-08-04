@@ -1,8 +1,16 @@
 import numpy as np
+import pandas as pd
 from covid19_datasets import UKCovid19Data
 
-uk_data = UKCovid19Data()
+uk_data = UKCovid19Data(england_area_type=UKCovid19Data.ENGLAND_LOWER_TIER_AUTHORITY)
 uk_cases = uk_data.get_cases_data()
+
+# Combine old LTLAs into Buckinghamshire
+buckinghamshire_keys = [('England', 'Aylesbury Vale'), ('England', 'Chiltern'), ('England', 'South Bucks'), ('England', 'Wycombe')]
+buckinghamshire_cases = uk_cases.loc[buckinghamshire_keys].sum().to_frame()
+buckinghamshire_cases.columns = pd.MultiIndex.from_tuples([('England', 'Buckinghamshire')])
+uk_cases = pd.concat([uk_cases[~uk_cases.index.isin(buckinghamshire_keys)], buckinghamshire_cases.T], 
+    axis=0).sort_index()
 
 # Scotland has a few negative case counts (usually -1, at most -4, and these
 # are very sparse). Set Scotland's negative case counts to 0.

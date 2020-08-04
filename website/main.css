@@ -41,6 +41,7 @@
     stroke: #999;
     stroke-linecap: round;
     stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
 }
 
 .legend rect {

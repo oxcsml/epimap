@@ -5,4 +5,7 @@ The website is static HTML, CSS and Javascript and technically can be run withou
 - Run `python run.py`
 - Navigate to localhost:8000 in your browser
 
+If you want to view different Rt and CProj.csv files in the website directory, you can specify these as query parameters:
+`http://localhost:8000/?rt=myrt.csv&cproj=mycproj.csv`
+
 If you need to change the port, update the constant in run.py.

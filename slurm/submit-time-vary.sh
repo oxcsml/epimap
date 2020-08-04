@@ -3,7 +3,7 @@
 #SBATCH --mail-user=michael.hutchinson@stats.ox.ac.uk
 #SBATCH --mail-type=ALL
 #
-#SBATCH --job-name=Rmap
+#SBATCH --job-name=Rmap-time-vary
 #SBATCH --output=slurm/output/Rmap_ablation_%A_%a.txt
 #SBATCH --partition=ziz-large
 #
@@ -16,8 +16,9 @@
 
 set -e
 
-Rscript run.r --task_id $SLURM_ARRAY_TASK_ID --iterations 8000 --chains 6
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6  --task_id $SLURM_ARRAY_TASK_ID
 
+# Lazy file moving
 mv fits/* ../../not-backed-up/mhutchin/Rmap/fits/
 
 echo 'Run completed.'

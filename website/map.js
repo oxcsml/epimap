@@ -143,14 +143,18 @@ var loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
     });
 });
 
-var loadRt = d3.csv(RT_PATH).then(data => data.forEach(d => rtData.set(d.area, 
+const urlParams = new URLSearchParams(window.location.search);
+const rt_path = urlParams.get('rt') || RT_PATH;
+const case_projection_path = urlParams.get('cproj') || CASE_PROJECTION_PATH;
+
+var loadRt = d3.csv(rt_path).then(data => data.forEach(d => rtData.set(d.area, 
     {
         Rtlower: +d.Rt_lower,
         Rtmedian: +d.Rt_median,
         Rtupper: +d.Rt_upper,
     })));
 
-var loadCaseProjections = d3.csv(CASE_PROJECTION_PATH).then(data => data.forEach(d => {
+var loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach(d => {
     if (!caseProjTimeseries.has(d.area)) {
         caseProjTimeseries.set(d.area, []);
     }
@@ -308,10 +312,10 @@ function ready(data) {
         .attr("d", path)
         .attr("class", "feature")
 
-    g.append("path")
-        .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
-        .attr("class", "mesh")
-        .attr("d", path);
+    // g.append("path")
+    //     .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
+    //     .attr("class", "mesh")
+    //     .attr("d", path);
 
     // Draw the color scale
     const defs = map_svg.append("defs");

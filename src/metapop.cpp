@@ -51,11 +51,14 @@ template <typename dtype> xt::xarray<dtype> read_csv(const string fpath);
  *  - It's not clear where they get their estimates of `a` and `gamma` from (I can look at bobby paper)
  *  (Maybe I should look at their refs to see if what we are using to compare methods is defensible?)
  *
- * -> Try out YW town and city example
- * -> Find configurations from gostic example 
- *      - (They just had a specific timeseries of R_t)
- * -> Figure out how to tune the R_t and find out what the right parameters for it should be (speak to bobby)
+ *  -> make some docs on this (maybe a chart?)
+ *
+ * -> Figure out how to tune the R_t and find out what the right parameters for it should be 
+ *  (speak to bobby)
  * -> run it and speak to YW about the results
+ *
+ * Potential next steps:
+ *  -> look into data for realistic example
  * 
  * Notes:
  * - could later make this simulation stochastic as is done here 
@@ -98,7 +101,7 @@ int main(int argc, char** argv) {
         e += bt * it * sn - args.a * et + xt::linalg::dot(args.mobility, et/n) - emigrate * (et/n); 
         i += args.a * et - args.gamma * it + xt::linalg::dot(args.mobility, it/n) - emigrate * (it/n); 
         r += args.gamma * it + xt::linalg::dot(args.mobility, rt/n) - emigrate * (rt/n); 
-        n += xt::linalg::dot(args.mobility, n) - emigrate * n;
+        n += xt::sum(args.mobility, 0) - emigrate;
        
         susceptible.push_back(s);
         exposed.push_back(e);

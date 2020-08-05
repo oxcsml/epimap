@@ -38,7 +38,7 @@ We model the dynamics in discrete time as given below.
     E_i(t+1) &= E_i(t) +\beta_i(t)  \frac{S_i(t) I_i(t) }{N_i(t)} - a E_i(t) + \sum_{j} M_{ij} \frac{E_j(t)}{N_j(t)} - \sum_{j} M_{ji} \frac{E_i(t)}{N_i(t)}\\
     I_i(t+1) &= I_i(t) + a E_i(t) - \gamma I_i(t) + \sum_{j} M_{ij} \frac{I_j(t)}{N_j(t)} - \sum_{j} M_{ji} \frac{I_i(t)}{N_i(t)}\\
     R_i(t+1) &= R_i(t) + \gamma I_i(t) + \sum_{j} M_{ij} \frac{R_j(t)}{N_j(t)} - \sum_{j} M_{ji} \frac{R_i(t)}{N_i(t)}\\
-    N_i(t+1) &=  \sum_{j} M_{ij} N_j(t) - \sum_{j} M_{ji} N_i(t)\\
+    N_i(t+1) &=  \sum_{j} (M_{ij} - M_{ji}) \\
 \end{align*}
 The parameter $\beta_i(t)$ represents a time-varying and localised force of infection,
 with $\frac{1}{\beta}$ interpreted as the expected time between contacts.

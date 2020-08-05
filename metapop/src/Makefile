@@ -1,9 +1,10 @@
 fname = metapop
-data_dir = $(repos)/metapop/data
+data_dir = ../../data/metapop
 data_name = metapop
 
 compile:
-	clang++ -o3 -std=c++17 -I${CONDA_PREFIX}/include -I./include -lblas -o $(fname) $(fname).cpp \
+	clang++ -o3 -std=c++17 -I./include -lblas -o $(fname) $(fname).cpp \
+		-rpath $(CONDA_PREFIX)/lib
 		#-Wall -Wextra -Wpedantic 
 
 data:
@@ -16,11 +17,13 @@ execute:
 	--mobility $(data_dir)/$(data_name)-mobility.csv \
 	--init $(data_dir)/$(data_name)-initial-values.csv \
 	--rt $(data_dir)/$(data_name)-rt.csv \
-    --output $(data_dir)/outputs && \
+    --output $(data_dir)/outputs
+
+coerce:
 	python coerce.py $(data_dir)/outputs/infected.csv --output=$(data_dir)/outputs/cases.csv
 
-run:
-	make compile && make execute
+csv:
+	make execute && make coerce
 
 chart:
 	python plot.py $(data_dir)/outputs --rt=$(data_dir)/$(data_name)-rt.csv

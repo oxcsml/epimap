@@ -6,13 +6,17 @@
 #include <iterator>
 #include <filesystem>
 #include <experimental/iterator>
-#include "csv.h"
+#include <functional>
 
 #include "xtensor/xarray.hpp"
 #include "xtensor/xcsv.hpp"
 #include "xtensor/xbuilder.hpp"
 #include "xtensor/xview.hpp"
 #include "xtensor-blas/xlinalg.hpp"
+
+#include "argparse/argparse.hpp"
+
+#include "csv.h"
 
 using std::cout;
 using std::endl;
@@ -23,38 +27,54 @@ using std::ofstream;
 
 namespace fs = std::filesystem;
 
-std::tuple<int, string> parse_cmd(int argc, char** argv);
-template <typename dtype> 
-void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names);
-
-// I think these are beta, alpha and gamma respectively
-const double beta = 1/5. ; // force of attack, typical time between contacts is 1/beta
-const double a = 1 / 5.; // the average incubation period is 1/a
-const double inf_period = 1 / 14.; // 1 / length of period infected before recovering or dying (this is gamma on wiki)
-
-template <typename dtype>
-xt::xarray<dtype> load_csv(const string fpath) {
-    ifstream file;
-    file.open(fpath);
-    auto data =  xt::load_csv<dtype>(file);
-    return data;
+struct cmd_args {
+    double a;
+    double gamma;
+    xt::xarray<double> initial;
+    xt::xarray<double> mobility;
+    xt::xarray<double> rt;
+    fs::path output_folder;
 };
 
+cmd_args parse_cmd(int argc, char** argv);
+template <typename dtype> 
+void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data);
+template <typename dtype> xt::xarray<dtype> read_csv(const string fpath);
 
-int main(int argc, char** argv) {
-    auto [timesteps, data_dir] = parse_cmd(argc, argv);
-    fs::path data_folder = data_dir;
-    fs::path output_folder = data_dir / std::filesystem::path("outputs");
+
+
+/*
+ * TODO
+ * Read Gostic paper
+ *  - from reading the paper it seems like what I am doing is reasonable
+ *  - could possibly add in some stochasticity
+ *  - It's not clear where they get their estimates of `a` and `gamma` from (I can look at bobby paper)
+ *  (Maybe I should look at their refs to see if what we are using to compare methods is defensible?)
+ *
+ * -> Try out YW town and city example
+ * -> Find configurations from gostic example 
+ *      - (They just had a specific timeseries of R_t)
+ * -> Figure out how to tune the R_t and find out what the right parameters for it should be (speak to bobby)
+ * -> run it and speak to YW about the results
+ * 
+ * Notes:
+ * - could later make this simulation stochastic as is done here 
+ *      https://github.com/cobeylab/Rt_estimation/blob/master/code/simulation.R
+ *      (code from gostic et al)
+ */
+
+    //"""
+    //Gostic plot the product r_0 * s
+    //they also show the infections, which is the derivative of my thing
+    //"""
     
-    auto mobility = load_csv<double>(data_folder / fs::path("mobility.csv"));
-    auto initial = load_csv<double>(data_folder / fs::path("initial-values-seed.csv"));
+int main(int argc, char** argv) {
 
-    cout << "Mobility patterns are:\n" << mobility  << endl;
-    cout << "Initial values are:\n" << initial << endl;
-    cout << "a is " << 1 / a << endl;
-    cout << "Infectious period is " << 1 / inf_period << endl;
-    cout << "R_eff is " << beta / inf_period << endl;
+    auto args = parse_cmd(argc, argv);
 
+    auto initial = args.initial;
+    const auto beta = args.rt * args.gamma;
+    
     // note that these are views, so will modify the array initial
     auto s = xt::row(initial, 0);
     auto e = xt::row(initial, 1);
@@ -69,16 +89,17 @@ int main(int argc, char** argv) {
     vector<xt::xarray<double>> recovered = {r};
     vector<xt::xarray<double>> population = {n};
 
-    auto emigrate = xt::sum(mobility, 0);
-    for (int t=0; t != timesteps; ++t) {
+    auto emigrate = xt::sum(args.mobility, 1);
+    for (unsigned int t=0; t < beta.shape()[0]; ++t) {
         auto st=susceptible[t], et=exposed[t], it=infected[t], rt=recovered[t];
         auto sn = st/n;
-        s -= beta * it * sn + xt::linalg::dot(mobility, sn) - emigrate * sn; 
-        e += beta * it * sn - a * et + xt::linalg::dot(mobility, et/n) - emigrate * (et/n); 
-        i += a * et - inf_period * it + xt::linalg::dot(mobility, it/n) - emigrate * (it/n); 
-        r += inf_period * it + xt::linalg::dot(mobility, rt/n) - emigrate * (rt/n); 
-        n += xt::linalg::dot(mobility, n) - emigrate * n;
-
+        auto bt = xt::row(beta, t);
+        s = s -  bt * it * sn + xt::linalg::dot(args.mobility, sn) - emigrate * sn; 
+        e += bt * it * sn - args.a * et + xt::linalg::dot(args.mobility, et/n) - emigrate * (et/n); 
+        i += args.a * et - args.gamma * it + xt::linalg::dot(args.mobility, it/n) - emigrate * (it/n); 
+        r += args.gamma * it + xt::linalg::dot(args.mobility, rt/n) - emigrate * (rt/n); 
+        n += xt::linalg::dot(args.mobility, n) - emigrate * n;
+       
         susceptible.push_back(s);
         exposed.push_back(e);
         infected.push_back(i);
@@ -86,70 +107,95 @@ int main(int argc, char** argv) {
         population.push_back(n);
     } 
 
-    const vector<string> region_names = {"0", "1", "2", "3", "4"};
     const vector<string> filenames = {
         "susceptible.csv",
-		"exposed.csv"    ,
-		"infected.csv"   ,
-		"recovered.csv"  ,
-		"population.csv" 
+        "exposed.csv",
+        "infected.csv",
+        "recovered.csv",
+        "population.csv" 
     };
     vector<vector<xt::xarray<double>>> all_data = {susceptible, exposed, infected, recovered, population};
 
     for (vector<string>::size_type i=0; i < filenames.size(); ++i) {
         std::filesystem::path fname = filenames[i];
-        auto outpath = output_folder / fname;
-        write_csv((outpath).c_str(), all_data[i], region_names);
+        auto outpath = args.output_folder / fname;
+        write_csv((outpath).c_str(), all_data[i]);
     };
     
     return 0;
 } 
 
-std::tuple<int, string> parse_cmd(int argc, char** argv) {
-    int timesteps;
-    string data_dir;
-    
-    if (argc < 3) {
-        throw std::domain_error(
-                "Not enough arguments given. Must be given integer number of timesteps and path to output folder."
-                );
-    } else {
-       timesteps = std::stoi(argv[1]);
-       data_dir = argv[2];
-    } 
 
-    std::tuple<int, string> tup(timesteps, data_dir);
-    return tup;
-} 
+template <typename dtype> xt::xarray<dtype> read_csv(const string fpath) {
+    ifstream file;
+    file.open(fpath);
+    auto data =  xt::load_csv<dtype>(file);
+    return data;
+};
 
-/*
- * Integrate metapopulation modelling and put outputs to csv (maybe can use matrices for this?)
- * Read R_t in from a csv too (make python stuff to look at this)
- * Make some sort of visualisation so it looks like it's working
- * Figure out how to tune the R_t and find out what the right parameters for it should be (speak to bobby)
- * Speak to YW about the results
- *
- */
-// Later, use the seir initial values to calculate nppl
-// for now ca just put itin here since eventually will habe multiple populations anyway
-// can just remove the nppl argument because it's irrelevant!
-//
-// load beta, alpha, gamma from file
-// 
-// --- Turn these populations into things that interact
-// --- find some way of testing it?
-// --- add in mobility data
-// --- add in time varying R_t
-// --- send it on to YW
-    
 
 template <typename dtype>
-void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data, const vector<string> &names){
+void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data){
     //Data should be the rows of the csv file
-    //Names are the headers
-    CSVWriter writer(fname, names);
+    //
+    //Took out the header row stuff but maybe will end up putting it back in later?!
+    //
+    CSVWriter writer(fname);
     for (const auto &vec : data) {
         std::vector<dtype> row(vec.begin(), vec.end());
         writer.write_row(row);
     };
 } 
+
+
+cmd_args parse_cmd(int argc, char** argv) {
+    auto to_double = [](const string val){return std::stod(val);};
+
+    argparse::ArgumentParser parser("Metapop: deterministic SEIR metapopulation modelling with time varying R.");
+    parser.add_argument("--a")
+        .required() .help("Parameter `a` such that mean incubation period is 1/a.")
+        .action(to_double);
+    parser.add_argument("--gamma")
+        .required() 
+        .help("Parameter `gamma` such that typical length of time for which a person is infectious is 1/gamma")
+        .action(to_double);
+    parser.add_argument("--init")
+        .required()
+        .help("Path to csv containing initial values for S, E, I and R");
+    parser.add_argument("--mobility")
+        .required()
+        .help("Path to csv containing mobility patterns");
+    parser.add_argument("--rt")
+        .required()
+        .help("Path to csv containing R_t timeseries by region."
+              " The number of rows in this file will determine the"
+              " number of timesteps for the simulation.");
+    parser.add_argument("-o", "--output")
+        .help("Folder in which to save the output files. Defaults to current directory.")
+        .default_value(fs::current_path());
+
+    try {
+        parser.parse_args(argc, argv);
+    }
+    catch (const std::runtime_error& err) {
+        std::cout << err.what() << std::endl;
+        exit(1);
+    }
+
+    cmd_args args;
+
+    args.a = parser.get<double>("--a");
+    args.gamma = parser.get<double>("--gamma");
+    args.output_folder = parser.get<string>("-o");
+   
+    auto init_pth = parser.get<string>("--init");
+    auto mobility_pth = parser.get<string>("--mobility");
+    auto rt_pth = parser.get<string>("--rt");
+    args.initial = read_csv<double>(init_pth);
+    args. mobility =  read_csv<double>(mobility_pth);
+    args.rt =  read_csv<double>(rt_pth);
+
+    return args;
+}
+
+

@@ -8,6 +8,18 @@ import pandas as pd
 filenames = "susceptible.csv exposed.csv infected.csv recovered.csv".split()
 
 
+def title(ax, region):
+    return ax.set_title(region, x=0.95, y=0.95, ha="right", va="top")
+
+
+def legend(fig, ax):
+    return fig.legend(
+        *ax.get_legend_handles_labels(),
+        bbox_to_anchor=(0.5, 0.05),
+        loc="center"
+    )
+
+
 if __name__ == "__main__":
     parser = ArgumentParser("Plot Results")
     parser.add_argument(
@@ -21,24 +33,56 @@ if __name__ == "__main__":
             " We will assume that there is no index column."
         ),
     )
+    parser.add_argument(
+        "--rt",
+        type=str,
+        help=(
+            "Path to rt csv used for simulation."
+            " If given we will plot the R_t timeseries."
+        ),
+        default=None,
+    )
     args = parser.parse_args()
 
     outputs = pd.concat(
-            {k.replace(".csv", ""): pd.read_csv(os.path.join(args.folder, k))
-                for k in filenames
-                },
-            axis=1
-            ).swaplevel(axis=1)
+        {
+            k.replace(".csv", ""): pd.read_csv(
+                os.path.join(args.folder, k), header=None
+            )
+            for k in filenames
+        },
+        axis=1,
+    ).swaplevel(axis=1)
 
     regions = outputs.columns.levels[0]
-    fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=False)
+
+    if args.rt is not None:
+        rt = pd.read_csv(os.path.join(args.rt), header=None)
+        npop = outputs.groupby(level=0, axis=1).sum()
+        rts = rt * outputs.swaplevel(axis=1)["susceptible"] / npop
+        xaxis = outputs.index
+        fig, axarr = plt.subplots(len(regions), 1, sharex=True, squeeze=False)
+        for ax, region in zip(axarr.flat, regions):
+            ax.plot(xaxis, rts[region], label="R_t", zorder=100)
+            ax.plot(xaxis[:-1], rt[region], label="R_0", alpha=0.5)
+            ax.axhline(1, ls="--", alpha=0.5, label="R_t=1", color="k")
+            ax.set_ylabel("Reproduction")
+            ax.set_xlabel("Days")
+            ax.grid(alpha=0.25)
+            title(ax, region)
+        legend(fig, ax)
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0.1)
+
+    fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=False, squeeze=False)
     for ax, region in zip(axarr.flat, regions):
-        ax.set_title(region, x=0.95, y=0.95, ha="right", va="top")
+        title(ax, region)
         outputs[region].plot(ax=ax, legend=False)
         ax.set_ylabel("Population")
         ax.set_xlabel("Timesteps")
         ax.grid(alpha=0.2)
-    fig.legend(*ax.get_legend_handles_labels(), ncol=len(regions), bbox_to_anchor=(0.5, 0.05), loc="center")
+    legend(fig, ax)
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1)
+
     plt.show()

@@ -13,9 +13,7 @@ class CSVWriter {
         const char delimiter[3] = ",";
         const char newline[2] = "\n";
 
-    CSVWriter(const char* fname, const std::vector<std::string> &names) : file(fname) {
-        write_row(names);
-    };
+    CSVWriter(const char* fname) : file(fname) {};
 };
 
 template <class vec> void CSVWriter::write_row(const vec &data){

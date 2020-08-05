@@ -78,7 +78,7 @@ if __name__ == "__main__":
     fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=False, squeeze=False)
     for ax, region in zip(axarr.flat, regions):
         title(ax, region)
-        outputs[region]['infected'].plot(ax=ax, legend=False)
+        outputs[region].plot(ax=ax, legend=False)
         ax.set_ylabel("Population")
         ax.grid(alpha=0.2)
     ax.set_xlabel("Timesteps")

@@ -3,17 +3,10 @@ Discrete time SEIR metapopulation modelling for epidemic spread
 
 
 ## usage
-All you should need to do is to run
-`conda install -c conda-forge openblas`
-to install `openblas`. 
-(You should already have clang from conda, when you run `which clang` it should give you the local Rmap one.)
-
 Then to make the toy data run
 `make data`
-to compile the code type
+to run the code type
 `make`
-then to run it 
-`make execute`
 and to plot the results
 `make chart`.
 If all of that is too much typing, just do 

@@ -44,14 +44,24 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                             england_map['POPULATION_x'])
     england_map = england_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
 
-    scotland_map = scotland_map.merge(metadata['POPULATION'],
+    # `Highland` appears as both an UTLA area and an NHS Scotland Health Board
+    # name, and some extra care is required to get the population ratios
+    # correct for the areas in the `Highland` health board.
+    scotland_map = scotland_map.merge(metadata[['POPULATION', 'CODE']],
                                       left_on=['NHS Scotland Health Board'],
                                       right_on=['AREA'],
-                                      how='left') \
-                               .merge(metadata['POPULATION'],
+                                      how='left')
+    scotland_map = scotland_map[scotland_map.CODE ==
+                                'NHS Scotland Health Board'] \
+                   .drop(columns=['CODE'])
+
+    scotland_map = scotland_map.merge(metadata[metadata.CODE !=
+                                               'NHS Scotland Health Board']
+                                              ['POPULATION'],
                                       left_on=['area'],
                                       right_on=['AREA'],
                                       how='left')
+
     scotland_map['ratio'] = (scotland_map['POPULATION_y'] /
                              scotland_map['POPULATION_x'])
     scotland_map = scotland_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
@@ -72,6 +82,12 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                            .drop(columns=['NHS Scotland Health Board',
                                           'ratio'])
 
+    # `Highland` is both the name of an NHS Scotland Health Board and an area
+    # in the health board. To avoid a duplicate area key, we drop it as a
+    # health board, and keep it as a local area (in this case the two rows
+    # would have been equal in any event).
+    reproduction_numbers = reproduction_numbers.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
     reproduction_numbers = reproduction_numbers.append(england) \
                                                .append(scotland)
 
@@ -96,8 +112,23 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
                        .set_index(['area', 'day'])
 
+    # We only keep the case predictions for `Highland` as a local area, not
+    # case_predictions = case_predictions.drop(['Highland'])
+    case_predictions = case_predictions.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
     case_predictions = case_predictions.append(england) \
                                        .append(scotland)
+
+    # The original reproduction numbers and case predictions data frames might
+    # already have been reinflated, so that we append duplicate rows. Duplicate
+    # rows are removed here. Note that we remove duplicates by index, and not
+    # by the entire row, as that requires floating point precision equality
+    # (which we don't get from reading from CSV).
+    reproduction_numbers = reproduction_numbers.loc[
+        ~reproduction_numbers.index.duplicated(keep='first')]
+    case_predictions = case_predictions.loc[
+        ~case_predictions.index.duplicated(keep='first')]
 
     return reproduction_numbers.sort_index(), case_predictions.sort_index()
 

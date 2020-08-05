@@ -5,7 +5,6 @@ data_name = metapop
 compile:
 	clang++ -o3 -std=c++17 -I./include -lblas -o $(fname) $(fname).cpp \
 		-rpath $(CONDA_PREFIX)/lib
-		#-Wall -Wextra -Wpedantic 
 
 data:
 	python make_data.py $(data_dir)

@@ -333,7 +333,7 @@ model {
   gp_length_scale ~ gig(2, 2.0, 2.0);
   gp_sigma ~ normal(0.0, 0.5);
   global_sigma ~ normal(0.0, 0.5);
-  local_scale ~ normal(0.0, 0.05);
+  local_scale ~ normal(0.0, 0.1);
   for (i in 1:N) {
     local_exp[i] ~ exponential(1.0);
     // local_sigma2[i] ~ exponential(0.5 / square(local_scale)); // reparameterised

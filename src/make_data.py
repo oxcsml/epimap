@@ -133,12 +133,57 @@ if __name__ == "__main__":
                 [0, 60, 67, 90, 97, 300],
                 [2.0, 2.0, 0.8, 0.8, 1.15, 1.15],
             ),
-            columns=region_names
+            columns=region_names,
         )
+        return mobility, initial_values, rt
+
+    @save(exp_name="metapop")
+    def metapop():
+        region_names = [
+            "city",
+            "town-a",
+            "town-b",
+            "village-a",
+            "village-b",
+            "village-c",
+        ]
+        m = np.array(
+            [
+                [0, 4000, 3500, 1500, 500, 100],
+                [0, 0, 5000, 1000, 100, 10],
+                [0, 0, 0, 100, 100, 10],
+                [0, 0, 0, 0, 100, 50],
+                [0, 0, 0, 0, 0, 50],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        )
+        m = np.triu(m)
+        mobility = pd.DataFrame(m + m.T, index=region_names, columns=region_names,)
+        s = [2e6 - 60, 200000, 150000, 60000, 10000, 1000]
+        e = [0, 0, 0, 0, 0, 0]
+        i = [60, 0, 0, 0, 0, 0]
+        r = [0, 0, 0, 0, 0, 0]
+        initial_values = pd.DataFrame([s, e, i, r], columns=region_names)
+
+        city_rt = np.interp(
+            np.arange(300), [0, 60, 67, 90, 97, 300], [2.0, 2.0, 0.8, 0.8, 1.15, 1.15],
+        )
+        town_rt = city_rt * 0.75
+        village_rt = city_rt * 0.5
+        rts = np.array(
+            [
+                city_rt,
+                town_rt,
+                town_rt,
+                village_rt,
+                village_rt,
+                np.full(city_rt.shape, 0.9),
+            ]
+        ).T
+        rt = pd.DataFrame(rts, columns=region_names,)
         return mobility, initial_values, rt
 
     [f() for f in __register]
 
-    # gostic single
     # yw town and village thing
     # put in sensible parameters for stuff from reading paper

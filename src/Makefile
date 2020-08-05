@@ -1,6 +1,6 @@
 fname = metapop
 data_dir = $(repos)/metapop/data
-data_name = gostic-single
+data_name = metapop
 
 compile:
 	clang++ -o3 -std=c++17 -I${CONDA_PREFIX}/include -I./include -lblas -o $(fname) $(fname).cpp \

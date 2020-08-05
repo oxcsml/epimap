@@ -42,35 +42,6 @@ void write_csv(const char* fname, const vector<xt::xarray<dtype>> &data);
 template <typename dtype> xt::xarray<dtype> read_csv(const string fpath);
 
 
-
-/*
- * TODO
- * Read Gostic paper
- *  - from reading the paper it seems like what I am doing is reasonable
- *  - could possibly add in some stochasticity
- *  - It's not clear where they get their estimates of `a` and `gamma` from (I can look at bobby paper)
- *  (Maybe I should look at their refs to see if what we are using to compare methods is defensible?)
- *
- *  -> make some docs on this (maybe a chart?)
- *
- * -> Figure out how to tune the R_t and find out what the right parameters for it should be 
- *  (speak to bobby)
- * -> run it and speak to YW about the results
- *
- * Potential next steps:
- *  -> look into data for realistic example
- * 
- * Notes:
- * - could later make this simulation stochastic as is done here 
- *      https://github.com/cobeylab/Rt_estimation/blob/master/code/simulation.R
- *      (code from gostic et al)
- */
-
-    //"""
-    //Gostic plot the product r_0 * s
-    //they also show the infections, which is the derivative of my thing
-    //"""
-    
 int main(int argc, char** argv) {
 
     auto args = parse_cmd(argc, argv);

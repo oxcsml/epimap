@@ -9,14 +9,13 @@ filenames = "susceptible.csv exposed.csv infected.csv recovered.csv".split()
 
 
 def title(ax, region):
-    return ax.set_title(region, x=0.95, y=0.95, ha="right", va="top")
+    return ax.set_title(region, x=0.95, y=0.9, ha="right", va="top")
 
 
 def legend(fig, ax):
+    lins, labs = ax.get_legend_handles_labels()
     return fig.legend(
-        *ax.get_legend_handles_labels(),
-        bbox_to_anchor=(0.5, 0.05),
-        loc="center"
+        lins, labs, ncol=len(labs), bbox_to_anchor=(0.5, 0.05), loc="center"
     )
 
 
@@ -27,8 +26,10 @@ if __name__ == "__main__":
         type=str,
         help=(
             "Path to csv file to plot."
-            " Must contain files susceptible.csv, exposed.csv, infected.csv and recovered.csv."
-            " These files should be of csv type, comma delimited and with the same number of columns (the regions)."
+            " Must contain files susceptible.csv, exposed.csv,"
+            " infected.csv and recovered.csv."
+            " These files should be of csv type, comma delimited"
+            " and with the same number of columns (the regions)."
             " The first row will be read as region names."
             " We will assume that there is no index column."
         ),
@@ -77,12 +78,11 @@ if __name__ == "__main__":
     fig, axarr = plt.subplots(len(regions), 1, sharex=True, sharey=False, squeeze=False)
     for ax, region in zip(axarr.flat, regions):
         title(ax, region)
-        outputs[region].plot(ax=ax, legend=False)
+        outputs[region]['infected'].plot(ax=ax, legend=False)
         ax.set_ylabel("Population")
-        ax.set_xlabel("Timesteps")
         ax.grid(alpha=0.2)
+    ax.set_xlabel("Timesteps")
     legend(fig, ax)
-    plt.tight_layout()
-    plt.subplots_adjust(hspace=0.1)
+    plt.subplots_adjust(hspace=0.05)
 
     plt.show()

@@ -93,10 +93,10 @@ map_svg.call(zoom)
     .on("dblclick.zoom", null);
 
 d3.select("#zoom_in").on("click", function() {
-    zoom.scaleBy(g.transition().duration(750), 1.2);
+    map_svg.transition().duration(500).call(zoom.scaleBy, 2);
 });
 d3.select("#zoom_out").on("click", function() {
-    zoom.scaleBy(g.transition().duration(750), 0.8);
+    map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 });
 
 // Data containers

@@ -213,9 +213,11 @@ write.csv(df, paste('website/Cproj.csv', sep=''),
 
 areas <- rep(uk_cases[1:N,2], each=M)
 times <- rep(1:M, N)
-df <- data.frame(area = areas, time=times, Rt = Rt)
-colnames(df)[3:5] <- c("Rt_lower","Rt_median","Rt_upper")
-df[,3:5] <- format(df[,3:5],digits=2)
+days_lik_start = rep(days_likelihood[seq(1, length(days_likelihood), Tlik)], N)
+days_lik_end = rep(days_likelihood[seq(Tlik, length(days_likelihood), Tlik)], N)
+df <- data.frame(area = areas, time = times, period_start=days_lik_start, period_end=days_lik_end, Rt = Rt)
+colnames(df)[5:7] <- c("Rt_lower","Rt_median","Rt_upper")
+df[,5:7] <- format(df[,5:7],digits=2)
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE)
 write.csv(df, paste('website/Rt.csv', sep=''),

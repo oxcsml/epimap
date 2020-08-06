@@ -205,8 +205,8 @@ function getCaseProjForArea(area) {
 
     var projection = nextWeekCaseProj.get(area);
 
-    var cprojmedian = projection.caseProjLower.toFixed(2);
-    var cprojlower = projection.caseProjMedian.toFixed(2);
+    var cprojmedian = projection.caseProjMedian.toFixed(2);
+    var cprojlower = projection.caseProjLower.toFixed(2);
     var cprojupper = projection.caseProjUpper.toFixed(2);
 
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;

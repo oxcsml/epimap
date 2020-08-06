@@ -209,7 +209,6 @@ parameters {
   real<lower=0> global_sigma;
 
   vector[N*M] eta;
-  vector[N*M] epislon;
 
   real<lower=0> dispersion;
   // real<lower=0> Ravg;
@@ -254,13 +253,12 @@ model {
 
   // GP prior density
   eta ~ std_normal();
-  epislon ~ std_normal();
 
   gp_space_length_scale ~ gig(2, 2.0, 2.0);
   gp_space_sigma ~ normal(0.0, 0.5);
 
   gp_time_length_scale ~ gig(7, 1.0, 1.0);
-  gp_time_sigma ~ normal(0.0, 0.5);
+  gp_time_sigma = 1
 
   local_sigma ~ normal(0.0, 0.5);
   global_sigma ~ normal(0.0, 1.0);

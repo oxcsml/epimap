@@ -59,6 +59,10 @@ Tproj <- 21              # number of days to project forward
 
 Count <- uk_cases[1:N,3:(Tall+2)]
 
+days = colnames(Count)
+days_likelihood = days[(Tcond - (M-1)*Tlik +1):(Tcond+Tlik)]
+days_pred_held_out = days[(Tcond+Tlik+1):(Tcond+Tlik+Tpred)]
+
 geoloc <- matrix(0, N, 2)
 geodist <- matrix(0, N, N)
 

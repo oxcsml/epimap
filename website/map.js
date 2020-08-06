@@ -177,9 +177,9 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
             caseProjUpper += projections[i].C_upper;
         }
         nextWeekCaseProj.set(area, {
-            caseProjLower: caseProjLower,
-            caseProjMedian: caseProjMedian,
-            caseProjUpper: caseProjUpper
+            caseProjLower: Math.round(caseProjLower),
+            caseProjMedian: Math.round(caseProjMedian),
+            caseProjUpper: Math.round(caseProjUpper)
         });
     });
 });
@@ -218,9 +218,9 @@ function getCaseProjForArea(area) {
 
     var projection = nextWeekCaseProj.get(area);
 
-    var cprojmedian = projection.caseProjMedian.toFixed(2);
-    var cprojlower = projection.caseProjLower.toFixed(2);
-    var cprojupper = projection.caseProjUpper.toFixed(2);
+    var cprojmedian = projection.caseProjMedian;
+    var cprojlower = projection.caseProjLower;
+    var cprojupper = projection.caseProjUpper;
 
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
@@ -416,14 +416,17 @@ function selectArea(selectedArea) {
         area = groupedAreaMap.get(selectedArea);
         const otherAreas = groupedAreaConstituents.get(area).join(", ");
         d3.select("#sub-heading").text(`Data shown is for the larger reporting area, ${area}, which contains ${otherAreas}`);
+        d3.select("#cases-title").text(`Cases for ${area}`);
+        d3.select("#estimates-title").text(`Estimates for ${area}`);
     }
     else {
         d3.select("#sub-heading").text("");
+        d3.select("#cases-title").text(`Cases`);
+        d3.select("#estimates-title").text(`Estimates`);
     }
 
     d3.select("#data-heading").text(selectedArea);
-    d3.select("#cases-title").text(`Cases for ${area}`);
-    d3.select("#estimates-title").text(`Estimates for ${area}`);
+    
 
     var chartData = caseTimeseries.get(area);
     if (!chartData) {

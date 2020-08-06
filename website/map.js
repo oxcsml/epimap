@@ -4,6 +4,7 @@ const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
 const NHS_SCOTLAND_MAP = "nhs_scotland_health_boards.csv";
+const ENGLAND_META_AREA_MAP = "england_meta_areas.csv";
 
 // Set up dimensions for map
 var map_svg = d3.select("#map"),
@@ -193,12 +194,22 @@ const loadNHSScotland = d3.csv(NHS_SCOTLAND_MAP).then(data => data.forEach(d => 
     groupedAreaConstituents.get(groupedArea).push(d.area);
 }));
 
+const loadEnglandMetaAreas = d3.csv(ENGLAND_META_AREA_MAP).then(data => data.forEach(d => {
+    const groupedArea = d["Meta area"];
+    groupedAreaMap.set(d.area, groupedArea);
+    if (!groupedAreaConstituents.has(groupedArea)) {
+        groupedAreaConstituents.set(groupedArea, []);
+    }
+    groupedAreaConstituents.get(groupedArea).push(d.area);
+}));
+
 Promise.all([
     d3.json(TOPOJSON_PATH),
     loadRt,
     loadCaseProjections,
     loadCases,
-    loadNHSScotland
+    loadNHSScotland,
+    loadEnglandMetaAreas
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
 var colorDomain = [0.5, 1.0, 2.0];

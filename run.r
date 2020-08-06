@@ -1,5 +1,4 @@
 library(rstan)
-library(geosphere)
 library(optparse)
 
 option_list = list(
@@ -35,84 +34,16 @@ if (opt$task_id > 0) {
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
-infprofile <- read.csv("data/serial_interval.csv")$fit
+source('read_data.r')
 
-uk_cases <- read.csv("data/uk_cases.csv")
-ind <- sapply(uk_cases[,2], function(s) 
-    !(s %in% c('Outside Wales','Unknown','...17','...18'))
-)
-uk_cases <- uk_cases[ind,]
-
-
-# Assumes that metadata contains all areas in uk_cases and area names match perfectly
-metadata <- read.csv("data/metadata.csv")
-ind <- sapply(metadata[,1], function(s) 
-    s %in% uk_cases[,2]
-)
-metadata <- metadata[ind,]
-
-
-N <- nrow(uk_cases) # 149 number of regions in England & Wales only. 185 scotland too
-D <- 100      # infection profile number of days
 Tignore <- 3  # counts in most recent 3 days may not be reliable?
 Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
-Tall <- ncol(uk_cases)-2-Tignore  # number of days in time series used.
+Tall <- Tall-Tignore  # number of days in time series used.
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
 Tproj <- 21              # number of days to project forward
 
-
-Count <- uk_cases[1:N,3:(Tall+2)]
-
-geoloc <- matrix(0, N, 2)
-geodist <- matrix(0, N, N)
-population <- rep(0.0, N)
-
-region_names <- metadata$AREA
-longitudes <- metadata$LONG
-latitudes <- metadata$LAT
-
-for (i in 1:N) {
-  region_name <- uk_cases[i,2]
-  j <- grep(sprintf('^%s$',region_name), region_names)
-  if (length(j) >= 1) {                 # just use first match!!
-    if (length(j) > 1) 
-      print(sprintf("Found regions %s, using first", paste(region_names[j]), collapse=","))
-    geoloc[i, 1] = longitudes[j[1]]
-    geoloc[i, 2] = latitudes[j[1]]
-    population[i] = metadata$POPULATION[j[1]]
-  } else {
-    print(sprintf("Cannot find region '%s'",region_name))
-    for (r in 1:length(region_names)) {
-      if (length(grep(region_names[r], region_name))>0) {
-        geoloc[i, 1] = longitudes[r]
-        geoloc[i, 2] = latitudes[r]
-        population[i] = metadata$POPULATION[r]
-        print(sprintf("...found region '%s'",region_names[r]))
-      }
-    }
-  }
-}
-
-# compute distances between areas. Straight line, not actual travel distance. 
-for (i in 1:N) {
-  for (j in i:N) {
-    # distance between two points on an ellipsoid (default is WGS84 ellipsoid), in units of 100km
-    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 100000
-    geodist[j, i] = geodist[i, j]
-  }
-}
-
-# compute fluxes for radiation model
-flux <- matrix(0, N, N)
-for (i in 1:N) {
-  mi = population[i]
-  js = order(geodist[i,])[2:N]
-  nj = population[js]
-  sij = cumsum(c(0.0,nj))[1:(N-1)]
-  flux[i,js] = mi*nj/((mi+sij)*(mi+nj+sij))
-  flux[i,i] = 1.0 - sum(flux[i,js]) # this statement weird, as fluxes don't sum to 1, unlike as claimed in Simini paper
-}
+Count <- Count[,1:Tall] # get rid of ignored last days
 
 Rmap_data <- list(
   N = N, 
@@ -124,7 +55,7 @@ Rmap_data <- list(
   Count = Count,
   geoloc = geoloc,
   geodist = geodist,
-  flux = flux,
+  flux = flux[,,1],
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,
@@ -132,7 +63,8 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-%s-%s-%s-%s-%s', 
+runname = sprintf('Rmap-%s-%s-%s-%s-%s-%s', 
+  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -159,7 +91,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 

@@ -416,8 +416,8 @@ function selectArea(selectedArea) {
         area = groupedAreaMap.get(selectedArea);
         const otherAreas = groupedAreaConstituents.get(area).join(", ");
         d3.select("#sub-heading").text(`Data shown is for the larger reporting area, ${area}, which contains ${otherAreas}`);
-        d3.select("#cases-title").text(`Cases for ${area}`);
-        d3.select("#estimates-title").text(`Estimates for ${area}`);
+        d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
+        d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
     }
     else {
         d3.select("#sub-heading").text("");

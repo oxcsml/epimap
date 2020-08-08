@@ -7,4 +7,4 @@ gig_lpdf <- function(x,p,a,b) {
 }
 
 x <- exp(seq(-10,log(10),length.out=200))
-plot(x,exp(gig_lpdf(x,2,2,2)))
+plot(x,exp(gig_lpdf(x,2,1,1)))

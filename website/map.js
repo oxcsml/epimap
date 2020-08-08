@@ -3,6 +3,8 @@ const TOPOJSON_PATH = "uk_lad_boundaries.json";
 const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
+const NHS_SCOTLAND_MAP = "nhs_scotland_health_boards.csv";
+const ENGLAND_META_AREA_MAP = "england_meta_areas.csv";
 
 // Set up dimensions for map
 var map_svg = d3.select("#map"),
@@ -92,10 +94,10 @@ map_svg.call(zoom)
     .on("dblclick.zoom", null);
 
 d3.select("#zoom_in").on("click", function() {
-    zoom.scaleBy(g.transition().duration(750), 1.2);
+    map_svg.transition().duration(500).call(zoom.scaleBy, 2);
 });
 d3.select("#zoom_out").on("click", function() {
-    zoom.scaleBy(g.transition().duration(750), 0.8);
+    map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 });
 
 // Data containers
@@ -104,6 +106,8 @@ var caseTimeseries = d3.map();
 var caseProjTimeseries = d3.map();
 var nextWeekCaseProj = d3.map();
 var caseHistory = d3.map();
+var groupedAreaMap = d3.map();
+var groupedAreaConstituents = d3.map();
 
 // Tooltip container
 var tooltip_div = d3.select("body").append("div")
@@ -122,7 +126,7 @@ var tooltip_info3 = tooltip_div.append("span")
     .attr("class", "info-row3");
 
 // Load external data
-var loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
+const loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
     data.forEach(d=>{
         if (!caseTimeseries.has(d.area)) {
             caseTimeseries.set(d.area, []);
@@ -147,14 +151,14 @@ const urlParams = new URLSearchParams(window.location.search);
 const rt_path = urlParams.get('rt') || RT_PATH;
 const case_projection_path = urlParams.get('cproj') || CASE_PROJECTION_PATH;
 
-var loadRt = d3.csv(rt_path).then(data => data.forEach(d => rtData.set(d.area, 
+const loadRt = d3.csv(rt_path).then(data => data.forEach(d => rtData.set(d.area, 
     {
         Rtlower: +d.Rt_lower,
         Rtmedian: +d.Rt_median,
         Rtupper: +d.Rt_upper,
     })));
 
-var loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach(d => {
+const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach(d => {
     if (!caseProjTimeseries.has(d.area)) {
         caseProjTimeseries.set(d.area, []);
     }
@@ -174,18 +178,38 @@ var loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach
             caseProjUpper += projections[i].C_upper;
         }
         nextWeekCaseProj.set(area, {
-            caseProjLower: caseProjLower,
-            caseProjMedian: caseProjMedian,
-            caseProjUpper: caseProjUpper
+            caseProjLower: Math.round(caseProjLower),
+            caseProjMedian: Math.round(caseProjMedian),
+            caseProjUpper: Math.round(caseProjUpper)
         });
     });
 });
+
+const loadNHSScotland = d3.csv(NHS_SCOTLAND_MAP).then(data => data.forEach(d => {
+    const groupedArea = d["NHS Scotland Health Board"];
+    groupedAreaMap.set(d.area, groupedArea);
+    if (!groupedAreaConstituents.has(groupedArea)) {
+        groupedAreaConstituents.set(groupedArea, []);
+    }
+    groupedAreaConstituents.get(groupedArea).push(d.area);
+}));
+
+const loadEnglandMetaAreas = d3.csv(ENGLAND_META_AREA_MAP).then(data => data.forEach(d => {
+    const groupedArea = d["Meta area"];
+    groupedAreaMap.set(d.area, groupedArea);
+    if (!groupedAreaConstituents.has(groupedArea)) {
+        groupedAreaConstituents.set(groupedArea, []);
+    }
+    groupedAreaConstituents.get(groupedArea).push(d.area);
+}));
 
 Promise.all([
     d3.json(TOPOJSON_PATH),
     loadRt,
     loadCaseProjections,
-    loadCases
+    loadCases,
+    loadNHSScotland,
+    loadEnglandMetaAreas
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
 var colorDomain = [0.5, 1.0, 2.0];
@@ -205,9 +229,9 @@ function getCaseProjForArea(area) {
 
     var projection = nextWeekCaseProj.get(area);
 
-    var cprojmedian = projection.caseProjLower.toFixed(2);
-    var cprojlower = projection.caseProjMedian.toFixed(2);
-    var cprojupper = projection.caseProjUpper.toFixed(2);
+    var cprojmedian = projection.caseProjMedian;
+    var cprojlower = projection.caseProjLower;
+    var cprojupper = projection.caseProjUpper;
 
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
@@ -397,8 +421,23 @@ function ready(data) {
     
 }
 
-function selectArea(area) {
-    d3.select("#data-heading").text(area);
+function selectArea(selectedArea) {
+    let area = selectedArea;
+    if (groupedAreaMap.has(selectedArea)) {
+        area = groupedAreaMap.get(selectedArea);
+        const otherAreas = groupedAreaConstituents.get(area).join(", ");
+        d3.select("#sub-heading").text(`Data shown is for the larger reporting area, ${area}, which contains ${otherAreas}`);
+        d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
+        d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
+    }
+    else {
+        d3.select("#sub-heading").text("");
+        d3.select("#cases-title").text(`Cases`);
+        d3.select("#estimates-title").text(`Estimates`);
+    }
+
+    d3.select("#data-heading").text(selectedArea);
+    
 
     var chartData = caseTimeseries.get(area);
     if (!chartData) {

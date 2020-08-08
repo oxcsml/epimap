@@ -25,7 +25,9 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
-              case_predictions: pd.DataFrame):
+              case_predictions: pd.DataFrame,
+              divide_predictions_by_population_ratio: bool=False):
+
     england_map = pd.read_csv('data/england_meta_areas.csv')
     scotland_map = pd.read_csv('data/nhs_scotland_health_boards.csv')
     metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
@@ -86,8 +88,10 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     # in the health board. To avoid a duplicate area key, we drop it as a
     # health board, and keep it as a local area (in this case the two rows
     # would have been equal in any event).
-    reproduction_numbers = reproduction_numbers.rename(
-        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+    if divide_predictions_by_population_ratio:
+        reproduction_numbers = reproduction_numbers.rename(
+            index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
     reproduction_numbers = reproduction_numbers.append(england) \
                                                .append(scotland)
 
@@ -96,9 +100,12 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                                 left_on=['Meta area'],
                                 right_on=['area'],
                                 how='left')
-    england['C_lower'] = england['C_lower'] * england['ratio']
-    england['C_median'] = england['C_median'] * england['ratio']
-    england['C_upper'] = england['C_upper'] * england['ratio']
+
+    if divide_predictions_by_population_ratio:
+        england['C_lower'] = england['C_lower'] * england['ratio']
+        england['C_median'] = england['C_median'] * england['ratio']
+        england['C_upper'] = england['C_upper'] * england['ratio']
+
     england = england.drop(columns=['Meta area', 'ratio']) \
                      .set_index(['area', 'day'])
 
@@ -106,16 +113,20 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                                   left_on=['NHS Scotland Health Board'],
                                   right_on=['area'],
                                   how='left')
-    scotland['C_lower'] = scotland['C_lower'] * scotland['ratio']
-    scotland['C_median'] = scotland['C_median'] * scotland['ratio']
-    scotland['C_upper'] = scotland['C_upper'] * scotland['ratio']
+
+    if divide_predictions_by_population_ratio:
+        scotland['C_lower'] = scotland['C_lower'] * scotland['ratio']
+        scotland['C_median'] = scotland['C_median'] * scotland['ratio']
+        scotland['C_upper'] = scotland['C_upper'] * scotland['ratio']
+
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
                        .set_index(['area', 'day'])
 
     # We only keep the case predictions for `Highland` as a local area, not
     # case_predictions = case_predictions.drop(['Highland'])
-    case_predictions = case_predictions.rename(
-        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+    if divide_predictions_by_population_ratio:
+        case_predictions = case_predictions.rename(
+            index={'Highland': 'Highland (NHS Scotland Health Board)'})
 
     case_predictions = case_predictions.append(england) \
                                        .append(scotland)

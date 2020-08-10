@@ -18,7 +18,5 @@ set -e
 
 Rscript run.r --task_id $SLURM_ARRAY_TASK_ID --iterations 8000 --chains 6
 
-mv fits/* ../../not-backed-up/mhutchin/Rmap/fits/
-
 echo 'Run completed.'
 

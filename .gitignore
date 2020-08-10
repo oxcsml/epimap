@@ -60,3 +60,5 @@ figs/*
 
 fits/*
 slurm/output/*
+notebooks/*
+sandbox/*

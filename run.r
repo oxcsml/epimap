@@ -55,7 +55,7 @@ Rmap_data <- list(
   Count = Count,
   geoloc = geoloc,
   geodist = geodist,
-  flux = flux[,,1],
+  flux = radiation_flux[,,1],
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,

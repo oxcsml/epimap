@@ -35,6 +35,7 @@ options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 source('read_data.r')
+source('read_radiation_fluxes.r')
 
 Tignore <- 3  # counts in most recent 3 days may not be reliable?
 Tpred <- 1    # number of days held out for predictive probs eval
@@ -44,6 +45,13 @@ Tcond <- Tall-Tlik-Tpred       # number of days we condition on
 Tproj <- 21              # number of days to project forward
 
 Count <- Count[,1:Tall] # get rid of ignored last days
+
+# metapopulation cross-area fluxes.
+# first two are fixed, and there needs to be at least the first flux.
+metaflux = list()
+metaflux[[1]] = diag(N)           # within-area infections
+metaflux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+metaflux[[3]] = radiation_flux[,,1] # ls=.1
 
 Rmap_data <- list(
   N = N, 
@@ -56,6 +64,8 @@ Rmap_data <- list(
   geoloc = geoloc,
   geodist = geodist,
   flux = radiation_flux[,,1],
+  F = length(metaflux),
+  metaflux = metaflux,
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,

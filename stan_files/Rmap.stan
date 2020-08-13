@@ -137,10 +137,21 @@ functions {
     return convout;
   }
 
+  matrix new_metapop(
+      vector Rt, matrix convlik, row_vector fluxproportions, matrix convflux) {
+    int T = cols(convlik);
+    int N = rows(convlik);
+    int F = cols(convflux);
+    // convout[N,T] = diag_pre_multiply(Rt[N],
+    //     to_matrix(fluxproportions[F] * convflux[F,N*T], N, T))
+    return diag_pre_multiply(Rt,
+        to_matrix(fluxproportions * convflux, N, T));
+  }
+
 
 
   matrix none_metapop(
-      vector Rt, matrix convlik, real coupling_rate, matrix flux, matrix convflux) {
+      vector Rt, matrix convlik, real coupling_rate, real rad_prob, matrix flux, matrix convrad, matrix convunif) {
     int T = cols(convlik);
     int N = rows(convlik);
     matrix[N,T] convout;
@@ -185,6 +196,15 @@ functions {
     return convflux;
   }
 
+
+  matrix new_compute_flux(matrix convlik, matrix fluxt) {
+    int T = cols(convlik);
+    int N = rows(convlik);
+    int F = rows(fluxt)/N;
+    // convflux[F,N*T] = to_matrix(fluxt[F*N,N] * convlik[N,T], F,N*T)
+    return to_matrix(fluxt * convlik, F, N*T);
+  }
+
   // Case count likelihood choices
 
   real poisson_likelihood_lpmf(int count, real mu, real precision) {
@@ -222,6 +242,8 @@ data {
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
   matrix[N,N] flux;         // fluxes for radiation metapopulation model
+  int F;
+  matrix[N,N] metaflux[F];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -242,9 +264,25 @@ transformed data {
   matrix[N,Tpred] convpredunif;// for use in predictive probs of future counts
   matrix[N,Tproj] convproj;    // for use in forecasting into future 
 
+  matrix[F*N,N] fluxt;      // transposed flux matrices
+
+  matrix[F,N*Tlik] newflux;
+  int Clik[Tlik,N];
+
   // reverse infection profile
   for (i in 1:D)
     infprofile_rev[i] = infprofile[D-i+1];
+
+  {
+    matrix[F,N*N] fluxtmp;
+    for (f in 1:F)
+      fluxtmp[f,] = to_row_vector(metaflux[f]');
+    fluxt = to_matrix(fluxtmp,F*N,N);
+  }
+
+  for (j in 1:N)
+    for (i in 1:Tlik)
+      Clik[i,j] = Count[j,Tcond+i]; // transposed, vectorises correctly
 
   for (j in 1:N) {
     for (i in 1:Tall)
@@ -253,21 +291,39 @@ transformed data {
     // precompute convolutions between counts and infprofile
     for (i in 1:Tlik) {
       int L = min(D,Tcond+i-1); // length of infection profile that overlaps with case counts 
-      convlik[j,i] = dot_product(Creal[j][Tcond-L+i:Tcond-1+i], infprofile_rev[D-L+1:D]);
+      convlik[j,i] = dot_product(Creal[j][Tcond-L+i:Tcond-1+i], infprofile_rev[D-L+1:D])+1e-6;
     }
     for (i in 1:Tpred) {
       int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convpred[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[D-L+1:D]);
+      convpred[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[D-L+1:D])+1e-6;
     }
     for (i in 1:Tproj) {
       int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convproj[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1]);
+      convproj[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1])+1e-6;
     }
   }
   convlikunif = uniform_in_compute_flux(convlik,flux);
   convpredunif = uniform_in_compute_flux(convpred,flux);
   convlikrad = radiation_in_compute_flux(convlik,flux);
   convpredrad = radiation_in_compute_flux(convpred,flux);
+
+  newflux = new_compute_flux(convlik,fluxt);
+  //{
+  //  matrix[N,Tlik] radflux = to_matrix(newflux[3,],N,Tlik);
+  //  matrix[N,Tlik] unifflux = to_matrix(newflux[2,],N,Tlik);
+  //  matrix[N,Tlik] localflux = to_matrix(newflux[1,],N,Tlik);
+  //  print("Check for flux computations: ",
+  //        max(localflux-convlik),"  ",min(localflux-convlik),"  ",
+  //        max(unifflux-convlikunif),"  ",min(unifflux-convlikunif),"  ",
+  //        max(radflux-convlikrad),"  ",min(radflux-convlikrad));
+  //  for (j in 1:20) {
+  //    print(convlikunif[j,1],"  ",unifflux[j,1]);
+  //    print(convlikunif[j,3],"  ",unifflux[j,3]);
+  //    print(convlik[j,3],"  ",localflux[j,3]);
+  //  }
+  //  for (i in 1:Tlik)
+  //    print(convlikunif[100,i],"  ",unifflux[100,i]);
+  //}
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -292,6 +348,7 @@ parameters {
 transformed parameters {
   vector[N] Rt;                 // instantaneous reproduction number
   real<lower=0> local_sigma2[N];
+  row_vector[F] fluxproportions;
 
   {
     matrix[N,N] K;
@@ -312,7 +369,12 @@ transformed parameters {
     L = cholesky_decompose(K);
     Rt = exp(L * eta);
 
+    fluxproportions[1] = 1.0-coupling_rate;
+    fluxproportions[2] = coupling_rate*(1.0-rad_prob);
+    fluxproportions[3] = coupling_rate*rad_prob;
+
   }
+
 }
 
 
@@ -333,18 +395,38 @@ model {
   gp_length_scale ~ gig(2, 2.0, 2.0);
   gp_sigma ~ normal(0.0, 0.5);
   global_sigma ~ normal(0.0, 0.5);
-  local_scale ~ normal(0.0, 0.1);
+  local_scale ~ normal(0.0, 0.5);
   for (i in 1:N) {
     local_exp[i] ~ exponential(1.0);
     // local_sigma2[i] ~ exponential(0.5 / square(local_scale)); // reparameterised
   }
   // metapopulation infection rate model
+
+  // both below computes same thing.
+  //convout = new_metapop(Rt,convlik,fluxproportions,newflux);
   convout = METAPOP_metapop(Rt,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
 
+  //{
+    //matrix[N,Tlik] oldconvout = METAPOP_metapop(Rt,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
+    //print("Check for metapop computations: ",
+    //      max(convout-oldconvout),"  ",min(convout-oldconvout));
+    //for (i in 1:7) {
+    //  print(convout[i,2],"  ",newconvout[i,2]);
+    //  print(convout[200,i],"  ",newconvout[200,i]);
+    //}
+  //}
+
+
   // compute likelihoods
-  for (j in 1:N) 
-    for (i in 1:Tlik) 
+  for (i in 1:Tlik) {
+    for (j in 1:N) {
       Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], precision);
+      //Clik[i,j] ~ OBSERVATION_likelihood(convout[j,i], precision);
+      //print(OBSERVATION_likelihood_lpmf(Count[j,Tcond+i]|convout[j,i], precision),
+      //      OBSERVATION_likelihood_lpmf(Clik[i,j]|convout[j,i], precision));
+
+    }
+  }
 
 }
 

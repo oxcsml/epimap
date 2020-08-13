@@ -211,12 +211,30 @@ const loadEnglandMetaAreas = d3.csv(ENGLAND_META_AREA_MAP).then(data => data.for
 }));
 
 const loadMetadata = d3.csv(METADATA_PATH).then(data => data.forEach(d => {
-    populations.set(d.AREA, d.POPULATION);
+    populations.set(d.AREA, +d.POPULATION);
 }));
 
-const casesAndMeta = Promise.all([loadCaseProjections, loadCases, loadMetadata]).then(() => {
+const getPopulation = (area) => {
+    if (groupedAreaMap.has(area)) {
+        const groupedArea = groupedAreaMap.get(area);
+        const constituents = groupedAreaConstituents.get(groupedArea);
+
+        return constituents
+            .map(a=>populations.get(a))
+            .reduce((a, b) => a + b, 0);
+    }
+    return populations.get(area);
+}
+
+const casesAndMeta = Promise.all([
+    loadCaseProjections, 
+    loadCases, 
+    loadMetadata, 
+    loadNHSScotland, 
+    loadEnglandMetaAreas
+]).then(() => {
     nextWeekCaseProj.each((caseProj, area) => {
-        const pop = populations.get(area) / 100000;
+        const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
             caseProjLower: Math.round(caseProj.caseProjLower / pop),
             caseProjMedian: Math.round(caseProj.caseProjMedian / pop),
@@ -225,7 +243,7 @@ const casesAndMeta = Promise.all([loadCaseProjections, loadCases, loadMetadata])
     });
 
     caseHistory.each((cases, area) => {
-        const pop = populations.get(area) / 100000;
+        const pop = getPopulation(area) / 100000;
         caseHistoryPer100k.set(area, {
             casesLast7Day: Math.round(cases.casesLast7Day / pop),
             casesTotal: Math.round(cases.casesTotal / pop)
@@ -236,8 +254,6 @@ const casesAndMeta = Promise.all([loadCaseProjections, loadCases, loadMetadata])
 Promise.all([
     d3.json(TOPOJSON_PATH),
     loadRt,
-    loadNHSScotland,
-    loadEnglandMetaAreas,
     casesAndMeta
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 

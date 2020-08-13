@@ -255,7 +255,7 @@ function ready(data) {
     console.log("Drawing map");
 
     // 1 is yellow, below 1 is green, above is red
-    var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdYlGn(1-t) )
+    var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdYlBu(1-t) )
         .domain(colorDomain);
 
     minCases = 1;

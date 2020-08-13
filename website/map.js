@@ -150,8 +150,8 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data=>{
 
 const urlParams = new URLSearchParams(window.location.search);
 const data_path = urlParams.get('map') || MAP_PATH
-const rt_path = data_path.concat('/',RT_PATH);
-const case_projection_path = data_path.concat('/',CASE_PROJECTION_PATH);
+const rt_path = data_path.concat('/', RT_PATH);
+const case_projection_path = data_path.concat('/', CASE_PROJECTION_PATH);
 
 const loadRt = d3.csv(rt_path).then(data => data.forEach(d => rtData.set(d.area, 
     {
@@ -273,6 +273,9 @@ function ready(data) {
     var caseAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
         .domain([minCases, maxCases]);
+
+    console.log("rtColorScale.ticks: " + rtColorScale.ticks());
+    console.log("rtColorScale.tickFormat: " + rtColorScale.tickFormat());
 
     var rtAxisFn = () => d3.axisBottom(rtAxisScale)
         .tickValues(rtColorScale.ticks())
@@ -461,7 +464,7 @@ function selectArea(selectedArea) {
 
     var x = d3.scaleTime()
         .domain(xDomain)
-        .range([chart_margin.left, chart_width-chart_margin.right]);
+        .range([chart_margin.left, chart_margin.left + chart_width]);
     var y = d3.scaleLinear()
         .domain(yDomain)
         .range([chart_height, 0]);
@@ -517,5 +520,56 @@ function selectArea(selectedArea) {
     chart_x_axis.call(d3.axisBottom(x));
     chart_y_axis.call(d3.axisLeft(y).ticks(5));
     chart_title.text(`COVID-19 Cases for ${area}`);
-    
+
+    const projectionDate = d3.max(chartData.map(c=>c.Date));
+
+    var focus = chart_svg.append("g")
+        .attr("class", "focus")
+        .style("display", "none");
+
+    focus.append("line")
+        .attr("class", "x-hover-line hover-line")
+        .attr("y1", 0)
+        .attr("y2", chart_height);
+
+    focus.append("circle")
+        .attr("r", 2);
+
+    focus.append("text")
+        .attr("x", 15)
+      	.attr("dy", ".31em");
+
+    chart_svg.append("rect")
+        .attr("transform", "translate(" + chart_margin.left + ",0)")
+        .attr("class", "overlay")
+        .attr("width", chart_width)
+        .attr("height", chart_height)
+        .on("mouseover", function() { focus.style("display", null); })
+        .on("mouseout", function() { focus.style("display", "none"); })
+        .on("mousemove", mousemove);
+
+    const bisectDate = d3.bisector(function(d) { return d.Date; }).left;
+    const allData = [...chartData, ...projectionData];
+
+    function getValue(d) {
+        if (d.Date > projectionDate) {
+            return d.C_median;
+        }
+        else {
+            return d.cases_new_smoothed;
+        }
+    }
+
+    function mousemove() {
+      var x0 = x.invert(d3.mouse(this)[0]),
+          i = bisectDate(allData, x0, 1),
+          d0 = allData[i - 1],
+          d1 = allData[i],
+          d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
+      // TODO: Change this to cases actual, smoothed and projections
+      focus.attr("transform", "translate(" + x(d.Date) + "," + y(getValue(d)) + ")");  
+      focus.select("text").text(function() { return Math.round(getValue(d)); });
+      focus.select(".x-hover-line").attr("y2", chart_height - y(getValue(d)));
+    }
+
 }

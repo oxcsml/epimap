@@ -6,6 +6,7 @@ const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
 const NHS_SCOTLAND_MAP = "nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "england_meta_areas.csv";
+const METADATA_PATH = "metadata.csv";
 
 // Set up dimensions for map
 var map_svg = d3.select("#map"),
@@ -42,6 +43,7 @@ var casesLast7PerInfo = d3.select("#cases-last7-per-info");
 var casesTotalInfo = d3.select("#cases-total-info");
 var rtInfo = d3.select("#rt-info");
 var caseProjInfo = d3.select("#case-proj-info");
+var caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
 // Add the X Axis
 var chart_x_axis = chart_svg.append("g")
@@ -106,9 +108,12 @@ var rtData = d3.map();
 var caseTimeseries = d3.map();
 var caseProjTimeseries = d3.map();
 var nextWeekCaseProj = d3.map();
+var nextWeekCaseProjPer100k = d3.map();
 var caseHistory = d3.map();
+var caseHistoryPer100k = d3.map();
 var groupedAreaMap = d3.map();
 var groupedAreaConstituents = d3.map();
+var populations = d3.map();
 
 // Tooltip container
 var tooltip_div = d3.select("body").append("div")
@@ -205,13 +210,35 @@ const loadEnglandMetaAreas = d3.csv(ENGLAND_META_AREA_MAP).then(data => data.for
     groupedAreaConstituents.get(groupedArea).push(d.area);
 }));
 
+const loadMetadata = d3.csv(METADATA_PATH).then(data => data.forEach(d => {
+    populations.set(d.AREA, d.POPULATION);
+}));
+
+const casesAndMeta = Promise.all([loadCaseProjections, loadCases, loadMetadata]).then(() => {
+    nextWeekCaseProj.each((caseProj, area) => {
+        const pop = populations.get(area) / 100000;
+        nextWeekCaseProjPer100k.set(area, {
+            caseProjLower: Math.round(caseProj.caseProjLower / pop),
+            caseProjMedian: Math.round(caseProj.caseProjMedian / pop),
+            caseProjUpper: Math.round(caseProj.caseProjUpper / pop)
+        });
+    });
+
+    caseHistory.each((cases, area) => {
+        const pop = populations.get(area) / 100000;
+        caseHistoryPer100k.set(area, {
+            casesLast7Day: Math.round(cases.casesLast7Day / pop),
+            casesTotal: Math.round(cases.casesTotal / pop)
+        });
+    });
+});
+
 Promise.all([
     d3.json(TOPOJSON_PATH),
     loadRt,
-    loadCaseProjections,
-    loadCases,
     loadNHSScotland,
-    loadEnglandMetaAreas
+    loadEnglandMetaAreas,
+    casesAndMeta
 ]).then(ready).catch(e=>{console.log("ERROR", e); throw e;});
 
 var colorDomain = [0.5, 1.0, 2.0];
@@ -238,6 +265,20 @@ function getCaseProjForArea(area) {
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
 
+function getCaseProjPer100kForArea(area) {
+    if (!nextWeekCaseProj.has(area)) {
+        return "Unknown";
+    }
+
+    var projection = nextWeekCaseProjPer100k.get(area);
+
+    var cprojmedian = projection.caseProjMedian;
+    var cprojlower = projection.caseProjLower;
+    var cprojupper = projection.caseProjUpper;
+
+    return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
+}
+
 function getCaseHistoryForArea(area) {
     if (!caseHistory.has(area)) {
         return {
@@ -246,6 +287,16 @@ function getCaseHistoryForArea(area) {
         };
     }
     return caseHistory.get(area);
+}
+
+function getCaseHistoryPer100kForArea(area) {
+    if (!caseHistoryPer100k.has(area)) {
+        return {
+            casesLast7Day: "Unknown",
+            casesTotal: "Unknown"
+        };
+    }
+    return caseHistoryPer100k.get(area);
 }
 
 // Handle data loaded
@@ -259,7 +310,7 @@ function ready(data) {
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = 50; // d3.max(nextWeekCaseProj.values().map(r=>r.caseProjMedian));
+    maxCases = 50; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
@@ -303,7 +354,7 @@ function ready(data) {
     }
 
     caseFillFn = d => { // Fill based on value of case projection
-        var caseProj = nextWeekCaseProj.get(d.properties.lad20nm);
+        var caseProj = nextWeekCaseProjPer100k.get(d.properties.lad20nm);
         if (!caseProj) {
             return "#ccc";
         }
@@ -324,9 +375,9 @@ function ready(data) {
             console.log(d.properties);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Last 7 days cases: ${getCaseHistoryForArea(d.properties.lad20nm).casesLast7Day}`);
+            tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm)}`);
-            tooltip_info3.text(`Projected Cases: ${getCaseProjForArea(d.properties.lad20nm)}`);
+            tooltip_info3.text(`Projected Cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
 
             tooltip_div
               .style("left", (d3.event.pageX + 20) + "px")             
@@ -396,7 +447,7 @@ function ready(data) {
         .attr("y", margin.top + 30)
         .style("font-size", "16px")  
         .style("cursor", "pointer")
-        .text("Case Projections");
+        .text("Case Projections (Per 100k)");
 
     showRt.on("click", () => {
         if (showCases.classed("active")) {
@@ -514,8 +565,11 @@ function selectArea(selectedArea) {
     var caseHistory = getCaseHistoryForArea(area);
     casesLast7Info.text(caseHistory.casesLast7Day);
     casesTotalInfo.text(caseHistory.casesTotal);
+    var caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
+    casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day);
     rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
+    caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
 
     chart_x_axis.call(d3.axisBottom(x));
     chart_y_axis.call(d3.axisLeft(y).ticks(5));

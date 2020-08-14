@@ -158,12 +158,26 @@ const data_path = urlParams.get('map') || MAP_PATH
 const rt_path = data_path.concat('/', RT_PATH);
 const case_projection_path = data_path.concat('/', CASE_PROJECTION_PATH);
 
-const loadRt = d3.csv(rt_path).then(data => data.forEach(d => rtData.set(d.area, 
-    {
-        Rtlower: +d.Rt_lower,
-        Rtmedian: +d.Rt_median,
-        Rtupper: +d.Rt_upper,
-    })));
+const loadRt = d3.csv(rt_path).then(data => {
+    data.forEach(d => {
+        if (!rtData.has(d.area)) {
+            rtData.set(d.area, []);
+        }
+        const current = {
+            Date: d3.timeParse("%Y-%m-%d")(d.Date),
+            Rt10: +d.Rt_10,
+            Rt20: +d.Rt_20,
+            Rt30: +d.Rt_30,
+            Rt40: +d.Rt_40,
+            Rt50: +d.Rt_50,
+            Rt60: +d.Rt_60,
+            Rt70: +d.Rt_70,
+            Rt80: +d.Rt_80,
+            Rt90: +d.Rt_90
+        };
+        rtData.get(d.area).push(current);
+    });
+});
 
 const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach(d => {
     if (!caseProjTimeseries.has(d.area)) {
@@ -260,11 +274,15 @@ Promise.all([
 var colorDomain = [0.5, 1.0, 2.0];
 
 function getRtForArea(area) {
-    var rt = rtData.get(area);
-    var rtMedian = rt ? +rt.Rtmedian.toFixed(2) : "?";
-    var rtUpper = rt ? +rt.Rtupper.toFixed(2) : "?";
-    var rtLower = rt ? +rt.Rtlower.toFixed(2) : "?";
-    return `${rtMedian} [${rtLower} - ${rtUpper}]`;
+    const rtSeries = rtData.get(area);
+    if (!rtSeries) {
+        return "? [? - ?]";
+    }
+    const [lastRt] = rtSeries.slice(-1)
+    var median = lastRt.Rt50.toFixed(2);
+    var upper = lastRt.Rt90.toFixed(2);
+    var lower = lastRt.Rt10.toFixed(2);
+    return `${median} [${lower} - ${upper}]`;
 }
 
 function getCaseProjForArea(area) {
@@ -361,12 +379,14 @@ function ready(data) {
         .selectAll("text")
         .attr("transform", "translate(-5, 15) rotate(-90)");
 
+    // TODO: Wrap in a generator function and swap this out according to a slider
     rtFillFn = d => {  // Fill based on value of Rt
-        var rt = rtData.get(d.properties.lad20nm);
-        if (!rt) {
+        var rtSeries = rtData.get(d.properties.lad20nm);
+        if (!rtSeries) {
             return "#ccc";
         }
-        return rtColorScale(rt.Rtmedian);
+        const [lastRt] = rtSeries.slice(-1);
+        return rtColorScale(lastRt.Rt50);
     }
 
     caseFillFn = d => { // Fill based on value of case projection

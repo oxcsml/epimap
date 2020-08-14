@@ -20,7 +20,7 @@ var margin = ({ top: 20, right: 40, bottom: 30, left: 40 });
 var g = map_svg.append("g");
 
 const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2);
-const sliderSvg = d3.select("#slider-svg");
+const sliderSvg = d3.select("#slider-svg").style("display", "block");
 const sliderG = sliderSvg.append("g")
     .attr('transform', `translate(${sliderLeft},10)`)
 sliderSvg.append("text")
@@ -427,15 +427,20 @@ function ready(data) {
         .call(rtAxisFn)
         .selectAll("text")
         .attr("transform", "translate(-5, 15) rotate(-90)");
+    
+    const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
+    const bisectDate = d3.bisector(d=>d).left;
 
-    // TODO: Wrap in a generator function and swap this out according to a slider
-    rtFillFn = d => {  // Fill based on value of Rt
-        var rtSeries = rtData.get(d.properties.lad20nm);
-        if (!rtSeries) {
-            return "#ccc";
+    rtFillFn = date => {
+        const idx = bisectDate(availableDates, date, 1);
+        return d => {  // Fill based on value of Rt
+            var rtSeries = rtData.get(d.properties.lad20nm);
+            if (!rtSeries) {
+                return "#ccc";
+            }
+            const rt = rtSeries[idx];
+            return rtColorScale(rt.Rt50);
         }
-        const [lastRt] = rtSeries.slice(-1);
-        return rtColorScale(lastRt.Rt50);
     }
 
     caseFillFn = d => { // Fill based on value of case projection
@@ -450,14 +455,12 @@ function ready(data) {
     var map = g.selectAll("path")
         .data(topojson.feature(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC).features)
         .enter().append("path")
-        .attr("fill", rtFillFn)
+        .attr("fill", rtFillFn(d3.max(availableDates)))
         .style("fill-opacity", 1)
         .on("mouseover", function (d) {  // Add Tooltip on hover
             tooltip_div.transition()
                 .duration(200)
                 .style("opacity", .9);
-
-            console.log(d.properties);
 
             tooltip_header.text(d.properties.lad20nm);
             tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
@@ -536,12 +539,14 @@ function ready(data) {
 
     showRt.on("click", () => {
         if (showCases.classed("active")) {
-            map.attr("fill", rtFillFn);
+            map.attr("fill", rtFillFn(d3.max(availableDates)));
             legend.style("fill", "url(#rt-gradient)");
             axisBottom.call(rtAxisFn)
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
             legendText.text("Rt");
+            sliderSvg.style("visibility", "visible");
+            timeSlider.value(d3.max(availableDates))
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
@@ -555,28 +560,28 @@ function ready(data) {
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
             legendText.text("Cases");
+            sliderSvg.style("visibility", "hidden");
         }
         showCases.attr("class", "active");
         showRt.attr("class", "");
     });
 
-    const sliderDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-
     const timeSlider = d3.sliderHorizontal()
         .ticks(5)
-        .min(d3.min(sliderDates))
-        .max(d3.max(sliderDates))
-        .marks(sliderDates)
+        .min(d3.min(availableDates))
+        .max(d3.max(availableDates))
+        .marks(availableDates)
         .tickFormat(d3.timeFormat("%b"))
         .width(sliderWidth)
         .displayValue(false)
-        .value(d3.max(sliderDates))
+        .value(d3.max(availableDates))
         .on('onchange', (val) => {
             sliderValueLabel.text(dateFormat(val));
+            map.transition().duration(500).attr("fill", rtFillFn(val));
         });
     
     sliderG.call(timeSlider);
-    sliderValueLabel.text(dateFormat(d3.max(sliderDates)));
+    sliderValueLabel.text(dateFormat(d3.max(availableDates)));
 }
 
 function plotCaseChart(chartData, projectionData, area) {
@@ -676,8 +681,6 @@ function plotCaseChart(chartData, projectionData, area) {
     }
 
     function mousemove() {
-        console.log("mouse X coord: ", d3.mouse(this)[0]);
-        console.log('Dates:', allData.map(d=>d.Date));
         var x0 = x.invert(d3.mouse(this)[0] + chartMargin.left),
             i = bisectDate(allData, x0, 1),
             d0 = allData[i - 1],
@@ -744,7 +747,7 @@ function plotRtChart(rtData, area) {
 
     rtChartXAxis.call(d3.axisBottom(x));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
-    rtChartTitle.transition.text(`Estimated Rt for ${area}`);
+    rtChartTitle.text(`Estimated Rt for ${area}`);
 }
 
 function selectArea(selectedArea) {

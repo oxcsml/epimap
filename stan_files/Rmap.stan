@@ -141,9 +141,9 @@ functions {
       vector Rt, matrix convlik, row_vector fluxproportions, matrix convflux) {
     int T = cols(convlik);
     int N = rows(convlik);
-    int F = cols(convflux);
+    int F1 = cols(convflux);
     // convout[N,T] = diag_pre_multiply(Rt[N],
-    //     to_matrix(fluxproportions[F] * convflux[F,N*T], N, T))
+    //     to_matrix(fluxproportions[F1] * convflux[F1,N*T], N, T))
     return diag_pre_multiply(Rt,
         to_matrix(fluxproportions * convflux, N, T));
   }
@@ -200,9 +200,9 @@ functions {
   matrix new_compute_flux(matrix convlik, matrix fluxt) {
     int T = cols(convlik);
     int N = rows(convlik);
-    int F = rows(fluxt)/N;
-    // convflux[F,N*T] = to_matrix(fluxt[F*N,N] * convlik[N,T], F,N*T)
-    return to_matrix(fluxt * convlik, F, N*T);
+    int F1 = rows(fluxt)/N;
+    // convflux[F1,N*T] = to_matrix(fluxt[F1*N,N] * convlik[N,T], F1,N*T)
+    return to_matrix(fluxt * convlik, F1, N*T);
   }
 
   // Case count likelihood choices
@@ -241,9 +241,9 @@ data {
   vector[2] geoloc[N];      // geo locations of regions
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
-  matrix[N,N] flux;         // fluxes for radiation metapopulation model
   int F;
-  matrix[N,N] metaflux[F];
+  matrix[N,N] flux[F];         // fluxes for radiation metapopulation model
+  //matrix[N,N] metaflux[F];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -251,6 +251,8 @@ data {
 transformed data {
   int Tcur = Tcond+Tlik;    // index of day on which we are estimating Rt
   int Tpred = Tall-Tcur;    // number of days to calculate predictive probabilities for
+  int F1 = F+1;
+  vector[F] ones = rep_vector(1.0,F);
 
   vector[Tall] Creal[N];     // real type version of Count
   vector[D] infprofile_rev; // reversed infection profile
@@ -264,9 +266,10 @@ transformed data {
   matrix[N,Tpred] convpredunif;// for use in predictive probs of future counts
   matrix[N,Tproj] convproj;    // for use in forecasting into future 
 
-  matrix[F*N,N] fluxt;      // transposed flux matrices
+  matrix[F1*N,N] fluxt;      // transposed flux matrices
 
-  matrix[F,N*Tlik] newflux;
+  matrix[F1,N*Tlik] convflux;
+  matrix[F1,N*Tpred] convpredflux;
   int Clik[Tlik,N];
 
   // reverse infection profile
@@ -274,10 +277,11 @@ transformed data {
     infprofile_rev[i] = infprofile[D-i+1];
 
   {
-    matrix[F,N*N] fluxtmp;
-    for (f in 1:F)
-      fluxtmp[f,] = to_row_vector(metaflux[f]');
-    fluxt = to_matrix(fluxtmp,F*N,N);
+    matrix[F1,N*N] fluxtmp;
+    fluxtmp[1,] = to_row_vector(diag_matrix(rep_vector(1.0,N)));
+    for (f in 2:F1)
+      fluxtmp[f,] = to_row_vector(flux[f-1]');
+    fluxt = to_matrix(fluxtmp,F1*N,N);
   }
 
   for (j in 1:N)
@@ -302,16 +306,17 @@ transformed data {
       convproj[j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1])+1e-6;
     }
   }
-  convlikunif = uniform_in_compute_flux(convlik,flux);
-  convpredunif = uniform_in_compute_flux(convpred,flux);
-  convlikrad = radiation_in_compute_flux(convlik,flux);
-  convpredrad = radiation_in_compute_flux(convpred,flux);
+  //convlikunif = uniform_in_compute_flux(convlik,flux);
+  //convpredunif = uniform_in_compute_flux(convpred,flux);
+  //convlikrad = radiation_in_compute_flux(convlik,flux);
+  //convpredrad = radiation_in_compute_flux(convpred,flux);
 
-  newflux = new_compute_flux(convlik,fluxt);
+  convflux = new_compute_flux(convlik,fluxt);
+  convpredflux = new_compute_flux(convpred,fluxt);
   //{
-  //  matrix[N,Tlik] radflux = to_matrix(newflux[3,],N,Tlik);
-  //  matrix[N,Tlik] unifflux = to_matrix(newflux[2,],N,Tlik);
-  //  matrix[N,Tlik] localflux = to_matrix(newflux[1,],N,Tlik);
+  //  matrix[N,Tlik] radflux = to_matrix(convflux[3,],N,Tlik);
+  //  matrix[N,Tlik] unifflux = to_matrix(convflux[2,],N,Tlik);
+  //  matrix[N,Tlik] localflux = to_matrix(convflux[1,],N,Tlik);
   //  print("Check for flux computations: ",
   //        max(localflux-convlik),"  ",min(localflux-convlik),"  ",
   //        max(unifflux-convlikunif),"  ",min(unifflux-convlikunif),"  ",
@@ -339,7 +344,7 @@ parameters {
   real<lower=0> precision;
   // real<lower=0> Ravg;
   real<lower=0,upper=1> coupling_rate;
-  real<lower=0,upper=1> rad_prob;
+  simplex[F] flux_probs;
 }
 
 
@@ -348,7 +353,7 @@ parameters {
 transformed parameters {
   vector[N] Rt;                 // instantaneous reproduction number
   real<lower=0> local_sigma2[N];
-  row_vector[F] fluxproportions;
+  row_vector[F1] fluxproportions;
 
   {
     matrix[N,N] K;
@@ -370,9 +375,9 @@ transformed parameters {
     Rt = exp(L * eta);
 
     fluxproportions[1] = 1.0-coupling_rate;
-    fluxproportions[2] = coupling_rate*(1.0-rad_prob);
-    fluxproportions[3] = coupling_rate*rad_prob;
-
+    for (f in 2:F1) {
+      fluxproportions[f] = coupling_rate*(1.0-flux_probs[f-1]);
+    }
   }
 
 }
@@ -386,7 +391,7 @@ model {
 
   // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .5);
-  rad_prob ~ uniform(0.0, 1.0);
+  flux_probs ~ dirichlet(ones);
   precision ~ normal(0.0,10.0);
 
   // GP prior density
@@ -403,8 +408,8 @@ model {
   // metapopulation infection rate model
 
   // both below computes same thing.
-  //convout = new_metapop(Rt,convlik,fluxproportions,newflux);
-  convout = METAPOP_metapop(Rt,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
+  convout = new_metapop(Rt,convlik,fluxproportions,convflux);
+  //convout = METAPOP_metapop(Rt,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
 
   //{
     //matrix[N,Tlik] oldconvout = METAPOP_metapop(Rt,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
@@ -454,7 +459,8 @@ generated quantities {
 
   // predictive probability of future counts
   {
-    matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate,rad_prob,flux,convpredrad,convpredunif);
+    //matrix[N,Tpred] convout = METAPOP_metapop(Rt,convpred,coupling_rate,rad_prob,flux,convpredrad,convpredunif);
+    matrix[N,Tpred] convout = new_metapop(Rt,convpred,fluxproportions,convpredflux);
     for (i in 1:Tpred)
       for (j in 1:N)
         Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
@@ -464,15 +470,18 @@ generated quantities {
   // forecasting *mean* counts given parameters
   {
     matrix[N,1] convprojall;
-    matrix[N,1] convprojrad;
-    matrix[N,1] convprojunif;
+    //matrix[N,1] convprojrad;
+    //matrix[N,1] convprojunif;
+    matrix[F1,N*1] convprojflux;
     for (i in 1:Tproj) {
       for (j in 1:N) 
         convprojall[j,1] = convproj[j,i] + 
             dot_product(Cproj[j][1:(i-1)], infprofile_rev[(D-i+2):D]);
-      convprojrad  = radiation_in_compute_flux(convprojall,flux);
-      convprojunif = uniform_in_compute_flux(convprojall,flux);
-      Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate,rad_prob,flux,convprojrad,convprojunif)[:,1];
+      //convprojrad  = radiation_in_compute_flux(convprojall,flux);
+      //convprojunif = uniform_in_compute_flux(convprojall,flux);
+      convprojflux = new_compute_flux(convprojall,fluxt);
+      //Cproj[:,i] = METAPOP_metapop(Rt,convprojall,coupling_rate,rad_prob,flux,convprojrad,convprojunif)[:,1];
+      Cproj[:,i] = new_metapop(Rt,convprojall,fluxproportions,convprojflux)[:,1];
     }
   }
 

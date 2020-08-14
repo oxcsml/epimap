@@ -47,11 +47,9 @@ Tproj <- 21              # number of days to project forward
 Count <- Count[,1:Tall] # get rid of ignored last days
 
 # metapopulation cross-area fluxes.
-# first two are fixed, and there needs to be at least the first flux.
-metaflux = list()
-metaflux[[1]] = diag(N)           # within-area infections
-metaflux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
-metaflux[[3]] = radiation_flux[,,1] # ls=.1
+flux = list()
+flux[[1]] = radiation_flux[,,1] # ls=.1
+flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
 
 Rmap_data <- list(
   N = N, 
@@ -63,9 +61,9 @@ Rmap_data <- list(
   Count = Count,
   geoloc = geoloc,
   geodist = geodist,
-  flux = radiation_flux[,,1],
-  F = length(metaflux),
-  metaflux = metaflux,
+  # flux = radiation_flux[,,1],
+  F = length(flux),
+  flux = flux,
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,

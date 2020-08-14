@@ -480,10 +480,10 @@ function ready(data) {
         .attr("d", path)
         .attr("class", "feature")
 
-    // g.append("path")
-    //     .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
-    //     .attr("class", "mesh")
-    //     .attr("d", path);
+    g.append("path")
+        .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
+        .attr("class", "mesh")
+        .attr("d", path);
 
     // Draw the color scale
     const defs = map_svg.append("defs");

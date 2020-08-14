@@ -13,10 +13,27 @@ var map_svg = d3.select("#map"),
     width = +map_svg.attr("width"),
     height = +map_svg.attr("height");
 
-var g = map_svg.append("g");
 var barHeight = 20;
+const sliderWidth = 300;
 var barWidth = Math.floor(height / 3);
-var margin = ({ top: 20, right: 40, bottom: 30, left: 40 })
+var margin = ({ top: 20, right: 40, bottom: 30, left: 40 });
+var g = map_svg.append("g");
+
+const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2);
+const sliderSvg = d3.select("#slider-svg");
+const sliderG = sliderSvg.append("g")
+    .attr('transform', `translate(${sliderLeft},10)`)
+sliderSvg.append("text")
+    .attr("x", sliderLeft-50)
+    .attr("y", 15)
+    .attr("text-anchor", "middle")
+    .style("font-size", "13px")
+    .text("Rt Date");
+const sliderValueLabel = sliderSvg.append("text")
+    .attr("x", sliderLeft +sliderWidth + 60)
+    .attr("y", 15)
+    .attr("text-anchor", "middle")
+    .style("font-size", "13px");
 
 // Set up dimensions for chart
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
@@ -132,6 +149,8 @@ d3.select("#zoom_in").on("click", function () {
 d3.select("#zoom_out").on("click", function () {
     map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 });
+
+const dateFormat = d3.timeFormat("%Y-%m-%d");
 
 // Data containers
 var rtData = d3.map();
@@ -541,6 +560,23 @@ function ready(data) {
         showRt.attr("class", "");
     });
 
+    const sliderDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
+
+    const timeSlider = d3.sliderHorizontal()
+        .ticks(5)
+        .min(d3.min(sliderDates))
+        .max(d3.max(sliderDates))
+        .marks(sliderDates)
+        .tickFormat(d3.timeFormat("%b"))
+        .width(sliderWidth)
+        .displayValue(false)
+        .value(d3.max(sliderDates))
+        .on('onchange', (val) => {
+            sliderValueLabel.text(dateFormat(val));
+        });
+    
+    sliderG.call(timeSlider);
+    sliderValueLabel.text(dateFormat(d3.max(sliderDates)));
 }
 
 function plotCaseChart(chartData, projectionData, area) {
@@ -708,7 +744,7 @@ function plotRtChart(rtData, area) {
 
     rtChartXAxis.call(d3.axisBottom(x));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
-    rtChartTitle.text(`Estimated Rt for ${area}`);
+    rtChartTitle.transition.text(`Estimated Rt for ${area}`);
 }
 
 function selectArea(selectedArea) {

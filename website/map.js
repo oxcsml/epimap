@@ -686,8 +686,6 @@ function plotCaseChart(chartData, projectionData, area) {
             d0 = allData[i - 1],
             d1 = allData[i],
             d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
-        
-        console.log("x0", x0, "i", i, 'd0', d0, "d1", d1, "d", d);
 
         // TODO: Change this to cases actual, smoothed and projections
         focus.attr("transform", "translate(" + x(d.Date) + "," + y(getValue(d)) + ")");
@@ -748,6 +746,46 @@ function plotRtChart(rtData, area) {
     rtChartXAxis.call(d3.axisBottom(x));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
     rtChartTitle.text(`Estimated Rt for ${area}`);
+
+    //TODO: Refactor this out into a function!
+    var focus = rtChartSvg.append("g")
+        .attr("class", "focus")
+        .style("display", "none");
+
+    focus.append("line")
+        .attr("class", "x-hover-line hover-line")
+        .attr("y1", 0)
+        .attr("y2", chartHeight);
+
+    focus.append("circle")
+        .attr("r", 2);
+
+    focus.append("text")
+        .attr("x", 15)
+        .attr("dy", ".31em");
+
+    rtChartSvg.append("rect")
+        .attr("transform", "translate(" + chartMargin.left + ",0)")
+        .attr("class", "overlay")
+        .attr("width", chartWidth)
+        .attr("height", chartHeight)
+        .on("mouseover", function () { focus.style("display", null); })
+        .on("mouseout", function () { focus.style("display", "none"); })
+        .on("mousemove", mousemove);
+
+    const bisectDate = d3.bisector(function (d) { return d.Date; }).left;
+
+    function mousemove() {
+        var x0 = x.invert(d3.mouse(this)[0] + chartMargin.left),
+            i = bisectDate(rtData, x0, 1),
+            d0 = rtData[i - 1],
+            d1 = rtData[i],
+            d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
+
+        focus.attr("transform", "translate(" + x(d.Date) + "," + y(d.Rt50) + ")");
+        focus.select("text").text(function () { return Math.round(d.Rt50); });
+        focus.select(".x-hover-line").attr("y2", chartHeight - y(d.Rt50));
+    }
 }
 
 function selectArea(selectedArea) {

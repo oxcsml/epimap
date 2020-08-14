@@ -17,22 +17,31 @@
     </head>
 
     <body>
-        <div class="wrapper">
-            <div class="left-pane">
-                <svg id="map" width="600" height="1000"></svg>
-            </div>
-            <div class="right-pane">
-                <h1 id="data-heading">Select an area in the map...</h1>
-                <div id="sub-heading"></div>
-                <h3 id="cases-title">Cases</h3>
-                <div class="info-row"><span class="info-heading">Last 7 days: </span><span id="cases-last7-info"></span></div>
-                <div class="info-row"><span class="info-heading">Last 7 days per 100k people: </span><span id="cases-last7-per-info"></span></div>
-                <div class="info-row"><span class="info-heading">Total Cases: </span><span id="cases-total-info"></span></div>
-                <h3 id="estimates-title">Estimates</h3>
-                <div class="info-row"><span class="info-heading">Rt [credible interval]: </span><span id="rt-info"></span></div>
-                <div class="info-row"><span class="info-heading">Total cases, next 7 days [credible interval]: </span><span id="case-proj-info"></span></div>
-                <div class="info-row"><span class="info-heading">Total cases, next 7 days per 100k population [credible interval]: </span><span id="case-proj-per100k-info"></span></div>
-                <svg id="chart" width="600" height="250"></svg>
+        <div class="container">
+            <div class="row">
+                <div class="column">
+                    <svg id="map" width="600" height="1000"></svg>
+                </div>
+                <div class="column">
+                    <h1 id="data-heading">Select an area in the map...</h1>
+                    <div id="sub-heading"></div>
+                    <div class="row">
+                        <div class="column">
+                            <h3 id="cases-title">Cases</h3>
+                            <div class="info-row"><span class="info-heading">Last 7 days: </span><span id="cases-last7-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Last 7 days per 100k: </span><span id="cases-last7-per-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Total Cases: </span><span id="cases-total-info"></span></div>
+                        </div>
+                        <div class="column">
+                            <h3 id="estimates-title">Estimates<br/><small>Credible Intervals in [brackets]</small></h3>
+                            <div class="info-row"><span class="info-heading">Rt: </span><span id="rt-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next 7 day cases: </span><span id="case-proj-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next 7 day cases per 100k: </span><span id="case-proj-per100k-info"></span></div>
+                        </div>
+                    </div>
+                    
+                    <svg id="chart" width="600" height="250"></svg>
+                </div>
             </div>
         </div>
 

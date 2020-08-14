@@ -81,6 +81,28 @@ div.tooltip span.header {
     opacity: 0.4;
 }
 
+.rt-line {
+    fill: none;
+    stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+}
+
+.rt-inner-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.4;
+}
+
+.rt-outer-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.2;
+}
+
+.rt-horizontal-line {
+    stroke-width: 2;
+    stroke: #333;
+    stroke-dasharray: 5;
+}
+
 #chart {
     margin-top:2em;
 }

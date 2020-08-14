@@ -123,3 +123,20 @@ h1, h2, h3, h4, h5, h6, p, span {
 #estimates-title {
     margin-top: 1em;
 }
+
+.overlay {
+    fill: none;
+    pointer-events: all;
+}
+
+.focus circle {
+    fill: #F1F3F3;
+    stroke: #333;
+    stroke-width: 5px;
+}
+
+.hover-line {
+    stroke: #333;
+    stroke-width: 2px;
+    stroke-dasharray: 3,3;
+}

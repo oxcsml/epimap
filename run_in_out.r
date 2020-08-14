@@ -83,7 +83,7 @@ print(runname)
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
+content = readLines(paste('stan_files/', 'Rmap_in_out.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
 content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)

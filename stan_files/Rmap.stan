@@ -243,7 +243,6 @@ data {
   matrix[N,N] geodist;      // distance between locations
   int F;
   matrix[N,N] flux[F];         // fluxes for radiation metapopulation model
-  //matrix[N,N] metaflux[F];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -252,7 +251,7 @@ transformed data {
   int Tcur = Tcond+Tlik;    // index of day on which we are estimating Rt
   int Tpred = Tall-Tcur;    // number of days to calculate predictive probabilities for
   int F1 = F+1;
-  vector[F] ones = rep_vector(1.0,F);
+  vector[max(1,F)] ones = rep_vector(1.0,max(1,F));
 
   vector[Tall] Creal[N];     // real type version of Count
   vector[D] infprofile_rev; // reversed infection profile
@@ -344,7 +343,7 @@ parameters {
   real<lower=0> precision;
   // real<lower=0> Ravg;
   real<lower=0,upper=1> coupling_rate;
-  simplex[F] flux_probs;
+  simplex[max(1,F)] flux_probs;
 }
 
 
@@ -354,6 +353,7 @@ transformed parameters {
   vector[N] Rin;                 // instantaneous reproduction number
   real<lower=0> local_sigma2[N];
   row_vector[F1] fluxproportions;
+  matrix[N,Tlik] convlikout;
 
   {
     matrix[N,N] K;
@@ -380,6 +380,8 @@ transformed parameters {
     }
   }
 
+  convlikout = new_metapop(Rin,convlik,fluxproportions,convflux);
+
 }
 
 
@@ -387,7 +389,6 @@ transformed parameters {
 
 model {
   vector[Tlik] coupling;
-  matrix[N,Tlik] convout;
 
   // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .5);
@@ -408,7 +409,6 @@ model {
   // metapopulation infection rate model
 
   // both below computes same thing.
-  convout = new_metapop(Rin,convlik,fluxproportions,convflux);
   //convout = METAPOP_metapop(Rin,convlik,coupling_rate,rad_prob,flux,convlikrad,convlikunif);
 
   //{
@@ -425,7 +425,7 @@ model {
   // compute likelihoods
   for (i in 1:Tlik) {
     for (j in 1:N) {
-      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convout[j,i], precision);
+      Count[j,Tcond+i] ~ OBSERVATION_likelihood(convlikout[j,i], precision);
       //Clik[i,j] ~ OBSERVATION_likelihood(convout[j,i], precision);
       //print(OBSERVATION_likelihood_lpmf(Count[j,Tcond+i]|convout[j,i], precision),
       //      OBSERVATION_likelihood_lpmf(Clik[i,j]|convout[j,i], precision));
@@ -447,32 +447,21 @@ generated quantities {
 
   // Estimated R0 over all areas
   {
-    matrix[N,Tlik] convout = new_metapop(Rin,convlik,fluxproportions,convflux);
-    real denom0 = 0.0;
-    real denomj;
-    R0 = 0.0;
-    for (j in 1:N) {
-      Rt[j] = 0.0;
-      denomj = 0.0;
-      for (i in 1:Tlik) {
-        R0 += Rin[j] * convout[j,i];
-        Rt[j] += Rin[j] * convout[j,i];
-        denom0 += convlik[j,i];
-        denomj += convlik[j,i];
-      }
-      Rt[j] = Rt[j] / denomj;
-    }
-    R0 = R0 / denom0;
+    vector[N] R1 = rep_vector(1.0,N);
+    vector[Tlik] T1 = rep_vector(1.0,Tlik);
+    matrix[N,Tlik] convone = new_metapop(R1,convlik,fluxproportions,convflux);
+    R0 = sum(convlikout) / sum(convone);
+    Rt = (convlikout * T1) ./ (convone * T1);
   }
 
   // predictive probability of future counts
   {
-    //matrix[N,Tpred] convout = METAPOP_metapop(Rin,convpred,coupling_rate,rad_prob,flux,convpredrad,convpredunif);
-    matrix[N,Tpred] convout = new_metapop(Rin,convpred,fluxproportions,convpredflux);
+    //matrix[N,Tpred] convpredout = METAPOP_metapop(Rin,convpred,coupling_rate,rad_prob,flux,convpredrad,convpredunif);
+    matrix[N,Tpred] convpredout = new_metapop(Rin,convpred,fluxproportions,convpredflux);
     for (i in 1:Tpred)
       for (j in 1:N)
         Ppred[j,i] = exp(OBSERVATION_likelihood_lpmf(Count[j,Tcur+i] |
-            convout[j,i], precision));
+            convpredout[j,i], precision));
   }
 
   // forecasting *mean* counts given parameters

@@ -5,7 +5,7 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="radiation_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/radiation_in/[radiation_uniform_in]/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation2_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_in/[radiation1_uniform_in]/radiation2_uniform_in/radiation3_uniform_in/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial_3", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",  default=6000,     help="Length of MCMC chains [4000]"),
@@ -42,14 +42,36 @@ Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
 Tall <- Tall-Tignore  # number of days in time series used.
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
-Tproj <- 21              # number of days to project forward
+Tproj <- 7              # number of days to project forward
 
 Count <- Count[,1:Tall] # get rid of ignored last days
 
 # metapopulation cross-area fluxes.
-flux = list()
-flux[[1]] = radiation_flux[,,1] # ls=.1
-flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+if (opt$metapop == 'radiation1_uniform_in') {
+  flux = list()
+  flux[[1]] = radiation_flux[,,1] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'radiation2_uniform_in') {
+  flux = list()
+  flux[[1]] = radiation_flux[,,2] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'radiation3_uniform_in') {
+  flux = list()
+  flux[[1]] = radiation_flux[,,3] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'uniform_in') {
+  flux = list()
+  flux[[1]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'none') {
+  flux = array(0,dim=c(0,N,N));
+  F = 0
+} else {
+  stop(c('Unrecognised metapop option ',opt$metapop));
+}
 
 Rmap_data <- list(
   N = N, 
@@ -62,7 +84,7 @@ Rmap_data <- list(
   geoloc = geoloc,
   geodist = geodist,
   # flux = radiation_flux[,,1],
-  F = length(flux),
+  F = F,
   flux = flux,
   infprofile = infprofile
   # local_sd = opt$local_sd,
@@ -87,7 +109,7 @@ content = readLines(paste('stan_files/', 'Rmap.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
 content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
-content = gsub(pattern="METAPOP", replace=opt$metapop, content)
+# content = gsub(pattern="METAPOP", replace=opt$metapop, content)
 content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
 writeLines(content, stan_file_name)
 
@@ -99,7 +121,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -153,16 +175,12 @@ colnames(df)[3:5] <- c("C_lower","C_median","C_upper")
 df[,3:5] <- format(df[,3:5],digits=2)
 write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
     row.names=FALSE,quote=FALSE)
-write.csv(df, paste('website/Cproj.csv', sep=''),
-    row.names=FALSE,quote=FALSE)
 
 areas <- sapply(uk_cases[1:N,2],inquotes)
 df <- data.frame(area = areas, Rt = Rt)
 colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
 df[,2:4] <- format(df[,2:4],digits=2)
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
-    row.names=FALSE,quote=FALSE)
-write.csv(df, paste('website/Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
 
@@ -175,5 +193,7 @@ saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 
-pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"))
+pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"))
+dev.off()
 

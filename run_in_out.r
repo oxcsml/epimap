@@ -42,7 +42,7 @@ Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
 Tall <- Tall-Tignore  # number of days in time series used.
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
-Tproj <- 21              # number of days to project forward
+Tproj <- 7              # number of days to project forward
 
 Count <- Count[,1:Tall] # get rid of ignored last days
 
@@ -99,7 +99,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -175,5 +175,7 @@ saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 
-pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","rad_prob"))
+pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"))
+dev.off()
 

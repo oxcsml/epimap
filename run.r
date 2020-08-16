@@ -5,7 +5,7 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="radiation2_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_in/[radiation1_uniform_in]/radiation2_uniform_in/radiation3_uniform_in/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation2_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial_3", help="observation model ([negative_binomial]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",  default=6000,     help="Length of MCMC chains [4000]"),
@@ -47,26 +47,56 @@ Tproj <- 7              # number of days to project forward
 Count <- Count[,1:Tall] # get rid of ignored last days
 
 # metapopulation cross-area fluxes.
-if (opt$metapop == 'radiation1_uniform_in') {
+if (opt$metapop == 'radiation1_uniform_in' || 
+    opt$metapop == 'radiation1_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation1_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
   flux = list()
   flux[[1]] = radiation_flux[,,1] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'radiation2_uniform_in') {
+} else if (opt$metapop == 'radiation2_uniform_in' || 
+           opt$metapop == 'radiation2_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation2_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
   flux = list()
   flux[[1]] = radiation_flux[,,2] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'radiation3_uniform_in') {
+} else if (opt$metapop == 'radiation3_uniform_in' || 
+           opt$metapop == 'radiation3_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation3_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
   flux = list()
   flux[[1]] = radiation_flux[,,3] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'uniform_in') {
+} else if (opt$metapop == 'uniform_in' || 
+           opt$metapop == 'uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
   flux = list()
   flux[[1]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
 } else if (opt$metapop == 'none') {
+  do_metapop = 0
+  do_in_out = 0
   flux = array(0,dim=c(0,N,N));
   F = 0
 } else {
@@ -84,6 +114,8 @@ Rmap_data <- list(
   geoloc = geoloc,
   geodist = geodist,
   # flux = radiation_flux[,,1],
+  do_metapop = do_metapop,
+  do_in_out = do_in_out,
   F = F,
   flux = flux,
   infprofile = infprofile

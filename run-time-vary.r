@@ -39,25 +39,19 @@ if (opt$task_id > 0) {
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
-infprofile <- read.csv("data/serial_interval.csv")$fit
+source('read_data.r')
+source('read_radiation_fluxes.r')
 
-uk_cases <- read.csv("data/uk_cases.csv")
-
-metadata <- read.csv("data/metadata.csv")
-
-N <- 185      # 149 number of regions in England & Wales only. 185 scotland too
 M <- opt$time_steps        # Testing with 1 time period
-D <- 100      # infection profile number of days
 Tignore <- 7  # counts in most recent 7 days may not be reliable?
 Tpred <- 7    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
-Tstep <- 7    # number of days to step for each time step of Rt prediction
-Tall <- ncol(uk_cases)-2-Tignore  # number of days; last 7 days counts ignore; not reliable
+Tstep <- Tlik # number of days to step for each time step of Rt prediction
+Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcond <- Tall-Tlik-Tpred       # number of days we condition on
-Tproj <- 21              # number of days to project forward
+Tproj <- 7            # number of days to project forward
 
-
-Count <- uk_cases[1:N,3:(Tall+2)]
+Count <- Count[,1:Tall] # get rid of ignored last days
 
 days = colnames(Count)
 days_likelihood = days[(Tcond - (M-1)*Tlik +1):(Tcond+Tlik)]
@@ -68,39 +62,61 @@ print(days_likelihood)
 print("Days used for held out likelihood")
 print(days_pred_held_out)
 
-geoloc <- matrix(0, N, 2)
-geodist <- matrix(0, N, N)
-
-region_names <- metadata$AREA
-longitudes <- metadata$LONG
-latitudes <- metadata$LAT
-
-for (i in 1:N) {
-  region_name <- uk_cases[i,2]
-  j <- grep(sprintf('^%s$',region_name), region_names)
-  if (length(j) >= 1) {                 # just use first match!!
-    if (length(j) > 1) 
-      print(sprintf("Found regions %s, using first", paste(region_names[j]), collapse=","))
-    geoloc[i, 1] = longitudes[j[1]]
-    geoloc[i, 2] = latitudes[j[1]]
+# metapopulation cross-area fluxes.
+if (opt$metapop == 'radiation1_uniform_in' || 
+    opt$metapop == 'radiation1_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation1_uniform_in' ) {
+    do_in_out = 0
   } else {
-    print(sprintf("Cannot find region '%s'",region_name))
-    for (r in 1:length(region_names)) {
-      if (length(grep(region_names[r], region_name))>0) {
-        geoloc[i, 1] = longitudes[r]
-        geoloc[i, 2] = latitudes[r]
-        print(sprintf("...found region '%s'",region_names[r]))
-      }
-    }
+    do_in_out = 1
   }
-}
-  
-for (i in 1:N) {
-  for (j in i:N) {
-    # distance between two points on an ellipsoid (default is WGS84 ellipsoid), in units of 100km
-    geodist[i, j] = distGeo(geoloc[i, 1:2], geoloc[j, 1:2]) / 100000
-    geodist[j, i] = geodist[i, j]
+  flux = list()
+  flux[[1]] = radiation_flux[,,1] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'radiation2_uniform_in' || 
+           opt$metapop == 'radiation2_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation2_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
   }
+  flux = list()
+  flux[[1]] = radiation_flux[,,2] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'radiation3_uniform_in' || 
+           opt$metapop == 'radiation3_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'radiation3_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
+  flux = list()
+  flux[[1]] = radiation_flux[,,3] # ls=.1
+  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'uniform_in' || 
+           opt$metapop == 'uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
+  flux = list()
+  flux[[1]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'none') {
+  do_metapop = 0
+  do_in_out = 0
+  flux = array(0,dim=c(0,N,N));
+  F = 0
+} else {
+  stop(c('Unrecognised metapop option ',opt$metapop));
 }
 
 times = (1:M) * Tstep
@@ -111,7 +127,7 @@ for (i in 1:M) {
   }
 }
 
-
+# precompute lockdown cutoff kernel
 lockdown_day = as.Date("2020-03-23")
 days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tlik)]
 days_lik_start = vapply(days_lik_start, (function (day) as.Date(substr(day, 2, 11), format="%Y.%m.%d")), double(1))
@@ -138,6 +154,10 @@ Rmap_data <- list(
   geodist = geodist,
   timedist = timedist,
   timecorcut = time_corellation_cutoff,
+  do_metapop = do_metapop,
+  do_in_out = do_in_out,
+  F = F,
+  flux = flux,
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,
@@ -157,12 +177,12 @@ print(runname)
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-content = readLines(paste('stan_files/', 'Rmap-time-vary.stan',sep=''))
+content = readLines(paste('stan_files/', 'Rmap-time-vary-vectorize.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern='TEMPORAL', replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
 content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
-content = gsub(pattern="METAPOP", replace=opt$metapop, content)
+# content = gsub(pattern="METAPOP", replace=opt$metapop, content)
 content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
 writeLines(content, stan_file_name)
 

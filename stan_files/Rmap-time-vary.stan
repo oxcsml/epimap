@@ -156,6 +156,7 @@ data {
   vector[D] infprofile;     // infection profile aka serial interval distribution
   matrix[N,N] geodist;      // distance between locations
   matrix[M,M] timedist;     // distance between time samples
+  matrix[M,M] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
 }
 
 transformed data {
@@ -203,8 +204,7 @@ parameters {
   real<lower=0> gp_space_sigma;
 
   real<lower=0> gp_time_length_scale;
-  // real<lower=0> gp_time_sigma;
-  
+    
   real<lower=0> local_sigma;
   real<lower=0> global_sigma;
 
@@ -229,6 +229,7 @@ transformed parameters {
     // GP prior.
     K_space = SPATIAL_kernel(geodist, gp_space_sigma, gp_space_length_scale); // space kernel
     K_time  = TEMPORAL_kernel(timedist, 1.0, gp_time_length_scale); // time kernel
+    K_time  = K_time .* timecorcut;  // Zero out uncorrelated time entries
 
     for (i in 1:N) {
       K_space[i,i] = K_space[i,i] + LOCAL_var(local_sigma2);

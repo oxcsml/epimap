@@ -24,10 +24,10 @@ numiters = opt$iterations
 if (opt$task_id > 0) {
   grid = expand.grid(
     spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
-    localkernel=c("local","none"),
-    globalkernel=c("global","none"),
     metapop=c("uniform1", "uniform2", "none"), 
-    observation=c("negative_binomial", "poisson")
+    observation=c("negative_binomial", "poisson"),
+    localkernel=c("local","none"),
+    globalkernel=c("global","none")
   )
   grid = sapply(grid, as.character)
   update = as.list(grid[opt$task_id, ]) 
@@ -62,6 +62,11 @@ Count <- uk_cases[1:N,3:(Tall+2)]
 days = colnames(Count)
 days_likelihood = days[(Tcond - (M-1)*Tlik +1):(Tcond+Tlik)]
 days_pred_held_out = days[(Tcond+Tlik+1):(Tcond+Tlik+Tpred)]
+
+print("Days used for likelihood fitting")
+print(days_likelihood)
+print("Days used for held out likelihood")
+print(days_pred_held_out)
 
 geoloc <- matrix(0, N, 2)
 geodist <- matrix(0, N, N)
@@ -106,6 +111,19 @@ for (i in 1:M) {
   }
 }
 
+
+lockdown_day = as.Date("2020-03-23")
+days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tlik)]
+days_lik_start = vapply(days_lik_start, (function (day) as.Date(substr(day, 2, 11), format="%Y.%m.%d")), double(1))
+day_pre_lockdown = vapply(days_lik_start, (function (day) day < lockdown_day), logical(1))
+
+time_corellation_cutoff = matrix(0,M,M)
+for (i in 1:M) {
+  for (j in 1:M) {
+    time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
+  }
+}
+
 Rmap_data <- list(
   N = N, 
   M = M,
@@ -119,6 +137,7 @@ Rmap_data <- list(
   # geoloc = geoloc,
   geodist = geodist,
   timedist = timedist,
+  timecorcut = time_corellation_cutoff,
   infprofile = infprofile
   # local_sd = opt$local_sd,
   # global_sd = opt$global_sd,
@@ -147,15 +166,26 @@ content = gsub(pattern="METAPOP", replace=opt$metapop, content)
 content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
 writeLines(content, stan_file_name)
 
+start_time <- Sys.time()
+
 fit <- stan(file = stan_file_name,
             data = Rmap_data, 
             iter = numiters, 
             chains = numchains,
             control = list(adapt_delta = .9))
-# print(fit)
+print(fit)
+
+end_time <- Sys.time()
+
+print("Time to run")
+print(end_time - start_time)
+
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+
+# fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(summary(fit, 
-    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","gp_time_sigma","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","global_sigma","local_sigma","dispersion","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -229,7 +259,6 @@ write.csv(df, paste('website/Rt.csv', sep=''),
 # colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
 # write.csv(df, paste('fits/', runname, '_RtCproj', '.csv', sep=''),row.names=FALSE)
 
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 

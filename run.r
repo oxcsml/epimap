@@ -24,8 +24,8 @@ if (opt$task_id > 0) {
     spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
     localkernel=c("local","none"),
     globalkernel=c("global","none"),
-    metapop=c("uniform1", "uniform2", "none"), 
-    observation=c("negative_binomial", "poisson")
+    metapop=c("radiation1_uniform_in", "radiation1_uniform_in_out", "radiation2_uniform_in", "radiation2_uniform_in_out", "radiation3_uniform_in", "radiation3_uniform_in_out", "uniform_in", "uniform_in_out", "none"), 
+    observation=c("negative_binomial_2", "negative_binomial_3", "poisson")
   )
   grid = sapply(grid, as.character)
   opt = as.list(grid[opt$task_id, ])  

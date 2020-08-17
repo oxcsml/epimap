@@ -203,7 +203,7 @@ parameters {
   real<lower=0> gp_space_sigma;
 
   real<lower=0> gp_time_length_scale;
-  real<lower=0> gp_time_sigma;
+  // real<lower=0> gp_time_sigma;
   
   real<lower=0> local_sigma;
   real<lower=0> global_sigma;
@@ -228,7 +228,7 @@ transformed parameters {
 
     // GP prior.
     K_space = SPATIAL_kernel(geodist, gp_space_sigma, gp_space_length_scale); // space kernel
-    K_time  = TEMPORAL_kernel(timedist, gp_time_sigma, gp_time_length_scale); // time kernel
+    K_time  = TEMPORAL_kernel(timedist, 1.0, gp_time_length_scale); // time kernel
 
     for (i in 1:N) {
       K_space[i,i] = K_space[i,i] + LOCAL_var(local_sigma2);
@@ -258,7 +258,6 @@ model {
   gp_space_sigma ~ normal(0.0, 0.5);
 
   gp_time_length_scale ~ gig(7, 1.0, 1.0);
-  gp_time_sigma = 1
 
   local_sigma ~ normal(0.0, 0.5);
   global_sigma ~ normal(0.0, 1.0);

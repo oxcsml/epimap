@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import pickle
 import pystan
+import reinflate
 
 from datetime import datetime, timedelta
 from hashlib import md5
@@ -42,9 +43,8 @@ def post_process(uk_cases: pd.DataFrame,
                                                            pd.DataFrame]:
     """Prints model summary statistics and creates CSV file."""
 
-    print(type(fit))
-    parameters = ['Ravg', 'gp_length_scale', 'gp_sigma', 'global_sigma',
-                  'local_sigma', 'dispersion', 'coupling_rate']
+    parameters = ['R0', 'gp_length_scale', 'gp_sigma', 'global_sigma',
+                  'local_scale', 'precision', 'coupling_rate', 'rad_prob']
     for p in parameters:
         df = pd.DataFrame(data=fit[p], columns=[p])
         summary = df.describe(percentiles=[0.025, 0.5, 0.975])
@@ -97,7 +97,7 @@ def read_data(t_ignore: int=7,
     df = metadata.join(uk_cases, how='inner')
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
-    # Use England, Scotland and Wales data.
+    # Use England, Scotland, Wales data.
     df = df[(df['Country'] == 'England') |
             (df['Country'] == 'Scotland') |
             (df['Country'] == 'Wales')]
@@ -112,11 +112,40 @@ def read_data(t_ignore: int=7,
     geoloc = df[['LAT', 'LONG']].to_numpy()
     n, _ = geoloc.shape
     geodist = np.zeros((n, n))
+    population = df['POPULATION'].to_numpy()
+
     for i in range(n):
         for j in range(i + 1, n):
             # Vincenty's formula WGS84.
             geodist[i, j] = geo.distance(geoloc[i], geoloc[j]) / 1000
             geodist[j, i] = geodist[i, j]
+
+    # Compute fluxes for radiation model; see "A universal model for mobility
+    # and migration patterns" by Simini et al, Nature 484, 96–100(2012).
+    flux = np.zeros((n, n))
+
+    for i in range(n):
+        source_population = population[i]
+        # The distances from the source population, excluding the source.
+        sorted_distance_indices = np.argsort(geodist[i, :])[1:]
+        # The sorted destination populations.
+        sorted_destination_populations = population[sorted_distance_indices]
+
+        # The total population in a circle with radius geodist[i, :], excluding
+        # the source population (which is already not in the cumulative sum)
+        # and the destination population (which is subtracted).
+        population_within_radius = np.cumsum(
+            sorted_destination_populations) - sorted_destination_populations
+
+        flx = (source_population * sorted_destination_populations /
+               (source_population + population_within_radius) /
+               (source_population + sorted_destination_populations +
+                population_within_radius))
+
+        flux[i, sorted_distance_indices] = flx
+        # According to Simini et al, `flx` should sum to one, but it sums to
+        # `1 - source_population / sum(population)`.
+        flux[i, i] = 1 - sum(flx)
 
     t_cond = cases.shape[1] - t_likelihood - t_predict
 
@@ -130,88 +159,11 @@ def read_data(t_ignore: int=7,
         'Count': cases,
         'geoloc': geoloc,
         'geodist': geodist,
+        'flux': flux,
         'infprofile': infection_profile
     }
 
     return df, data, first_prediction_date
-
-
-def reinflate(reproduction_numbers: pd.DataFrame,
-              case_predictions: pd.DataFrame):
-    england_map = pd.read_csv('data/england_meta_areas.csv')
-    scotland_map = pd.read_csv('data/nhs_scotland_health_boards.csv')
-    metadata = pd.read_csv('data/metadata.csv').set_index('AREA')
-
-    # Append a column containing the population ratios of the Upper Tier Local
-    # Authorities in the larger regions.
-    england_map = england_map.merge(metadata['POPULATION'],
-                                    left_on=['Meta area'],
-                                    right_on=['AREA'],
-                                    how='left') \
-                             .merge(metadata['POPULATION'],
-                                    left_on=['area'],
-                                    right_on=['AREA'],
-                                    how='left')
-    england_map['ratio'] = (england_map['POPULATION_y'] /
-                            england_map['POPULATION_x'])
-    england_map = england_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
-
-    scotland_map = scotland_map.merge(metadata['POPULATION'],
-                                      left_on=['NHS Scotland Health Board'],
-                                      right_on=['AREA'],
-                                      how='left') \
-                               .merge(metadata['POPULATION'],
-                                      left_on=['area'],
-                                      right_on=['AREA'],
-                                      how='left')
-    scotland_map['ratio'] = (scotland_map['POPULATION_y'] /
-                             scotland_map['POPULATION_x'])
-    scotland_map = scotland_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
-
-    # Reproduction numbers
-    england = england_map.merge(reproduction_numbers,
-                                left_on=['Meta area'],
-                                right_on=['area'],
-                                how='left') \
-                         .set_index('area') \
-                         .drop(columns=['Meta area', 'ratio'])
-
-    scotland = scotland_map.merge(reproduction_numbers,
-                                  left_on=['NHS Scotland Health Board'],
-                                  right_on=['area'],
-                                  how='left') \
-                           .set_index('area') \
-                           .drop(columns=['NHS Scotland Health Board',
-                                          'ratio'])
-
-    reproduction_numbers = reproduction_numbers.append(england) \
-                                               .append(scotland)
-
-    # Case predictions
-    england = england_map.merge(case_predictions.reset_index(level=1),
-                                left_on=['Meta area'],
-                                right_on=['area'],
-                                how='left')
-    england['C_lower'] = england['C_lower'] * england['ratio']
-    england['C_median'] = england['C_median'] * england['ratio']
-    england['C_upper'] = england['C_upper'] * england['ratio']
-    england = england.drop(columns=['Meta area', 'ratio']) \
-                     .set_index(['area', 'day'])
-
-    scotland = scotland_map.merge(case_predictions.reset_index(level=1),
-                                  left_on=['NHS Scotland Health Board'],
-                                  right_on=['area'],
-                                  how='left')
-    scotland['C_lower'] = scotland['C_lower'] * scotland['ratio']
-    scotland['C_median'] = scotland['C_median'] * scotland['ratio']
-    scotland['C_upper'] = scotland['C_upper'] * scotland['ratio']
-    scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
-                       .set_index(['area', 'day'])
-
-    case_predictions = case_predictions.append(england) \
-                                       .append(scotland)
-
-    return reproduction_numbers.sort_index(), case_predictions.sort_index()
 
 
 def stanmodel_cache(model_code, model_name=None):
@@ -235,8 +187,8 @@ def stanmodel_cache(model_code, model_name=None):
 def do_modeling(spatialkernel: str='matern12',
                 localkernel: str='local',
                 globalkernel: str='global',
-                metapop: str='none',
-                observation: str='negative_binomial',
+                metapop: str='radiation_uniform_in',
+                observation: str='negative_binomial_3',
                 chains: int=4,
                 iterations: int=4000,
                 pkl_file: str=None):
@@ -290,12 +242,15 @@ def do_modeling(spatialkernel: str='matern12',
     # Post-process the samples.
     reproduction_numbers, case_predictions = post_process(
         uk_cases, data, fit, first_prediction_date)
-    reproduction_numbers, case_predictions = reinflate(
+    reproduction_numbers, case_predictions = reinflate.reinflate(
         reproduction_numbers, case_predictions)
 
     # Save the predictions to file.
     if not os.path.exists('projections'):
         os.makedirs('projections')
+
+    # The website uses a 'Date' column name, instead of 'day'.
+    case_predictions.index.names = ['area', 'Date']
     reproduction_numbers.to_csv('projections/Rt.csv', float_format='%.5f')
     case_predictions.to_csv('projections/Cproj.csv', float_format='%.5f')
 

@@ -3,25 +3,17 @@
     padding: 0;
     margin: 0;
 }
-.wrapper {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    grid-template-rows: repeat(1, 1fr);
-    grid-gap: 10px;
-    width: 100vw;
-    height: 100vh;
+
+.container {
+    max-width: none;
+    margin-top: 2em;
 }
 
-.left-pane {
-    grid-column: 1;
-    grid-row: 1;
+h3 small {
+    font-size: 50%;
+    display: block;
 }
 
-.right-pane {
-    grid-column: 2;
-    grid-row: 1;
-    padding-top:2em;
-}
 
 .background {
     fill: none;
@@ -38,9 +30,11 @@
 
 .mesh {
     fill: none;
-    stroke: #999;
+    stroke: #fff;
     stroke-linecap: round;
     stroke-linejoin: round;
+    stroke-width: 0.5px;
+    vector-effect: non-scaling-stroke;
 }
 
 .legend rect {
@@ -88,6 +82,28 @@ div.tooltip span.header {
     opacity: 0.4;
 }
 
+.rt-line {
+    fill: none;
+    stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+}
+
+.rt-inner-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.4;
+}
+
+.rt-outer-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.2;
+}
+
+.rt-horizontal-line {
+    stroke-width: 2;
+    stroke: #333;
+    stroke-dasharray: 5;
+}
+
 #chart {
     margin-top:2em;
 }
@@ -106,4 +122,37 @@ h1, h2, h3, h4, h5, h6, p, span {
 
 .info-row {
     margin-bottom: 0.5em;
+}
+
+#sub-heading {
+    margin-top: -1em;
+    font-size: 0.9em;
+    margin-left: 0.25em;
+    margin-bottom: 2em;
+}
+
+#cases-title {
+    margin-top: 1em;
+    margin-bottom: 1.5em;
+}
+
+#estimates-title {
+    margin-top: 1em;
+}
+
+.overlay {
+    fill: none;
+    pointer-events: all;
+}
+
+.focus circle {
+    fill: #F1F3F3;
+    stroke: #333;
+    stroke-width: 5px;
+}
+
+.hover-line {
+    stroke: #333;
+    stroke-width: 2px;
+    stroke-dasharray: 3,3;
 }

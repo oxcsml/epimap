@@ -9,6 +9,7 @@
         <script src="https://d3js.org/topojson.v1.min.js"></script>	
         <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
         <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+        <script src="https://unpkg.com/d3-simple-slider"></script>
 
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
@@ -17,20 +18,33 @@
     </head>
 
     <body>
-        <div class="wrapper">
-            <div class="left-pane">
-                <svg id="map" width="600" height="1000"></svg>
-            </div>
-            <div class="right-pane">
-                <h1 id="data-heading">Select an area in the map...</h1>
-                <h3>Cases</h3>
-                <div class="info-row"><span class="info-heading">Last 7 days: </span><span id="cases-last7-info">TODO</span></div>
-                <div class="info-row"><span class="info-heading">Last 7 days per 100k people: </span><span id="cases-last7-per-info">TODO</span></div>
-                <div class="info-row"><span class="info-heading">Total Cases: </span><span id="cases-total-info">TODO</span></div>
-                <h3>Estimates</h3>
-                <div class="info-row"><span class="info-heading">Rt [credible interval]: </span><span id="rt-info"></span></div>
-                <div class="info-row"><span class="info-heading">Total cases, next 7 days [credible interval]: </span><span id="case-proj-info"></span></div>
-                <svg id="chart" width="600" height="250"></svg>
+        <div class="container">
+            <div class="row">
+                <div class="column">
+                    <svg id="slider-svg" width="600" height="50"></svg>
+                    <svg id="map" width="600" height="1000"></svg>
+                </div>
+                <div class="column">
+                    <h1 id="data-heading">Select an area in the map...</h1>
+                    <div id="sub-heading"></div>
+                    <div class="row">
+                        <div class="column">
+                            <h3 id="cases-title">Cases</h3>
+                            <div class="info-row"><span class="info-heading">Last 7 days: </span><span id="cases-last7-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Last 7 days per 100k: </span><span id="cases-last7-per-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Total Cases: </span><span id="cases-total-info"></span></div>
+                        </div>
+                        <div class="column">
+                            <h3 id="estimates-title">Estimates<br/><small>Credible Intervals in [brackets]</small></h3>
+                            <div class="info-row"><span class="info-heading">Rt: </span><span id="rt-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next 7 day cases: </span><span id="case-proj-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next 7 day cases per 100k: </span><span id="case-proj-per100k-info"></span></div>
+                        </div>
+                    </div>
+                    
+                    <svg id="chart" width="600" height="250"></svg>
+                    <svg id="rt-chart" width="600" height="250"></svg>
+                </div>
             </div>
         </div>
 

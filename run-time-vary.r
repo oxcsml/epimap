@@ -6,12 +6,12 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections ([uniform1]/uniform2/none)"),
-  make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial]/poisson)"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
+  make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=4000,                   help="Length of MCMC chains [4000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=1,                      help="Number of periods to fit Rt in"),
-  make_option(c("-t", "--task_id"),       type="integer",   default=1,                      help="Task ID for Slurm usage. By default, turned off [0].")
+  make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
@@ -140,8 +140,6 @@ for (i in 1:M) {
   }
 }
 
-print(time_corellation_cutoff)
-
 Rmap_data <- list(
   N = N, 
   M = M,
@@ -207,12 +205,12 @@ saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(summary(fit, 
-    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","global_sigma","local_sigma","dispersion","coupling_rate"), 
+    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","global_sigma","local_sigma","precision","coupling_rate"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
-s <- summary(fit, pars="Rt", probs=c(0.025, 0.25, .5, 0.75, .975))$summary
-Rt <- s[,c("2.5%","50%","97.5%")]
+s <- summary(fit, pars="Rt", probs=c(0.025, 0.125, 0.25, 0.375, .5, 0.625, 0.75, 0.875, .975))$summary
+Rt <- s[,c("2.5%", "12.5%", "25%", "37.5%", "50%", "62.5%", "75%", "87.5%", "97.5%")]
 Rt <- t(t(Rt))
 
 print(sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2])))
@@ -267,9 +265,7 @@ areas <- rep(uk_cases[1:N,2], each=M)
 times <- rep(1:M, N)
 days_lik_start = rep(days_likelihood[seq(1, length(days_likelihood), Tlik)], N)
 days_lik_end = rep(days_likelihood[seq(Tlik, length(days_likelihood), Tlik)], N)
-df <- data.frame(area = areas, time = times, period_start=days_lik_start, period_end=days_lik_end, Rt = Rt)
-colnames(df)[5:7] <- c("Rt_lower","Rt_median","Rt_upper")
-df[,5:7] <- format(df[,5:7],digits=2)
+df <- data.frame(area = areas, date_start=days_lik_start, date_end=days_lik_end, Rt = Rt)
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE)
 write.csv(df, paste('website/Rt.csv', sep=''),

@@ -20,7 +20,8 @@ functions {
   }
 
   matrix none_kernel(matrix dist, real gp_sigma, real gp_length_scale) {
-    return rep_matrix(0.0, rows(dist), cols(dist));
+    // return rep_matrix(0.0, rows(dist), cols(dist));
+    return diag_matrix(rep_vector(0.000000001, cols(dist))); // very small diagonal to allow cholesky factorisation
   }
 
   real local_var(real local_sigma2) {
@@ -365,13 +366,15 @@ generated quantities {
   matrix[N,Tproj] Cproj; 
 
   // Estimated R0 and Rt for all areas
-  matrix[N, M] oneN = rep_matrix(1.0,N,M);
-  vector[Tlik] oneT = rep_vector(1.0,Tlik);
-  matrix[N,Tlik] convone[M] = metapop(do_metapop,do_in_out,
-      oneN,oneN,convlik,convlikflux,fluxproportions,fluxt);
-  for (m in 1:M) {
-    R0[m] = sum(convlikout[m]) / sum(convone[m]);
-    Rt[m] = (convlikout[m] * oneT) ./ (convone[m] * oneT);
+  {
+    matrix[N, M] oneN = rep_matrix(1.0,N,M);
+    vector[Tlik] oneT = rep_vector(1.0,Tlik);
+    matrix[N,Tlik] convone[M] = metapop(do_metapop,do_in_out,
+        oneN,oneN,convlik,convlikflux,fluxproportions,fluxt);
+    for (m in 1:M) {
+      R0[m] = sum(convlikout[m]) / sum(convone[m]);
+      Rt[m] = (convlikout[m] * oneT) ./ (convone[m] * oneT);
+    }
   }
   
   

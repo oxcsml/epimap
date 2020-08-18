@@ -5,9 +5,9 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character",default="matern12",   help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character",default="local",    help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character",default="global",    help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character",default="multiflux",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/radiation_in/[radiation_uniform_in]/none)"),
+  make_option(c("-m", "--metapop"),       type="character",default="radiation_uniform_in",   help="metapopulation model for inter-region cross infections (uniform_out/uniform_in/radiation_out/radiation_in/[radiation_uniform_in]/none)"),
   make_option(c("-o", "--observation"),   type="character",default="negative_binomial_3", help="observation model ([negative_binomial]/poisson)"),
-  make_option(c("-c", "--chains"),        type="integer",  default=3,        help="number of MCMC chains [4]"),
+  make_option(c("-c", "--chains"),        type="integer",  default=4,        help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",  default=6000,     help="Length of MCMC chains [4000]"),
   make_option(c("-t", "--task_id"), type="integer", default=0,               help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
@@ -35,34 +35,21 @@ options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 source('read_data.r')
+source('read_radiation_fluxes.r')
 
 Tignore <- 3  # counts in most recent 3 days may not be reliable?
-Tall <- Tall-Tignore     # number of days in time series used.
-Count <- Count[,1:Tall]  # get rid of ignored last days
-
-Tproj <- 7    # number of days to project forward
 Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
-Tcond <- Tall-Tlik-Tpred # number of days we condition on
+Tall <- Tall-Tignore  # number of days in time series used.
+Tcond <- Tall-Tlik-Tpred       # number of days we condition on
+Tproj <- 7              # number of days to project forward
 
+Count <- Count[,1:Tall] # get rid of ignored last days
 
-# metapopulation cross-area fluxes. 
-# first two are fixed, and there needs to be at least the first flux.
+# metapopulation cross-area fluxes.
 flux = list()
-flux[[1]] = diag(N)           # within-area infections
+flux[[1]] = radiation_flux[,,1] # ls=.1
 flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
-flux[[3]] = radiation_flux[,,1] # ls=.1
-flux[[4]] = radiation_flux[,,3] # ls=.5
-
-
-#N <- 100
-#Count <- Count[1:N,]
-#for (f in 1:length(flux)) {
-#  flux[[f]] = flux[[f]][1:N,1:N]
-#}
-#geoloc <- geoloc[1:N,]
-#geodist <- geodist[1:N,1:N]
-
 
 Rmap_data <- list(
   N = N, 
@@ -74,6 +61,7 @@ Rmap_data <- list(
   Count = Count,
   geoloc = geoloc,
   geodist = geodist,
+  # flux = radiation_flux[,,1],
   F = length(flux),
   flux = flux,
   infprofile = infprofile
@@ -84,7 +72,7 @@ Rmap_data <- list(
 )
 
 runname = sprintf('Rmap-%s-%s-%s-%s-%s-%s', 
-  as.character(Sys.time(),format='%Y%m%d_%H%M'),
+  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -95,7 +83,7 @@ print(runname)
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-content = readLines(paste('stan_files/', 'Rmap_multiflux.stan',sep=''))
+content = readLines(paste('stan_files/', 'Rmap_in_out.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
 content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
@@ -111,7 +99,7 @@ fit <- stan(file = stan_file_name,
 # print(fit)
 
 print(summary(fit, 
-    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","fluxproportions"), 
+    pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
 
@@ -187,5 +175,7 @@ saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 print(runname)
 
-pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","fluxproportions"))
+pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
+pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"))
+dev.off()
 

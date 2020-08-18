@@ -1,4 +1,4 @@
-#mkdir website/$1
+mkdir website/$1
 
 python3 reinflate.py \
   `ls fits/Rmap-$1*_Rt.csv` `ls fits/Rmap-$1*_Cproj.csv` \

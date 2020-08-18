@@ -145,87 +145,100 @@ content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
 content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
 writeLines(content, stan_file_name)
 
+#################################################################
+# Fit Model
+
 fit <- stan(file = stan_file_name,
             data = Rmap_data, 
             iter = numiters, 
             chains = numchains,
             control = list(adapt_delta = .9))
-# print(fit)
 
+#################################################################
+# Summary of fit
 print(summary(fit, 
     pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"), 
     probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
 
+#################################################################
+area_date_dataframe <- function(areas,dates,data,data_names) {
+  numareas <- length(areas)
+  numdates <- length(dates)
+  dates <- rep(dates,numareas)
+  dim(dates) <- c(numareas*numdates)
+  areas <- rep(areas,numdates)
+  dim(areas) <- c(numareas,numdates)
+  areas <- t(areas)
+  dim(areas) <- c(numareas*numdates)
+  df <- data.frame(area=areas,Date=dates,data=data)
+  colnames(df)[3:ncol(df)] <- data_names
+  df
+}
 
-s <- summary(fit, pars="Rt", probs=c(0.025, 0.25, .5, 0.75, .975))$summary
-Rt <- s[,c("2.5%","50%","97.5%")]
-Rt <- t(t(Rt))
 
-print(sprintf("median Rt range: [%f, %f]",min(Rt[,2]),max(Rt[,2])))
+#################################################################
+# Rt posterior
+#s <- summary(fit, pars="Rt", probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
+Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
+#Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+Rt <- Rt[sapply(1:N,function(i)rep(i,Tlik)),]
+print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
+df <- area_date_dataframe(
+    quoted_areas, 
+    #dates[Tcond+1],
+    seq(dates[Tcond+1],by=1,length.out=Tlik),
+    format(Rt,digits=2),
+    c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
+    #c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+    #  "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
+)
+df <- df[,c(1,3,4,5,6,7,8,9,10,11,2)]
+write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
 
+
+
+
+#################################################################
+# projections
+s <- summary(fit, pars="Cproj", probs=c(0.025, .25, .5, .75, .975))$summary
+#Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
+Cproj <- s[,c("2.5%", "50%", "97.5%")]
+Cproj <- t(t(Cproj))
+print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
+df <- area_date_dataframe(
+    quoted_areas,
+    seq(dates[Tcond+Tlik]+1,by=1,length.out=Tproj),
+    format(Cproj,digits=2),
+    #c("C_2_5","C_25","C_50","C_75","C_97_5")
+    c("C_lower","C_median","C_upper")
+)
+write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+
+#################################################################
+# predictive probabilities
 s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
 Ppred <- s[,"mean"]
 logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
 print(sprintf("mean log predictives = %f",mean(logpred)))
-
-
-s <- summary(fit, pars="Cproj", probs=c(0.025, .5, .975))$summary
-Cproj <- s[,c("2.5%","50%","97.5%")]
-Cproj <- t(t(Cproj))
-Cprojlower <- Cproj[,1]
-Cprojmedian <- Cproj[,2]
-Cprojupper <- Cproj[,3]
-dim(Cprojlower) <- c(Tproj,N)
-dim(Cprojmedian) <- c(Tproj,N)
-dim(Cprojupper) <- c(Tproj,N)
-Cprojlower <- t(Cprojlower)
-Cprojmedian <- t(Cprojmedian)
-Cprojupper <- t(Cprojupper)
-
-print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,2]),max(Cproj[,2])))
-
-df <- data.frame(area = uk_cases[1:N,2], logpred = logpred)
-colnames(df)[1] <- "area"
+df <- data.frame(area = quoted_areas, logpred = logpred)
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
     row.names=FALSE)
 
-inquotes <- function(s) paste('"',s,'"',sep='')
-
-dates <- as.Date(colnames(uk_cases)[2+(Tcond+Tlik)], format='X%Y.%m.%d')
-dates <- seq(dates,by=1,length.out=Tproj+1)[2:(Tproj+1)]
-dates <- rep(dates,N)
-areas <- rep(sapply(uk_cases[1:N,2],inquotes),Tproj)
-dim(areas) <- c(N,Tproj)
-areas <- t(areas)
-dim(areas) <- c(N*Tproj)
-df <- data.frame(area = areas, Date = dates, Cproj = Cproj)
-colnames(df)[3:5] <- c("C_lower","C_median","C_upper")
-df[,3:5] <- format(df[,3:5],digits=2)
-write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
-    row.names=FALSE,quote=FALSE)
-
-areas <- sapply(uk_cases[1:N,2],inquotes)
-df <- data.frame(area = areas, Rt = Rt)
-colnames(df)[2:4] <- c("Rt_lower","Rt_median","Rt_upper")
-df[,2:4] <- format(df[,2:4],digits=2)
-write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
-    row.names=FALSE,quote=FALSE)
-
-
-
-# df <- data.frame(area = uk_cases[1:N,2], Rt = Rt, Cproj = Cproj)
-# colnames(df) <- c("area","Rtlower","Rtmedian","Rtupper","Cprojlower","Cprojmedian","Cprojupper")
-# write.csv(df, paste('fits/', runname, '_RtCproj', '.csv', sep=''),row.names=FALSE)
-
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
-
-print(runname)
-
+####################################################################
+# pairs plot
 pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
 pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"))
 dev.off()
+
+####################################################################
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+print(runname)
+
 

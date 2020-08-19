@@ -9,8 +9,8 @@ option_list = list(
   make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
-  make_option(c("-i", "--iterations"),    type="integer",   default=4000,                   help="Length of MCMC chains [4000]"),
-  make_option(c("-n", "--time_steps"),    type="integer",   default=1,                      help="Number of periods to fit Rt in"),
+  make_option(c("-i", "--iterations"),    type="integer",   default=100,                   help="Length of MCMC chains [4000]"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=6,                      help="Number of periods to fit Rt in"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -43,8 +43,8 @@ source('read_data.r')
 source('read_radiation_fluxes.r')
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 4  # counts in most recent 7 days may not be reliable?
-Tpred <- 3    # number of days held out for predictive probs eval
+Tignore <- 3  # counts in most recent 7 days may not be reliable?
+Tpred <- 1    # number of days held out for predictive probs eval
 Tlik <- 7     # number of days for likelihood to infer Rt
 Tstep <- Tlik # number of days to step for each time step of Rt prediction
 Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable

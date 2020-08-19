@@ -149,6 +149,8 @@ functions {
     return neg_binomial_2_lpmf(count | mu, mu / x);
   }
 
+  // generalized inverse gamma distribution
+
   real gig_lpdf(real x, int p, real a, real b) {
     return p * 0.5 * log(a / b)
       - log(2 * modified_bessel_second_kind(p, sqrt(a * b)))
@@ -301,7 +303,11 @@ transformed parameters {
     // Compute (K_time (*) K_space) * eta via efficient kronecker trick. Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
     Rin = exp((L_space * to_matrix(eta_in, N, M) * L_time') + (local_sigma .* to_matrix(epsilon_in, N, M)));
-    Rout = exp((L_space * to_matrix(eta_out, N, M) * L_time') + (local_sigma .* to_matrix(epsilon_out, N, M)));
+    if (do_metapop && do_in_out) {
+      Rout = exp((L_space * to_matrix(eta_out, N, M) * L_time') + (local_sigma .* to_matrix(epsilon_out, N, M)));
+    } else {
+      Rout = rep(1.0,N,M);
+    }
 
     // metapopulation infection rate model
     if (do_metapop) {
@@ -325,7 +331,7 @@ transformed parameters {
 
 model {
   // Ravg ~ normal(1.0,1.0);
-  coupling_rate ~ normal(0.0, .5);
+  coupling_rate ~ normal(0.0, .25);
   flux_probs ~ dirichlet(ones);
   precision ~ normal(0.0,10.0);
 
@@ -347,7 +353,7 @@ model {
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
     }
   }
-  global_sigma ~  normal(0.0, 0.5);
+  global_sigma ~  normal(0.0, 0.25);
 
   // compute likelihoods
   for (k in 1:M) {

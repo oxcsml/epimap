@@ -154,6 +154,8 @@ fit <- stan(file = stan_file_name,
             chains = numchains,
             control = list(adapt_delta = .9))
 
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+
 #################################################################
 # Summary of fit
 print(summary(fit, 
@@ -238,7 +240,6 @@ pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale"
 dev.off()
 
 ####################################################################
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 print(runname)
 
 

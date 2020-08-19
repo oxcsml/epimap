@@ -306,7 +306,7 @@ transformed parameters {
     if (do_metapop && do_in_out) {
       Rout = exp((L_space * to_matrix(eta_out, N, M) * L_time') + (local_sigma .* to_matrix(epsilon_out, N, M)));
     } else {
-      Rout = rep(1.0,N,M);
+      Rout = rep_matrix(1.0,N,M);
     }
 
     // metapopulation infection rate model
@@ -341,10 +341,10 @@ model {
   epsilon_in ~ std_normal();
   epsilon_out ~ std_normal();
 
-  gp_space_length_scale ~ gig(2, 2.0, 2.0);
-  gp_space_sigma ~ normal(0.0, 0.5);
+  gp_space_length_scale ~ gig(5, 5.0, 5.0);
+  gp_space_sigma ~ normal(0.0, 0.25);
 
-  gp_time_length_scale ~ gig(7, 1.0, 1.0);
+  gp_time_length_scale ~ gig(10, 1.0, 1.0);
 
   local_scale ~ normal(0.0, 0.5);
   for (j in 1:M){

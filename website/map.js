@@ -389,11 +389,11 @@ function ready(data) {
     console.log("Drawing map");
 
     // 1 is yellow, below 1 is green, above is red
-    var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdYlBu(1 - t))
+    var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t))
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = 50; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
+    maxCases = 100; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
@@ -464,7 +464,7 @@ function ready(data) {
 
             tooltip_header.text(d.properties.lad20nm);
             tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
-            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm)}`);
+            tooltip_info2.text(`Last 7 days Rt: ${getRtForArea(d.properties.lad20nm)}`);
             tooltip_info3.text(`Projected Cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
 
             tooltip_div
@@ -577,7 +577,7 @@ function ready(data) {
         .value(d3.max(availableDates))
         .on('onchange', (val) => {
             sliderValueLabel.text(dateFormat(val));
-            map.transition().duration(500).attr("fill", rtFillFn(val));
+            map.transition().duration(50).attr("fill", rtFillFn(val));
         });
     
     sliderG.call(timeSlider);
@@ -586,7 +586,7 @@ function ready(data) {
 
 function plotCaseChart(chartData, projectionData, area) {
     var xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    var yDomain = [0, 52]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
+    var yDomain = [0, 102]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
     var x = d3.scaleTime()
         .domain(xDomain)
@@ -694,9 +694,10 @@ function plotCaseChart(chartData, projectionData, area) {
     }
 }
 
-function plotRtChart(rtData, area) {
-    var xDomain = d3.extent(rtData.map(c => c.Date));
-    var yDomain = [0, 4];
+function plotRtChart(rtData, chartData, projectionData, area) {
+    var xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
+    //var xDomain = d3.extent(rtData.map(c => c.Date));
+    var yDomain = [0, 3.1];
 
     var x = d3.scaleTime()
         .domain(xDomain)
@@ -823,7 +824,7 @@ function selectArea(selectedArea) {
     }
 
     plotCaseChart(chartData, projectionData, area);
-    plotRtChart(rtChartData, area);
+    plotRtChart(rtChartData, chartData, projectionData, area);
 
     var caseHistory = getCaseHistoryForArea(area);
     casesLast7Info.text(caseHistory.casesLast7Day);

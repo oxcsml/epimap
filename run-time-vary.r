@@ -10,7 +10,7 @@ option_list = list(
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
-  make_option(c("-n", "--time_steps"),    type="integer",   default=12,                      help="Number of periods to fit Rt in"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=6,                      help="Number of periods to fit Rt in"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -164,8 +164,8 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s-%s', 
-  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
+runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s', 
+#  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -189,19 +189,19 @@ writeLines(content, stan_file_name)
 
 start_time <- Sys.time()
 
-fit <- stan(file = stan_file_name,
-            data = Rmap_data, 
-            iter = numiters, 
-            chains = numchains,
-            control = list(adapt_delta = .9))
-print(fit)
+#fit <- stan(file = stan_file_name,
+#            data = Rmap_data, 
+#            iter = numiters, 
+#            chains = numchains,
+#            control = list(adapt_delta = .9))
+#print(fit)
+# saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()
 
 print("Time to run")
 print(end_time - start_time)
 
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
@@ -288,7 +288,9 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 ####################################################################
 # pairs plot
 pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
-pairs(fit, pars=c("R0","gp_length_scale","gp_sigma","global_sigma","local_scale","precision","coupling_rate","flux_probs"))
+pairs(fit, pars=c(
+    "R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+    "global_sigma","local_scale","precision","coupling_rate")) 
 dev.off()
 
 print(runname)

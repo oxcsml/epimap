@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-#SBATCH --mail-user=sheheryar.zaidi@stats.ox.ac.uk
+#SBATCH --mail-user=michael.hutchinson@stats.ox.ac.uk
 #SBATCH --mail-type=ALL
 #
 #SBATCH --job-name=Rmap
 #SBATCH --output=slurm/output/Rmap_ablation_%A_%a.txt
-#SBATCH --partition=ziz-medium
+#SBATCH --partition=ziz-large
 #
 #SBATCH --ntasks=1
 #SBATCH --time=18:00:00

@@ -8,7 +8,11 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                  output_cases_filename: str='website/Cproj.csv'):
 
     reproduction_numbers = pd.read_csv(input_r_filename) \
-                             .set_index('area')
+                             .rename(columns={'Date': 'day'})
+    reproduction_numbers['day'] = pd.to_datetime(reproduction_numbers['day'],
+                                                 format='%Y-%m-%d')
+    reproduction_numbers = reproduction_numbers.set_index(['area', 'day'])
+
     case_predictions = pd.read_csv(input_cases_filename) \
                          .rename(columns={'Date': 'day'})
     case_predictions['day'] = pd.to_datetime(case_predictions['day'],
@@ -19,6 +23,7 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
         reproduction_numbers, case_predictions)
 
     case_predictions.index.names = ['area', 'Date']
+    reproduction_numbers.index.names = ['area', 'Date']
 
     reproduction_numbers.to_csv(output_r_filename, float_format='%.5f')
     case_predictions.to_csv(output_cases_filename, float_format='%.5f')
@@ -69,18 +74,23 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     scotland_map = scotland_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
 
     # Reproduction numbers
-    england = england_map.merge(reproduction_numbers,
+    england = england_map.merge(reproduction_numbers.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
+
+    england = england_map.merge(reproduction_numbers.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
                                 how='left') \
-                         .set_index('area') \
+                         .set_index(['area', 'day']) \
                          .drop(columns=['Meta area', 'ratio'])
 
-    scotland = scotland_map.merge(reproduction_numbers,
+    scotland = scotland_map.merge(reproduction_numbers.reset_index(level=1),
                                   left_on=['NHS Scotland Health Board'],
                                   right_on=['area'],
                                   how='left') \
-                           .set_index('area') \
+                           .set_index(['area', 'day']) \
                            .drop(columns=['NHS Scotland Health Board',
                                           'ratio'])
 

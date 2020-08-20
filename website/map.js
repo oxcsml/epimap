@@ -498,9 +498,13 @@ function ready(data) {
         })
         .on("mouseout", function (d) {
             tooltip_div.style("opacity", 0);
-            d3.select(this).style("fill-opacity", 1)
+            d3.select(this).style("fill-opacity", 1);
         })
-        .on("click", d => selectArea(d.properties.lad20nm))
+        .on("click", function (d) {
+            selectArea(d.properties.lad20nm);
+            g.selectAll("path").style("stroke-width", 0)
+            d3.select(this).style("stroke-width", 1.5).style("stroke", "green");
+        })
         .attr("d", path)
         .attr("class", "feature")
 

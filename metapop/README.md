@@ -1,6 +1,15 @@
 # metapop
 Discrete time SEIR metapopulation modelling for epidemic spread
 
+## Charts
+### Rt
+![Rt](_assets/rt.png)
+
+### Case Counts
+![Simulates case counts](_assets/case_counts.png)
+
+### Dynamics
+![SEIR dynamics](_assets/dynamics.png)
 
 ## usage
 Then to make the toy data run

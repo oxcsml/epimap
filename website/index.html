@@ -21,29 +21,29 @@
         <div class="container">
             <div class="row">
                 <div class="column">
-                    <svg id="slider-svg" width="600" height="50"></svg>
-                    <svg id="map" width="600" height="1000"></svg>
+                    <svg id="slider-svg" width="500" height="50"></svg>
+                    <svg id="map" width="500" height="500"></svg>
                 </div>
-                <div class="column">
+                <div class="column" width="500">
                     <h1 id="data-heading">Select an area in the map...</h1>
-                    <div id="sub-heading"></div>
+                    <div id="sub-heading">Data shown for England, Wales and Scotland</div>
                     <div class="row">
-                        <div class="column">
+                        <div class="column" width="40%">
                             <h3 id="cases-title">Cases</h3>
-                            <div class="info-row"><span class="info-heading">Last 7 days: </span><span id="cases-last7-info"></span></div>
-                            <div class="info-row"><span class="info-heading">Last 7 days per 100k: </span><span id="cases-last7-per-info"></span></div>
-                            <div class="info-row"><span class="info-heading">Total Cases: </span><span id="cases-total-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Last week: </span><span id="cases-last7-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Last week per 100k: </span><span id="cases-last7-per-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Total cases: </span><span id="cases-total-info"></span></div>
                         </div>
-                        <div class="column">
-                            <h3 id="estimates-title">Estimates<br/><small>Credible Intervals in [brackets]</small></h3>
+                        <div class="column" width="60%">
+                            <h3 id="estimates-title">Projected Cases</h3>
                             <div class="info-row"><span class="info-heading">Rt: </span><span id="rt-info"></span></div>
-                            <div class="info-row"><span class="info-heading">Next 7 day cases: </span><span id="case-proj-info"></span></div>
-                            <div class="info-row"><span class="info-heading">Next 7 day cases per 100k: </span><span id="case-proj-per100k-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next week: </span><span id="case-proj-info"></span></div>
+                            <div class="info-row"><span class="info-heading">Next week per 100k: </span><span id="case-proj-per100k-info"></span></div>
                         </div>
                     </div>
                     
-                    <svg id="chart" width="600" height="250"></svg>
-                    <svg id="rt-chart" width="600" height="250"></svg>
+                    <svg id="chart" width="500" height="200"></svg>
+                    <svg id="rt-chart" width="500" height="200"></svg>
                 </div>
             </div>
         </div>

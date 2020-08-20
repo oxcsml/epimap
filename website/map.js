@@ -485,6 +485,7 @@ function ready(data) {
         .on("click", d => selectArea(d.properties.lad20nm))
         .attr("d", path)
         .attr("class", "feature")
+    map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 
     g.append("path")
         .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
@@ -501,7 +502,8 @@ function ready(data) {
         .attr("id", "case-gradient");
 
     rtGradient.selectAll("stop")
-        .data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        //.data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        .data([0.5,0.75,.9,1.0,1.1,1.5,2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
@@ -803,14 +805,14 @@ function selectArea(selectedArea) {
     if (groupedAreaMap.has(selectedArea)) {
         area = groupedAreaMap.get(selectedArea);
         const otherAreas = groupedAreaConstituents.get(area).join(", ");
-        d3.select("#sub-heading").text(`Data shown is for the larger reporting area, ${area}, which contains ${otherAreas}`);
-        d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
-        d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
+        d3.select("#sub-heading").text(`Data shown for ${area}, including ${otherAreas}`);
+        //d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
+        //d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
     }
     else {
-        d3.select("#sub-heading").text("");
-        d3.select("#cases-title").text(`Cases`);
-        d3.select("#estimates-title").text(`Estimates`);
+        d3.select("#sub-heading").text(`Data shown for ${area}`);
+        //d3.select("#cases-title").text(`Cases`);
+        //d3.select("#estimates-title").text(`Estimates`);
     }
 
     d3.select("#data-heading").text(selectedArea);

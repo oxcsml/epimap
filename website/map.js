@@ -397,8 +397,10 @@ function ready(data) {
 
     minCases = 1;
     maxCases = 100; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
+    maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
+    const caseLogScale = d3.scaleLog().domain([minCases, maxColorCases]).range([margin.left, margin.left + barWidth]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
 
     console.log("logScale.ticks:", logScale.ticks());
@@ -446,6 +448,22 @@ function ready(data) {
             const rt = rtSeries[idx];
             return rtColorScale(rt.Rt50);
         }
+    }
+
+    rtRangeFn = date => {
+        const idx = bisectDate(availableDates, date, 1);
+        rts = Object.keys(rtData)
+        .map(
+        function(key){
+            return rtData[key][idx]
+        })
+        .map(
+            function(item){
+                return (typeof item !== 'undefined') ? item.Rt50 : 1.0
+            }
+        );
+        return [d3.min(rts), d3.max(rts)]
+
     }
 
     caseFillFn = d => { // Fill based on value of case projection
@@ -527,6 +545,19 @@ function ready(data) {
         .style("font-size", "12px")
         .text("Rt");
 
+    legendAxis = d3.axisLeft(
+        d3.scaleLinear()
+        .range([margin.left, margin.left + barWidth])
+        .domain(rtRangeFn(d3.max(availableDates)))
+    );
+    // legendAxis = d3.axisLeft(caseAxisScale)
+        
+    legendBar = map_svg.append("g")
+        .attr("transform", `translate(${width - barHeight},${margin.top})`)
+        .attr("width", barHeight)
+        .attr("height", barWidth)
+        .call(legendAxis);
+
     // Add Rt vs case projection selection
     var showRt = map_svg.append("text")
         .attr("x", margin.left)
@@ -543,16 +574,23 @@ function ready(data) {
         .style("cursor", "pointer")
         .text("Case Projections (Per 100k)");
 
+    
+
     showRt.on("click", () => {
         if (showCases.classed("active")) {
             map.attr("fill", rtFillFn(d3.max(availableDates)));
             legend.style("fill", "url(#rt-gradient)");
+            legendBar.call(d3.axisLeft(
+                d3.scaleLinear()
+                .range([margin.left, margin.left + barWidth])
+                .domain(rtRangeFn(d3.max(availableDates))))
+            );
             axisBottom.call(rtAxisFn)
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
             legendText.text("Rt");
             sliderSvg.style("visibility", "visible");
-            timeSlider.value(d3.max(availableDates))
+            timeSlider.value(d3.max(availableDates));
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
@@ -562,6 +600,7 @@ function ready(data) {
         if (showRt.classed("active")) {
             map.attr("fill", caseFillFn);
             legend.style("fill", "url(#case-gradient)");
+            legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
             axisBottom.call(caseAxisFn)
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
@@ -587,6 +626,11 @@ function ready(data) {
             rtData.set('date',date);
             rtData.set('idx',bisectDate(availableDates, date, 1));
             map.transition().duration(50).attr("fill", rtFillFn(date));
+            legendBar.call(d3.axisLeft(
+                d3.scaleLinear()
+                .range([margin.left, margin.left + barWidth])
+                .domain(rtRangeFn(date)))
+            );
         });
     
     sliderG.call(timeSlider);

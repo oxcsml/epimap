@@ -332,7 +332,7 @@ transformed parameters {
 model {
   coupling_rate ~ normal(0.0, .25);
   flux_probs ~ dirichlet(ones);
-  precision ~ normal(0.0,10.0);
+  precision ~ normal(0.0,5.0);
 
   // GP prior density
   eta_in ~ std_normal();

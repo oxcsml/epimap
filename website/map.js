@@ -548,7 +548,7 @@ function ready(data) {
     legendAxis = d3.axisLeft(
         d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
-        .domain(rtRangeFn(d3.max(availableDates)))
+        .domain([colorDomain[0], colorDomain[2]])
     );
     // legendAxis = d3.axisLeft(caseAxisScale)
         
@@ -583,7 +583,7 @@ function ready(data) {
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
                 .range([margin.left, margin.left + barWidth])
-                .domain(rtRangeFn(d3.max(availableDates))))
+                .domain([colorDomain[0], colorDomain[2]]))
             );
             axisBottom.call(rtAxisFn)
                 .selectAll("text")
@@ -629,7 +629,7 @@ function ready(data) {
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
                 .range([margin.left, margin.left + barWidth])
-                .domain(rtRangeFn(date)))
+                .domain([colorDomain[0], colorDomain[2]]))
             );
         });
     

@@ -251,14 +251,40 @@ df <- area_date_dataframe(
     quoted_areas, 
     #dates[Tcond+1],
     days_likelihood,
-    format(Rt,digits=2),
+    format(round(Rt,1),nsmall=1),
     c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
     #c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
     #  "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
 )
-df <- df[,c(1,3,4,5,6,7,8,9,10,11,2)]
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
+
+#################################################################
+# Rt exceedance probabilities
+thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
+numthresholds = length(thresholds)
+numsamples = numchains*numiters/2
+Rt <- as.matrix(fit, pars="Rt")
+dim(Rt) <- c(numsamples,M,N)
+Pexceedance = array(0.0,dim=c(M,N,numthresholds))
+for (k in 1:M) {
+  for (i in 1:N) {
+    for (x in 1:numthresholds) {
+      Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
+    }
+  }
+}
+Pexceedance <- Pexceedance[sapply(1:M,function(k)rep(k,Tlik)),,]
+dim(Pexceedance) <- c(Tlik*M*N,numthresholds)
+df <- area_date_dataframe(
+    quoted_areas, 
+    days_likelihood,
+    format(round(Pexceedance,2),nsmall=2),
+    c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
+)
+write.csv(df, paste('fits/', runname, '_Pexceed.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+
 
 
 #################################################################
@@ -271,7 +297,7 @@ print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"
 df <- area_date_dataframe(
     quoted_areas,
     seq(dates[Tcond-(M-1)*Tlik]+1,by=1,length.out=M*Tlik),
-    format(Cpred,digits=2),
+    format(round(Cpred,1),nsmall=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
 )
@@ -286,7 +312,7 @@ print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"
 df <- area_date_dataframe(
     quoted_areas,
     seq(dates[Tcond+Tlik]+1,by=1,length.out=Tproj),
-    format(Cproj,digits=2),
+    format(round(Cproj,1),digits=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
 )

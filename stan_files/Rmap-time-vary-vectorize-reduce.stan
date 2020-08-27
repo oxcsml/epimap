@@ -351,7 +351,7 @@ model {
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
 
-  gp_time_length_scale ~ gig(7, 0.7, 1.0);
+  gp_time_length_scale ~ gig(14, 1.0, 1.0);
 
   local_scale ~ normal(0.0, 0.5);
   for (j in 1:M){

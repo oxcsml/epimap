@@ -330,9 +330,10 @@ transformed parameters {
 }
 
 model {
+  // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .25);
   flux_probs ~ dirichlet(ones);
-  precision ~ normal(0.0,5.0);
+  precision ~ normal(0.0,10.0);
 
   // GP prior density
   eta_in ~ std_normal();
@@ -343,7 +344,7 @@ model {
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
 
-  gp_time_length_scale ~ gig(7, 0.4, 1.0);
+  gp_time_length_scale ~ gig(10, 1.0, 1.0);
 
   local_scale ~ normal(0.0, 0.5);
   for (j in 1:M){

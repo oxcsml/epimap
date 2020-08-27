@@ -1,0 +1,6 @@
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --metapop radiation2_uniform_in        --localkernel none  --observation negative_binomial_2
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --metapop radiation2_uniform_in        --localkernel local --observation negative_binomial_2
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --metapop radiation2_uniform_in        --localkernel none  --observation negative_binomial_3
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --metapop radiation2_uniform_in        --localkernel local --observation negative_binomial_3
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --spatialkernel none --metapop none --globalkernel none    --observation poisson
+Rscript run-time-vary.r --time_steps=15 --iterations 8000 --chains 6 --spatialkernel none --metapop none --globalkernel global  --observation negative_binomial_2

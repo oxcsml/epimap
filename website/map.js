@@ -1,6 +1,6 @@
 // Constants
 const TOPOJSON_PATH = "uk_lad_boundaries.json";
-const MAP_PATH = '.';
+const MAP_PATH = 'default';
 const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
@@ -213,10 +213,10 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const data_path = urlParams.get('map') || MAP_PATH
-const rt_path = data_path.concat('/', RT_PATH);
-const case_projection_path = data_path.concat('/', CASE_PROJECTION_PATH);
-const case_prediction_path = data_path.concat('/', CASE_PREDICTION_PATH);
+const map_path = urlParams.get('map') || MAP_PATH
+const rt_path = map_path.concat('/', RT_PATH);
+const case_projection_path = map_path.concat('/', CASE_PROJECTION_PATH);
+const case_prediction_path = map_path.concat('/', CASE_PREDICTION_PATH);
 
 const loadRt = d3.csv(rt_path).then(data => {
     data.forEach(d => {

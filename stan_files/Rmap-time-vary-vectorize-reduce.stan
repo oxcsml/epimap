@@ -191,18 +191,16 @@ transformed data {
 
   // precompute convolutions between Count and infprofile 
   matrix[N,Tlik] convlik[M];      // for use in likelihood computation
-  matrix[N,Tlik] convlikrad[M];   // for use in likelihood computation
-  matrix[N,Tlik] convlikunif[M];  // for use in likelihood computation
+  matrix[N,1] convlik_reduced[M];      // for use in likelihood computation
   matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
-  matrix[N,Tpred] convpredrad[1]; // for use in predictive probs of future counts
-  matrix[N,Tpred] convpredunif[1];// for use in predictive probs of future counts
   matrix[N,Tproj] convproj[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tlik] convlikflux[M];
+  matrix[F1,N*1] convlikflux_reduced[M];
   matrix[F1,N*Tpred] convpredflux[1];
 
-  // int Clik[Tlik,N];
+  int Clik_reduced[M,N];
 
   // reverse infection profile
   for (i in 1:D)
@@ -214,21 +212,30 @@ transformed data {
       fluxt[f,] = to_row_vector(flux[f-1]');
   }
 
-  // for (j in 1:N)
-  //   for (i in 1:Tlik)
-  //     Clik[i,j] = Count[j,Tcond+i]; // transposed, vectorises correctly
+  for (k in 1:M) {
+    for (j in 1:N) {
+      int s = 0;
+      for (i in 1:Tlik)
+        s += Count[j,Tcond+i-((M-k)*Tstep)];
+      Clik_reduced[k,j] = s;
+    }
+  }
 
-  for (j in 1:N) {
+  for (j in 1:N) 
     for (i in 1:Tall)
       Creal[j,i] = Count[j,i];
 
-    // precompute convolutions between counts and infprofile
-    // compute for each time offset - NOTE: not the fastest ordering of these access options (see https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html), but assuming okay as this is only done once
-    for (k in 1:M){
+  // precompute convolutions between counts and infprofile
+  // compute for each time offset - NOTE: not the fastest ordering of these access options (see https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html), but assuming okay as this is only done once
+  for (j in 1:N) {
+    for (k in 1:M) {
+      real s = 0.0;
       for (i in 1:Tlik) {
         int L = min(D,Tcond+i-1-((M-k) * Tstep)); // length of infection profile that overlaps with case counts 
-        convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[D-L+1:D])+1e-6;
+        convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[D-L+1:D]) + 1e-6;
+        s += convlik[k,j,i];
       }
+      convlik_reduced[k,j,1] = s + 1e-6;
     }
     
     for (i in 1:Tpred) {
@@ -243,6 +250,7 @@ transformed data {
 
   if (do_metapop && !do_in_out) {
     convlikflux = in_compute_flux(convlik,fluxt);
+    convlikflux_reduced = in_compute_flux(convlik_reduced,fluxt);
     convpredflux = in_compute_flux(convpred,fluxt);
   }
 }
@@ -274,7 +282,7 @@ transformed parameters {
   matrix[N, M] Rout;                 // instantaneous reproduction number
   matrix[N, M] local_sigma;
   row_vector[F1] fluxproportions[M];
-  matrix[N,Tlik] convlikout[M];
+  matrix[N,1] convlikout_reduced[M];
   {
     matrix[N,N] K_space;
     matrix[M,M] K_time;
@@ -324,16 +332,15 @@ transformed parameters {
       }
       
     }
-    convlikout = metapop(do_metapop,do_in_out,
-        Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
+    convlikout_reduced = metapop(do_metapop,do_in_out,
+        Rin,Rout,convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
   }
 }
 
 model {
-  // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .25);
   flux_probs ~ dirichlet(ones);
-  precision ~ normal(0.0,10.0);
+  precision ~ normal(0.0,5.0);
 
   // GP prior density
   eta_in ~ std_normal();
@@ -344,7 +351,7 @@ model {
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
 
-  gp_time_length_scale ~ gig(10, 1.0, 1.0);
+  gp_time_length_scale ~ gig(7, 0.7, 1.0);
 
   local_scale ~ normal(0.0, 0.5);
   for (j in 1:M){
@@ -357,10 +364,8 @@ model {
 
   // compute likelihoods
   for (k in 1:M) {
-    for (i in 1:Tlik) {
-      for (j in 1:N) {
-        Count[j,Tcond+i-((M-k)*Tstep)] ~ OBSERVATION_likelihood(convlikout[k,j,i], precision);
-      }
+    for (j in 1:N) {
+      Clik_reduced[k,j] ~ OBSERVATION_likelihood(convlikout_reduced[k,j,1], precision);
     }
   }
 }
@@ -369,17 +374,18 @@ generated quantities {
   real R0[M];
   vector[N] Rt[M];
   matrix[N,Tpred] Ppred;
+  matrix[N,M*Tlik] Cpred;
   matrix[N,Tproj] Cproj; 
 
   // Estimated R0 and Rt for all areas
   {
     matrix[N, M] oneN = rep_matrix(1.0,N,M);
-    vector[Tlik] oneT = rep_vector(1.0,Tlik);
-    matrix[N,Tlik] convone[M] = metapop(do_metapop,do_in_out,
-        oneN,oneN,convlik,convlikflux,fluxproportions,fluxt);
+    vector[1] oneT = rep_vector(1.0,1);
+    matrix[N,1] convone_reduced[M] = metapop(do_metapop,do_in_out,
+        oneN,oneN,convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
     for (m in 1:M) {
-      R0[m] = sum(convlikout[m]) / sum(convone[m]);
-      Rt[m] = (convlikout[m] * oneT) ./ (convone[m] * oneT);
+      R0[m] = sum(convlikout_reduced[m]) / sum(convone_reduced[m]);
+      Rt[m] = (convlikout_reduced[m] * oneT) ./ (convone_reduced[m] * oneT);
     }
   }
   
@@ -404,19 +410,28 @@ generated quantities {
             convpredout[1,j,i], precision));
   }
 
-  // forecasting *mean* counts given parameters
+  // posterior predictive expected counts
+  {
+    matrix[N,Tlik] convlikout[M] = metapop(do_metapop,do_in_out,
+        Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
+    for (k in 1:M) 
+      Cpred[,(1+(k-1)*Tlik):(k*Tlik)] = convlikout[k];
+  } 
+  
+
+  // forecasting expected counts given parameters
   {
     matrix[N,1] convprojall[1];
     //matrix[N,1] convprojrad;
     //matrix[N,1] convprojunif;
     matrix[F1,N*1] convprojflux[1];
-    row_vector[F1] pred_fluxproportions[1];
-    matrix[N,1] pred_Rin;
-    matrix[N,1] pred_Rout;
+    row_vector[F1] proj_fluxproportions[1];
+    matrix[N,1] proj_Rin;
+    matrix[N,1] proj_Rout;
 
-    pred_fluxproportions[1] = fluxproportions[M];
-    pred_Rin = block(Rin, 1, M, N, 1);
-    pred_Rout = block(Rout, 1, M, N, 1);
+    proj_fluxproportions[1] = fluxproportions[M];
+    proj_Rin = block(Rin, 1, M, N, 1);
+    proj_Rout = block(Rout, 1, M, N, 1);
 
     for (i in 1:Tproj) {
       for (j in 1:N) 
@@ -425,7 +440,7 @@ generated quantities {
       if (do_metapop && !do_in_out)
         convprojflux = in_compute_flux(convprojall,fluxt);
       Cproj[:,i] = metapop(do_metapop,do_in_out,
-          pred_Rin,pred_Rout,convprojall,convprojflux,fluxproportions,fluxt)[1,:,1];
+          proj_Rin,proj_Rout,convprojall,convprojflux,fluxproportions,fluxt)[1,:,1];
     }
   }
 

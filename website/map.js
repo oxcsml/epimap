@@ -1,14 +1,17 @@
 // Constants
 const TOPOJSON_PATH = "uk_lad_boundaries.json";
-const MAP_PATH = '.';
+const MAP_PATH = 'default';
 const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
+const CASE_PREDICTION_PATH = "Cpred.csv";
 const NHS_SCOTLAND_MAP = "nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "england_meta_areas.csv";
 const METADATA_PATH = "metadata.csv";
 
 // Set up dimensions for map
+const MAX_CASES = 50;
+
 var map_svg = d3.select("#map"),
     width = +map_svg.attr("width"),
     height = +map_svg.attr("height");
@@ -50,6 +53,12 @@ const actualChartLine = caseChartSvg.append("path")
 
 const smoothedChartLine = caseChartSvg.append("path")
     .attr("class", "smoothed-cases-line")
+
+const predictedChartLine = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-median-line");
+
+const predictedArea = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-area");
 
 const projectedChartLine = caseChartSvg.append("path")
     .attr("class", "projected-cases-median-line");
@@ -150,12 +159,13 @@ d3.select("#zoom_out").on("click", function () {
     map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 });
 
-const dateFormat = d3.timeFormat("%m/%d");
+const dateFormat = d3.timeFormat("%Y-%m-%d");
 
 // Data containers
 var rtData = d3.map();
 var caseTimeseries = d3.map();
 var caseProjTimeseries = d3.map();
+var casePredTimeseries = d3.map();
 var nextWeekCaseProj = d3.map();
 var nextWeekCaseProjPer100k = d3.map();
 var caseHistory = d3.map();
@@ -179,9 +189,6 @@ var tooltip_info2 = tooltip_div.append("span")
 tooltip_div.append("br");
 var tooltip_info3 = tooltip_div.append("span")
     .attr("class", "info-row3");
-tooltip_div.append("br");
-var tooltip_info4 = tooltip_div.append("span")
-    .attr("class", "info-row4");
 
 // Load external data
 const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
@@ -206,9 +213,10 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const data_path = urlParams.get('map') || MAP_PATH
-const rt_path = data_path.concat('/', RT_PATH);
-const case_projection_path = data_path.concat('/', CASE_PROJECTION_PATH);
+const map_path = urlParams.get('map') || MAP_PATH
+const rt_path = map_path.concat('/', RT_PATH);
+const case_projection_path = map_path.concat('/', CASE_PROJECTION_PATH);
+const case_prediction_path = map_path.concat('/', CASE_PREDICTION_PATH);
 
 const loadRt = d3.csv(rt_path).then(data => {
     data.forEach(d => {
@@ -236,9 +244,15 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         caseProjTimeseries.set(d.area, []);
     }
     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    d.C_lower = +d.C_lower;
-    d.C_median = +d.C_median;
-    d.C_upper = +d.C_upper;
+    if (d.C_025) {
+      d.C_lower = +d.C_025;
+      d.C_median = +d.C_50;
+      d.C_upper = +d.C_975;
+    } else {
+      d.C_lower = +d.C_lower;
+      d.C_median = +d.C_median;
+      d.C_upper = +d.C_upper;
+    }  
 
     caseProjTimeseries.get(d.area).push(d);
 
@@ -257,6 +271,25 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         });
     });
 });
+
+const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEach(d => {
+    if (!casePredTimeseries.has(d.area)) {
+        casePredTimeseries.set(d.area, []);
+    }
+    d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
+    if (d.C_025) {
+      d.C_lower = +d.C_025;
+      d.C_median = +d.C_50;
+      d.C_upper = +d.C_975;
+    } else {
+      d.C_lower = +d.C_lower;
+      d.C_median = +d.C_median;
+      d.C_upper = +d.C_upper;
+    }  
+
+    casePredTimeseries.get(d.area).push(d);
+
+}));
 
 const loadNHSScotland = d3.csv(NHS_SCOTLAND_MAP).then(data => data.forEach(d => {
     const groupedArea = d["NHS Scotland Health Board"];
@@ -294,6 +327,7 @@ const getPopulation = (area) => {
 
 const casesAndMeta = Promise.all([
     loadCaseProjections,
+    loadCasePredictions,
     loadCases,
     loadMetadata,
     loadNHSScotland,
@@ -302,17 +336,17 @@ const casesAndMeta = Promise.all([
     nextWeekCaseProj.each((caseProj, area) => {
         const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
-            caseProjLower: (caseProj.caseProjLower / pop).toFixed(1),
-            caseProjMedian: (caseProj.caseProjMedian / pop).toFixed(1),
-            caseProjUpper: (caseProj.caseProjUpper / pop).toFixed(1)
+            caseProjLower: Math.round(caseProj.caseProjLower / pop),
+            caseProjMedian: Math.round(caseProj.caseProjMedian / pop),
+            caseProjUpper: Math.round(caseProj.caseProjUpper / pop)
         });
     });
 
     caseHistory.each((cases, area) => {
         const pop = getPopulation(area) / 100000;
         caseHistoryPer100k.set(area, {
-            casesLast7Day: (cases.casesLast7Day / pop).toFixed(1),
-            casesTotal: (cases.casesTotal / pop).toFixed(1)
+            casesLast7Day: Math.round(cases.casesLast7Day / pop),
+            casesTotal: Math.round(cases.casesTotal / pop)
         });
     });
 });
@@ -325,15 +359,15 @@ Promise.all([
 
 var colorDomain = [0.5, 1.0, 2.0];
 
-function getRtForArea(area,idx) {
+function getRtForArea(area) {
     const rtSeries = rtData.get(area);
     if (!rtSeries) {
         return "? [? - ?]";
     }
-    const [lastRt] = rtSeries.slice(idx);
-    var median = lastRt.Rt50.toFixed(1);
-    var upper = lastRt.Rt90.toFixed(1);
-    var lower = lastRt.Rt10.toFixed(1);
+    const [lastRt] = rtSeries.slice(-1)
+    var median = lastRt.Rt50.toFixed(2);
+    var upper = lastRt.Rt90.toFixed(2);
+    var lower = lastRt.Rt10.toFixed(2);
     return `${median} [${lower} - ${upper}]`;
 }
 
@@ -391,12 +425,12 @@ function ready(data) {
 
     console.log("Drawing map");
 
-    // 1 is grey, below 1 is blue, above is red
+    // 1 is yellow, below 1 is green, above is red
     var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t))
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = 100; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
+    maxCases = MAX_CASES; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
     maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
@@ -419,12 +453,12 @@ function ready(data) {
     var rtAxisFn = () => d3.axisBottom(rtAxisScale)
         .tickValues(rtColorScale.ticks())
         .tickFormat(rtColorScale.tickFormat())
-        .tickSize(barHeight);
+        .tickSize(-barHeight);
 
     var caseAxisFn = () => d3.axisBottom(caseAxisScale)
         .tickValues(logScale.ticks(2))
         .tickFormat(d => d)
-        .tickSize(barHeight);
+        .tickSize(-barHeight);
 
     var axisBottom = map_svg.append("g")
         .attr("class", `x-axis`)
@@ -435,8 +469,6 @@ function ready(data) {
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
     const bisectDate = d3.bisector(d=>d).left;
-    rtData.set('date',d3.max(availableDates));
-    rtData.set('idx',-1);
 
     rtFillFn = date => {
         const idx = bisectDate(availableDates, date, 1);
@@ -486,10 +518,9 @@ function ready(data) {
                 .style("opacity", .9);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Rt on ${dateFormat(rtData.$date)}: ${getRtForArea(d.properties.lad20nm,rtData.$idx)}`);
-            tooltip_info2.text(`Rt in last week: ${getRtForArea(d.properties.lad20nm,-1)}`);
-            tooltip_info3.text(`Cases per 100k in last week: ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
-            tooltip_info4.text(`Cases per 100k projected for next week: ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
+            tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
+            tooltip_info2.text(`Last 7 days Rt: ${getRtForArea(d.properties.lad20nm)}`);
+            tooltip_info3.text(`Projected Cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -507,6 +538,7 @@ function ready(data) {
         })
         .attr("d", path)
         .attr("class", "feature")
+    map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 
     g.append("path")
         .datum(topojson.mesh(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC, (a, b) => a !== b ))
@@ -523,7 +555,8 @@ function ready(data) {
         .attr("id", "case-gradient");
 
     rtGradient.selectAll("stop")
-        .data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        //.data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        .data([0.5,0.75,.9,1.0,1.1,1.5,2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
@@ -620,7 +653,7 @@ function ready(data) {
         .min(d3.min(availableDates))
         .max(d3.max(availableDates))
         .marks(availableDates)
-        .tickFormat(d3.timeFormat("%m/%d"))
+        .tickFormat(d3.timeFormat("%b"))
         .width(sliderWidth)
         .displayValue(false)
         .value(d3.max(availableDates))
@@ -641,9 +674,9 @@ function ready(data) {
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
 }
 
-function plotCaseChart(chartData, projectionData, area) {
+function plotCaseChart(chartData, projectionData, predictionData, area) {
     var xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    var yDomain = [0, 102]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
+    var yDomain = [0, MAX_CASES+2]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
     var x = d3.scaleTime()
         .domain(xDomain)
@@ -660,6 +693,16 @@ function plotCaseChart(chartData, projectionData, area) {
     var smoothedCasesLine = d3.line()
         .x(function (d) { return x(d.Date); })
         .y(function (d) { return y(d.cases_new_smoothed); });
+
+    var predictedCasesLine = d3.line()
+        .x(function (d) { return x(d.Date); })
+        .y(function (d) { return y(d.C_median); });
+
+    var predictedCasesArea = d3.area()
+        .x(function (d) { return x(d.Date); })
+        .y0(function (d) { return y(d.C_lower); })
+        .y1(function (d) { return y(d.C_upper); });
+
 
     var projectedCasesLine = d3.line()
         .x(function (d) { return x(d.Date); })
@@ -682,6 +725,19 @@ function plotCaseChart(chartData, projectionData, area) {
         .duration(500)
         .attr("d", smoothedCasesLine);
 
+    predictedArea
+        .datum(predictionData)
+        .transition()
+        .duration(500)
+        .attr("d", predictedCasesArea);
+
+    predictedChartLine
+        .datum(predictionData)
+        .transition()
+        .duration(500)
+        .attr("d", predictedCasesLine);
+
+
     projectedArea
         .datum(projectionData)
         .transition()
@@ -698,6 +754,7 @@ function plotCaseChart(chartData, projectionData, area) {
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
     caseChartTitle.text(`COVID-19 Cases for ${area}`);
 
+    const predictionDate = d3.min(predictionData.map(c => c.Date));
     const projectionDate = d3.max(chartData.map(c => c.Date));
 
     var focus = caseChartSvg.append("g")
@@ -851,14 +908,14 @@ function selectArea(selectedArea) {
     if (groupedAreaMap.has(selectedArea)) {
         area = groupedAreaMap.get(selectedArea);
         const otherAreas = groupedAreaConstituents.get(area).join(", ");
-        d3.select("#sub-heading").text(`Data shown is for the larger reporting area, ${area}, which contains ${otherAreas}`);
-        d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
-        d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
+        d3.select("#sub-heading").text(`Data shown for ${area}, including ${otherAreas}`);
+        //d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
+        //d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
     }
     else {
-        d3.select("#sub-heading").text("");
-        d3.select("#cases-title").text(`Cases`);
-        d3.select("#estimates-title").text(`Estimates`);
+        d3.select("#sub-heading").text(`Data shown for ${area}`);
+        //d3.select("#cases-title").text(`Cases`);
+        //d3.select("#estimates-title").text(`Estimates`);
     }
 
     d3.select("#data-heading").text(selectedArea);
@@ -873,6 +930,12 @@ function selectArea(selectedArea) {
         console.log("ERROR: No projection data found for area ", area);
         return;
     }
+    var predictionData = casePredTimeseries.get(area);
+    if (!predictionData) {
+        console.log("ERROR: No prediction data found for area ", area);
+        return;
+    }
+
 
     var rtChartData = rtData.get(area);
     if (!rtChartData) {
@@ -880,15 +943,15 @@ function selectArea(selectedArea) {
         return;
     }
 
-    plotCaseChart(chartData, projectionData, area);
-    plotRtChart(rtChartData, chartData, projectionData, area);
+    plotCaseChart(chartData, projectionData, predictionData, area);
+    plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
 
     var caseHistory = getCaseHistoryForArea(area);
     casesLast7Info.text(caseHistory.casesLast7Day);
     casesTotalInfo.text(caseHistory.casesTotal);
     var caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
     casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day);
-    rtInfo.text(getRtForArea(area,rtData.$idx));
+    rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
     caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
 }

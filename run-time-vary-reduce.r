@@ -6,8 +6,8 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
-  make_option(c("-o", "--observation"),   type="character", default="negative_binomial_2",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation1_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
+  make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
@@ -118,11 +118,11 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   stop(c('Unrecognised metapop option ',opt$metapop));
 }
 
-times = (1:M) * Tstep
+times = 1:M
 timedist = matrix(0, M, M)
 for (i in 1:M) {
   for (j in 1:M) {
-    timedist[i, j] = abs(times[i] - times[j])
+    timedist[i, j] = abs(times[i] - times[j]) * Tstep
   }
 }
 
@@ -138,6 +138,10 @@ for (i in 1:M) {
     time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
   }
 }
+
+#############################################################################################
+#############################################################################################
+# Main computation
 
 Rmap_data <- list(
   N = N, 
@@ -158,14 +162,10 @@ Rmap_data <- list(
   F = F,
   flux = flux,
   infprofile = infprofile
-  # local_sd = opt$local_sd,
-  # global_sd = opt$global_sd,
-  # gp_sd = opt$gp_sd,
-  # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s', 
-#  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
+runname = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
+  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -178,7 +178,7 @@ print(runname)
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-content = readLines(paste('stan_files/', 'Rmap-time-vary-vectorize.stan',sep=''))
+content = readLines(paste('stan_files/', 'Rmap-time-vary-vectorize-reduce.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern='TEMPORAL', replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
@@ -194,7 +194,6 @@ fit <- stan(file = stan_file_name,
             iter = numiters, 
             chains = numchains,
             control = list(adapt_delta = .9))
-print(fit)
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()
@@ -202,6 +201,8 @@ end_time <- Sys.time()
 print("Time to run")
 print(end_time - start_time)
 
+#############################################################################################
+#############################################################################################
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
@@ -209,10 +210,14 @@ print(end_time - start_time)
 #################################################################
 # Summary of fit
 print(summary(fit, 
-    pars=c("R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale","global_sigma","local_scale","precision","coupling_rate"), 
-    probs=c(0.025, 0.25, 0.5, 0.75, 0.975))$summary)
-  
+    pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+        "global_sigma","local_scale","precision",
+        "R0","coupling_rate"), 
+    probs=0.5)$summary)
+ 
+ 
 #################################################################
+
 area_date_dataframe <- function(areas,dates,data,data_names) {
   numareas <- length(areas)
   numdates <- length(dates)
@@ -226,6 +231,7 @@ area_date_dataframe <- function(areas,dates,data,data_names) {
   colnames(df)[3:ncol(df)] <- data_names
   df
 }
+
 
 #################################################################
 # Rt posterior
@@ -254,11 +260,27 @@ df <- df[,c(1,3,4,5,6,7,8,9,10,11,2)]
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+
 #################################################################
-# projections
-s <- summary(fit, pars="Cproj", probs=c(0.025, .25, .5, .75, .975))$summary
-#Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
-Cproj <- s[,c("2.5%", "50%", "97.5%")]
+# posterior predictives and projections
+s <- summary(fit, pars=c("Cpred"), probs=c(0.025, .25, .5, .75, .975))$summary
+Cpred <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
+#Cpred <- s[,c("2.5%", "50%", "97.5%")]
+Cpred <- t(t(Cpred))
+print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
+df <- area_date_dataframe(
+    quoted_areas,
+    seq(dates[Tcond-(M-1)*Tlik]+1,by=1,length.out=M*Tlik),
+    format(Cpred,digits=2),
+    #c("C_2_5","C_25","C_50","C_75","C_97_5")
+    c("C_025","C_25","C_50","C_75","C_975")
+)
+write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+
+s <- summary(fit, pars=c("Cproj"), probs=c(0.025, .25, .5, .75, .975))$summary
+Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
+#Cproj <- s[,c("2.5%", "50%", "97.5%")]
 Cproj <- t(t(Cproj))
 print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
 df <- area_date_dataframe(
@@ -266,10 +288,11 @@ df <- area_date_dataframe(
     seq(dates[Tcond+Tlik]+1,by=1,length.out=Tproj),
     format(Cproj,digits=2),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
-    c("C_lower","C_median","C_upper")
+    c("C_025","C_25","C_50","C_75","C_975")
 )
 write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
     row.names=FALSE,quote=FALSE)
+
 
 #################################################################
 # predictive probabilities
@@ -289,8 +312,8 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 # pairs plot
 pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
 pairs(fit, pars=c(
-    "R0","gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-    "global_sigma","local_scale","precision","coupling_rate")) 
+    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+    "global_sigma","local_scale","precision")) 
 dev.off()
-
+ 
 print(runname)

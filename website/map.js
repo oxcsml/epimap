@@ -159,7 +159,7 @@ d3.select("#zoom_out").on("click", function () {
     map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
 });
 
-const dateFormat = d3.timeFormat("%m/%d");
+const dateFormat = d3.timeFormat("%Y-%m-%d");
 
 // Data containers
 var rtData = d3.map();
@@ -189,9 +189,6 @@ var tooltip_info2 = tooltip_div.append("span")
 tooltip_div.append("br");
 var tooltip_info3 = tooltip_div.append("span")
     .attr("class", "info-row3");
-tooltip_div.append("br");
-var tooltip_info4 = tooltip_div.append("span")
-    .attr("class", "info-row4");
 
 // Load external data
 const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
@@ -339,17 +336,17 @@ const casesAndMeta = Promise.all([
     nextWeekCaseProj.each((caseProj, area) => {
         const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
-            caseProjLower: (caseProj.caseProjLower / pop).toFixed(1),
-            caseProjMedian: (caseProj.caseProjMedian / pop).toFixed(1),
-            caseProjUpper: (caseProj.caseProjUpper / pop).toFixed(1)
+            caseProjLower: Math.round(caseProj.caseProjLower / pop),
+            caseProjMedian: Math.round(caseProj.caseProjMedian / pop),
+            caseProjUpper: Math.round(caseProj.caseProjUpper / pop)
         });
     });
 
     caseHistory.each((cases, area) => {
         const pop = getPopulation(area) / 100000;
         caseHistoryPer100k.set(area, {
-            casesLast7Day: (cases.casesLast7Day / pop).toFixed(1),
-            casesTotal: (cases.casesTotal / pop).toFixed(1)
+            casesLast7Day: Math.round(cases.casesLast7Day / pop),
+            casesTotal: Math.round(cases.casesTotal / pop)
         });
     });
 });
@@ -362,15 +359,15 @@ Promise.all([
 
 var colorDomain = [0.5, 1.0, 2.0];
 
-function getRtForArea(area,idx) {
+function getRtForArea(area) {
     const rtSeries = rtData.get(area);
     if (!rtSeries) {
         return "? [? - ?]";
     }
-    const [lastRt] = rtSeries.slice(idx);
-    var median = lastRt.Rt50.toFixed(1);
-    var upper = lastRt.Rt90.toFixed(1);
-    var lower = lastRt.Rt10.toFixed(1);
+    const [lastRt] = rtSeries.slice(-1)
+    var median = lastRt.Rt50.toFixed(2);
+    var upper = lastRt.Rt90.toFixed(2);
+    var lower = lastRt.Rt10.toFixed(2);
     return `${median} [${lower} - ${upper}]`;
 }
 
@@ -428,7 +425,7 @@ function ready(data) {
 
     console.log("Drawing map");
 
-    // 1 is grey, below 1 is blue, above is red
+    // 1 is yellow, below 1 is green, above is red
     var rtColorScale = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t))
         .domain(colorDomain);
 
@@ -456,12 +453,12 @@ function ready(data) {
     var rtAxisFn = () => d3.axisBottom(rtAxisScale)
         .tickValues(rtColorScale.ticks())
         .tickFormat(rtColorScale.tickFormat())
-        .tickSize(barHeight);
+        .tickSize(-barHeight);
 
     var caseAxisFn = () => d3.axisBottom(caseAxisScale)
         .tickValues(logScale.ticks(2))
         .tickFormat(d => d)
-        .tickSize(barHeight);
+        .tickSize(-barHeight);
 
     var axisBottom = map_svg.append("g")
         .attr("class", `x-axis`)
@@ -472,8 +469,6 @@ function ready(data) {
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
     const bisectDate = d3.bisector(d=>d).left;
-    rtData.set('date',d3.max(availableDates));
-    rtData.set('idx',-1);
 
     rtFillFn = date => {
         const idx = bisectDate(availableDates, date, 1);
@@ -523,10 +518,9 @@ function ready(data) {
                 .style("opacity", .9);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Rt on ${dateFormat(rtData.$date)}: ${getRtForArea(d.properties.lad20nm,rtData.$idx)}`);
-            tooltip_info2.text(`Rt in last week: ${getRtForArea(d.properties.lad20nm,-1)}`);
-            tooltip_info3.text(`Cases per 100k in last week: ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
-            tooltip_info4.text(`Cases per 100k projected for next week: ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
+            tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
+            tooltip_info2.text(`Last 7 days Rt: ${getRtForArea(d.properties.lad20nm)}`);
+            tooltip_info3.text(`Projected Cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -535,9 +529,13 @@ function ready(data) {
         })
         .on("mouseout", function (d) {
             tooltip_div.style("opacity", 0);
-            d3.select(this).style("fill-opacity", 1)
+            d3.select(this).style("fill-opacity", 1);
         })
-        .on("click", d => selectArea(d.properties.lad20nm))
+        .on("click", function (d) {
+            selectArea(d.properties.lad20nm);
+            g.selectAll("path").style("stroke-width", 0)
+            d3.select(this).style("stroke-width", 1.5).style("stroke", "green");
+        })
         .attr("d", path)
         .attr("class", "feature")
     map_svg.transition().duration(500).call(zoom.scaleBy, 0.5);
@@ -655,7 +653,7 @@ function ready(data) {
         .min(d3.min(availableDates))
         .max(d3.max(availableDates))
         .marks(availableDates)
-        .tickFormat(d3.timeFormat("%m/%d"))
+        .tickFormat(d3.timeFormat("%b"))
         .width(sliderWidth)
         .displayValue(false)
         .value(d3.max(availableDates))
@@ -952,7 +950,7 @@ function selectArea(selectedArea) {
     casesTotalInfo.text(caseHistory.casesTotal);
     var caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
     casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day);
-    rtInfo.text(getRtForArea(area,rtData.$idx));
+    rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
     caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
 }

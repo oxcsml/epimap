@@ -122,7 +122,7 @@ times = (1:M) * Tstep
 timedist = matrix(0, M, M)
 for (i in 1:M) {
   for (j in 1:M) {
-    timedist[i, j] = abs(times[i] - times[j]) * Tstep
+    timedist[i, j] = abs(times[i] - times[j])
   }
 }
 
@@ -164,8 +164,8 @@ Rmap_data <- list(
   # gp_length_scale_sd = opt$gp_length_scale_sd
 )
 
-runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s-%s', 
-  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
+runname = sprintf('Rmap-time-vary-%s-%s-%s-%s-%s-%s', 
+#  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
   opt$globalkernel, 
@@ -194,6 +194,7 @@ fit <- stan(file = stan_file_name,
             iter = numiters, 
             chains = numchains,
             control = list(adapt_delta = .9))
+print(fit)
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()

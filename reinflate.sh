@@ -17,4 +17,3 @@ else
   chmod a+rx ~/pub_html/Rmap_time/$2
   chmod a+r ~/pub_html/Rmap_time/$2/*
 fi
-

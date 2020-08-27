@@ -122,7 +122,7 @@ times = (1:M) * Tstep
 timedist = matrix(0, M, M)
 for (i in 1:M) {
   for (j in 1:M) {
-    timedist[i, j] = abs(times[i] - times[j]) * Tstep
+    timedist[i, j] = abs(times[i] - times[j])
   }
 }
 

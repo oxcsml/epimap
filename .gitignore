@@ -64,3 +64,5 @@ notebooks/*
 sandbox/*
 # vim swap files
 */**/.*.sw*
+
+jax_env/

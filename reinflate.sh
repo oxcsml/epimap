@@ -6,9 +6,11 @@ else
   mkdir website/$2 
   python3 reinflate.py \
     `ls fits/*$1*_Rt.csv` \
+    `ls fits/*$1*_Pexceed.csv` \
     `ls fits/*$1*_Cpred.csv` \
     `ls fits/*$1*_Cproj.csv` \
     website/$2/Rt.csv \
+    website/$2/Pexceed.csv \
     website/$2/Cpred.csv \
     website/$2/Cproj.csv
 

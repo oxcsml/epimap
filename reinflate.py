@@ -3,11 +3,13 @@ import sys
 
 
 def process_csvs(input_r_filename: str='fits/0_Rt.csv',
+                 input_exceed_filename: str='fits/0_Pexceed.csv',
                  input_pred_filename: str='fits/0_Cpred.csv',
                  input_proj_filename: str='fits/0_Cproj.csv',
-                 output_r_filename: str='website/Rt.csv',
-                 output_pred_filename: str='website/Cpred.csv',
-                 output_proj_filename: str='website/Cproj.csv'
+                 output_r_filename: str='website/default/Rt.csv',
+                 output_exceed_filename: str='website/default/Pexceed.csv',
+                 output_pred_filename: str='website/default/Cpred.csv',
+                 output_proj_filename: str='website/default/Cproj.csv'
 ):
 
     reproduction_numbers = pd.read_csv(input_r_filename) \
@@ -15,6 +17,13 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
     reproduction_numbers['day'] = pd.to_datetime(reproduction_numbers['day'],
                                                  format='%Y-%m-%d')
     reproduction_numbers = reproduction_numbers.set_index(['area', 'day'])
+
+    exceedance_probs = pd.read_csv(input_exceed_filename) \
+                             .rename(columns={'Date': 'day'})
+    exceedance_probs['day'] = pd.to_datetime(exceedance_probs['day'],
+                                                 format='%Y-%m-%d')
+    exceedance_probs = exceedance_probs.set_index(['area', 'day'])
+
 
     predictions = pd.read_csv(input_pred_filename) \
                          .rename(columns={'Date': 'day'})
@@ -29,19 +38,22 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                                              format='%Y-%m-%d')
     projections = projections.set_index(['area', 'day'])
 
-    reproduction_numbers, predictions, projections = reinflate(
-        reproduction_numbers, predictions, projections)
+    reproduction_numbers, exceedance_probs, predictions, projections = reinflate(
+        reproduction_numbers, exceedance_probs, predictions, projections)
 
     reproduction_numbers.index.names = ['area', 'Date']
+    exceedance_probs.index.names = ['area', 'Date']
     predictions.index.names = ['area', 'Date']
     projections.index.names = ['area', 'Date']
 
-    reproduction_numbers.to_csv(output_r_filename, float_format='%.5f')
-    predictions.to_csv(output_pred_filename, float_format='%.5f')
-    projections.to_csv(output_proj_filename, float_format='%.5f')
+    reproduction_numbers.to_csv(output_r_filename, float_format='%.1f')
+    exceedance_probs.to_csv(output_exceed_filename, float_format='%.2f')
+    predictions.to_csv(output_pred_filename, float_format='%2.1f')
+    projections.to_csv(output_proj_filename, float_format='%2.1f')
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
+              exceedance_probs: pd.DataFrame,
               predictions: pd.DataFrame,
               projections: pd.DataFrame,
               divide_predictions_by_population_ratio: bool=False):
@@ -117,6 +129,39 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     reproduction_numbers = reproduction_numbers.append(england) \
                                                .append(scotland)
+
+    # Exceedance probabilities
+    england = england_map.merge(exceedance_probs.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
+
+    england = england_map.merge(exceedance_probs.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left') \
+                         .set_index(['area', 'day']) \
+                         .drop(columns=['Meta area', 'ratio'])
+
+    scotland = scotland_map.merge(exceedance_probs.reset_index(level=1),
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left') \
+                           .set_index(['area', 'day']) \
+                           .drop(columns=['NHS Scotland Health Board',
+                                          'ratio'])
+
+    # `Highland` is both the name of an NHS Scotland Health Board and an area
+    # in the health board. To avoid a duplicate area key, we drop it as a
+    # health board, and keep it as a local area (in this case the two rows
+    # would have been equal in any event).
+    if divide_predictions_by_population_ratio:
+        exceedance_probs = exceedance_probs.rename(
+            index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+    exceedance_probs = exceedance_probs.append(england) \
+                                       .append(scotland)
+
 
     # Case predictions 
     england = england_map.merge(predictions.reset_index(level=1),
@@ -206,30 +251,36 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     # (which we don't get from reading from CSV).
     reproduction_numbers = reproduction_numbers.loc[
         ~reproduction_numbers.index.duplicated(keep='first')]
+    exceedance_probs = exceedance_probs.loc[
+        ~exceedance_probs.index.duplicated(keep='first')]
     predictions = predictions.loc[
         ~predictions.index.duplicated(keep='first')]
     projections = projections.loc[
         ~projections.index.duplicated(keep='first')]
 
     return reproduction_numbers.sort_index(), \
+           exceedance_probs.sort_index(), \
            predictions.sort_index(), \
            projections.sort_index()
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if len(args) == 6:
+    if len(args) == 8:
         process_csvs(input_r_filename=args[0],
-                     input_pred_filename=args[1],
-                     input_proj_filename=args[2],
-                     output_r_filename=args[3],
-                     output_pred_filename=args[4],
-                     output_proj_filename=args[5]
+                     input_exceed_filename=args[1],
+                     input_pred_filename=args[2],
+                     input_proj_filename=args[3],
+                     output_r_filename=args[4],
+                     output_exceed_filename=args[5],
+                     output_pred_filename=args[6],
+                     output_proj_filename=args[7]
         )
-    elif len(args) == 3:
+    elif len(args) == 4:
         process_csvs(input_r_filename=args[0],
-                     input_pred_filename=args[1],
-                     input_proj_filename=args[2]
+                     input_exceed_filename=args[1],
+                     input_pred_filename=args[2],
+                     input_proj_filename=args[3]
         )
     else:
         process_csvs()

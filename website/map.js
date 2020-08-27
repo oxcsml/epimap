@@ -790,7 +790,7 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
             return d.C_median;
         }
         else {
-            return d.cases_new_smoothed;
+            return d.cases_new;
         }
     }
 
@@ -808,7 +808,7 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
     }
 }
 
-function plotRtChart(rtData, chartData, projectionData, area) {
+function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
     var xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
     //var xDomain = d3.extent(rtData.map(c => c.Date));
     var yDomain = [0, 3.1];
@@ -860,7 +860,7 @@ function plotRtChart(rtData, chartData, projectionData, area) {
 
     rtChartXAxis.call(d3.axisBottom(x));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
-    rtChartTitle.text(`Estimated Rt for ${area}`);
+    rtChartTitle.text(`Estimated Rt ${area}`);
 
     //TODO: Refactor this out into a function!
     var focus = rtChartSvg.append("g")

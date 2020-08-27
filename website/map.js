@@ -365,9 +365,9 @@ function getRtForArea(area) {
         return "? [? - ?]";
     }
     const [lastRt] = rtSeries.slice(-1)
-    var median = lastRt.Rt50.toFixed(2);
-    var upper = lastRt.Rt90.toFixed(2);
-    var lower = lastRt.Rt10.toFixed(2);
+    var median = lastRt.Rt50.toFixed(1);
+    var upper = lastRt.Rt90.toFixed(1);
+    var lower = lastRt.Rt10.toFixed(1);
     return `${median} [${lower} - ${upper}]`;
 }
 
@@ -518,9 +518,9 @@ function ready(data) {
                 .style("opacity", .9);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Last 7 days cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
-            tooltip_info2.text(`Last 7 days Rt: ${getRtForArea(d.properties.lad20nm)}`);
-            tooltip_info3.text(`Projected Cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
+            tooltip_info1.text(`Last week Rt: ${getRtForArea(d.properties.lad20nm)}`);
+            tooltip_info2.text(`Last week cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
+            tooltip_info3.text(`Next week cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")

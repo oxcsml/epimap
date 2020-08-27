@@ -64,7 +64,20 @@ div.tooltip span.header {
     fill: none;
     stroke: rgba(70, 130, 180);
     stroke-width: 1.5;
+    opacity: 0.0;
 }
+
+.predicted-cases-median-line {
+    fill: none;
+    stroke: rgb(70, 130, 180);
+    stroke-width: 1.5;
+}
+
+.predicted-cases-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.4;
+}
+
 
 .projected-cases-median-line {
     fill: none;

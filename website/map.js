@@ -4,11 +4,14 @@ const MAP_PATH = '.';
 const RT_PATH = "Rt.csv";
 const SITE_DATA_PATH = "site_data.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
+const CASE_PREDICTION_PATH = "Cpred.csv";
 const NHS_SCOTLAND_MAP = "nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "england_meta_areas.csv";
 const METADATA_PATH = "metadata.csv";
 
 // Set up dimensions for map
+const MAX_CASES = 50;
+
 var map_svg = d3.select("#map"),
     width = +map_svg.attr("width"),
     height = +map_svg.attr("height");
@@ -50,6 +53,12 @@ const actualChartLine = caseChartSvg.append("path")
 
 const smoothedChartLine = caseChartSvg.append("path")
     .attr("class", "smoothed-cases-line")
+
+const predictedChartLine = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-median-line");
+
+const predictedArea = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-area");
 
 const projectedChartLine = caseChartSvg.append("path")
     .attr("class", "projected-cases-median-line");
@@ -156,6 +165,7 @@ const dateFormat = d3.timeFormat("%m/%d");
 var rtData = d3.map();
 var caseTimeseries = d3.map();
 var caseProjTimeseries = d3.map();
+var casePredTimeseries = d3.map();
 var nextWeekCaseProj = d3.map();
 var nextWeekCaseProjPer100k = d3.map();
 var caseHistory = d3.map();
@@ -209,6 +219,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const data_path = urlParams.get('map') || MAP_PATH
 const rt_path = data_path.concat('/', RT_PATH);
 const case_projection_path = data_path.concat('/', CASE_PROJECTION_PATH);
+const case_prediction_path = data_path.concat('/', CASE_PREDICTION_PATH);
 
 const loadRt = d3.csv(rt_path).then(data => {
     data.forEach(d => {
@@ -236,9 +247,15 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         caseProjTimeseries.set(d.area, []);
     }
     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    d.C_lower = +d.C_lower;
-    d.C_median = +d.C_median;
-    d.C_upper = +d.C_upper;
+    if (d.C_025) {
+      d.C_lower = +d.C_025;
+      d.C_median = +d.C_50;
+      d.C_upper = +d.C_975;
+    } else {
+      d.C_lower = +d.C_lower;
+      d.C_median = +d.C_median;
+      d.C_upper = +d.C_upper;
+    }  
 
     caseProjTimeseries.get(d.area).push(d);
 
@@ -257,6 +274,25 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         });
     });
 });
+
+const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEach(d => {
+    if (!casePredTimeseries.has(d.area)) {
+        casePredTimeseries.set(d.area, []);
+    }
+    d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
+    if (d.C_025) {
+      d.C_lower = +d.C_025;
+      d.C_median = +d.C_50;
+      d.C_upper = +d.C_975;
+    } else {
+      d.C_lower = +d.C_lower;
+      d.C_median = +d.C_median;
+      d.C_upper = +d.C_upper;
+    }  
+
+    casePredTimeseries.get(d.area).push(d);
+
+}));
 
 const loadNHSScotland = d3.csv(NHS_SCOTLAND_MAP).then(data => data.forEach(d => {
     const groupedArea = d["NHS Scotland Health Board"];
@@ -294,6 +330,7 @@ const getPopulation = (area) => {
 
 const casesAndMeta = Promise.all([
     loadCaseProjections,
+    loadCasePredictions,
     loadCases,
     loadMetadata,
     loadNHSScotland,
@@ -396,7 +433,7 @@ function ready(data) {
         .domain(colorDomain);
 
     minCases = 1;
-    maxCases = 100; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
+    maxCases = MAX_CASES; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
     maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
     console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
@@ -639,9 +676,9 @@ function ready(data) {
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
 }
 
-function plotCaseChart(chartData, projectionData, area) {
+function plotCaseChart(chartData, projectionData, predictionData, area) {
     var xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    var yDomain = [0, 102]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
+    var yDomain = [0, MAX_CASES+2]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
     var x = d3.scaleTime()
         .domain(xDomain)
@@ -658,6 +695,16 @@ function plotCaseChart(chartData, projectionData, area) {
     var smoothedCasesLine = d3.line()
         .x(function (d) { return x(d.Date); })
         .y(function (d) { return y(d.cases_new_smoothed); });
+
+    var predictedCasesLine = d3.line()
+        .x(function (d) { return x(d.Date); })
+        .y(function (d) { return y(d.C_median); });
+
+    var predictedCasesArea = d3.area()
+        .x(function (d) { return x(d.Date); })
+        .y0(function (d) { return y(d.C_lower); })
+        .y1(function (d) { return y(d.C_upper); });
+
 
     var projectedCasesLine = d3.line()
         .x(function (d) { return x(d.Date); })
@@ -679,6 +726,19 @@ function plotCaseChart(chartData, projectionData, area) {
         .transition()
         .duration(500)
         .attr("d", smoothedCasesLine);
+
+    predictedArea
+        .datum(predictionData)
+        .transition()
+        .duration(500)
+        .attr("d", predictedCasesArea);
+
+    predictedChartLine
+        .datum(predictionData)
+        .transition()
+        .duration(500)
+        .attr("d", predictedCasesLine);
+
 
     projectedArea
         .datum(projectionData)
@@ -871,6 +931,12 @@ function selectArea(selectedArea) {
         console.log("ERROR: No projection data found for area ", area);
         return;
     }
+    var predictionData = casePredTimeseries.get(area);
+    if (!predictionData) {
+        console.log("ERROR: No prediction data found for area ", area);
+        return;
+    }
+
 
     var rtChartData = rtData.get(area);
     if (!rtChartData) {
@@ -878,8 +944,8 @@ function selectArea(selectedArea) {
         return;
     }
 
-    plotCaseChart(chartData, projectionData, area);
-    plotRtChart(rtChartData, chartData, projectionData, area);
+    plotCaseChart(chartData, projectionData, predictionData, area);
+    plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
 
     var caseHistory = getCaseHistoryForArea(area);
     casesLast7Info.text(caseHistory.casesLast7Day);

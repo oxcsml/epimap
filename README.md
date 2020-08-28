@@ -6,7 +6,7 @@
 
 ## Current process:
 
-In python:
+In python3:
 * `process_uk_cases.py` to produce `data/uk_cases.csv`
 * `process_mobility.py` to produce `data/mobility.csv`
 * `process_metadata.py` to produce `data/metadata.csv`

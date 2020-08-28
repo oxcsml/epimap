@@ -353,7 +353,7 @@ model {
 
   gp_time_length_scale ~ gig(14, 1.0, 1.0);
 
-  local_scale ~ normal(0.0, 0.5);
+  local_scale ~ normal(0.0, 0.25);
   for (j in 1:M){
     for (i in 1:N) {
       local_exp[i, j] ~ exponential(1.0);

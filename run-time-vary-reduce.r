@@ -6,7 +6,7 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation1_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),

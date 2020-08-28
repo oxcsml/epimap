@@ -533,8 +533,20 @@ function ready(data) {
         })
         .on("click", function (d) {
             selectArea(d.properties.lad20nm);
-            g.selectAll("path").style("stroke-width", 0)
-            d3.select(this).style("stroke-width", 1.5).style("stroke", "green");
+            g.selectAll("path")
+                .style("zIndex", "inherit")
+                .style("vector-effect", "non-scaling-stroke")
+                .style("stroke-linecap", "round")
+                .style("stroke-linejoin", "round")
+                .style("stroke-width", "0.5px")
+                .style("stroke","#fff");
+            d3.select(this)
+                .style("zIndex", "1")
+                .style("vector-effect", "non-scaling-stroke")
+                .style("stroke-linecap", "round")
+                .style("stroke-linejoin", "round")
+                .style("stroke-width", "2px")
+                .style("stroke", "#222");
         })
         .attr("d", path)
         .attr("class", "feature")

@@ -32,14 +32,9 @@ def region2code(region):
     elif region == "Cornwall and Isles of Scilly":
         return 'E06000052,E06000053'
     elif region == 'Hackney and City of London'
-        return 
-    elif region ...
-
-
-
-
-
-
+        return "E09000012" # this is just Hackney
+    elif region == 'Westminster':
+        return 'E09000001,E09000033' # westminster and city of london
 
     codes = name_code[name_code['AREA'] == region]['CODE']
 

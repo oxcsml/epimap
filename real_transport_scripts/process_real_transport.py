@@ -19,7 +19,9 @@ def get_flow(code_from, code_to):
     flow = traffic_raw[(traffic_raw['From'] == code_from) & (traffic_raw['To'] == code_to)]['Flow']
 
     if len(flow) == 0:
-        warnings.warn(f"Didn't find entry from {code_from} to {code_to}.")
+        if (code_from not in list(traffic_raw['From'])) or (code_to not in list(traffic_raw['To'])):
+            print(f"Didn't find one of the codes at all in the table.")
+            # print(f"Didn't find entry from {code_from} to {code_to}.")
         return 0
     else:
         return flow.sum()
@@ -27,6 +29,17 @@ def get_flow(code_from, code_to):
 def region2code(region):
     if region in BUCKINGHAM_SUBREGIONS.keys():
         return BUCKINGHAM_SUBREGIONS[region]
+    elif region == "Cornwall and Isles of Scilly":
+        return 'E06000052,E06000053'
+    elif region == 'Hackney and City of London'
+        return 
+    elif region ...
+
+
+
+
+
+
 
     codes = name_code[name_code['AREA'] == region]['CODE']
 
@@ -34,11 +47,11 @@ def region2code(region):
         return codes.item()
     else:
         assert region == 'Highland' # should only happen for this?
-        print(f"Unsure what to return as code. Got: {codes}") #, returned {codes[0]}.")
-        return codes[0]
+        # print(f"Unsure what to return as code. Got: {codes}") #, returned {codes[0]}.")
+        return list(codes)[0]
 
 def get_subregions(region):
-    if region in nhs_scot["NHS Scotland Health Board"]:
+    if region in list(nhs_scot["NHS Scotland Health Board"]):
         subregions = list(nhs_scot[nhs_scot["NHS Scotland Health Board"] == region]['area'])
     elif region == "Buckinghamshire": # special case
         subregions = list(BUCKINGHAM_SUBREGIONS.keys())

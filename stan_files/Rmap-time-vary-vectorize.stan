@@ -191,18 +191,12 @@ transformed data {
 
   // precompute convolutions between Count and infprofile 
   matrix[N,Tlik] convlik[M];      // for use in likelihood computation
-  matrix[N,Tlik] convlikrad[M];   // for use in likelihood computation
-  matrix[N,Tlik] convlikunif[M];  // for use in likelihood computation
   matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
-  matrix[N,Tpred] convpredrad[1]; // for use in predictive probs of future counts
-  matrix[N,Tpred] convpredunif[1];// for use in predictive probs of future counts
   matrix[N,Tproj] convproj[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tlik] convlikflux[M];
   matrix[F1,N*Tpred] convpredflux[1];
-
-  // int Clik[Tlik,N];
 
   // reverse infection profile
   for (i in 1:D)
@@ -214,17 +208,14 @@ transformed data {
       fluxt[f,] = to_row_vector(flux[f-1]');
   }
 
-  // for (j in 1:N)
-  //   for (i in 1:Tlik)
-  //     Clik[i,j] = Count[j,Tcond+i]; // transposed, vectorises correctly
-
-  for (j in 1:N) {
+  for (j in 1:N)
     for (i in 1:Tall)
       Creal[j,i] = Count[j,i];
 
-    // precompute convolutions between counts and infprofile
-    // compute for each time offset - NOTE: not the fastest ordering of these access options (see https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html), but assuming okay as this is only done once
-    for (k in 1:M){
+  // precompute convolutions between counts and infprofile
+  // compute for each time offset - NOTE: not the fastest ordering of these access options (see https://mc-stan.org/docs/2_23/stan-users-guide/indexing-efficiency-section.html), but assuming okay as this is only done once
+  for (j in 1:N) {
+    for (k in 1:M) {
       for (i in 1:Tlik) {
         int L = min(D,Tcond+i-1-((M-k) * Tstep)); // length of infection profile that overlaps with case counts 
         convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[D-L+1:D])+1e-6;
@@ -330,10 +321,9 @@ transformed parameters {
 }
 
 model {
-  // Ravg ~ normal(1.0,1.0);
   coupling_rate ~ normal(0.0, .25);
   flux_probs ~ dirichlet(ones);
-  precision ~ normal(0.0,10.0);
+  precision ~ normal(0.0,5.0);
 
   // GP prior density
   eta_in ~ std_normal();
@@ -344,7 +334,7 @@ model {
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
 
-  gp_time_length_scale ~ gig(10, 1.0, 1.0);
+  gp_time_length_scale ~ gig(14, 1.0, 1.0);
 
   local_scale ~ normal(0.0, 0.5);
   for (j in 1:M){
@@ -369,6 +359,7 @@ generated quantities {
   real R0[M];
   vector[N] Rt[M];
   matrix[N,Tpred] Ppred;
+  matrix[N,M*Tlik] Cpred;
   matrix[N,Tproj] Cproj; 
 
   // Estimated R0 and Rt for all areas
@@ -404,19 +395,27 @@ generated quantities {
             convpredout[1,j,i], precision));
   }
 
-  // forecasting *mean* counts given parameters
+
+  // posterior predictive expected counts
+  {
+    matrix[N,Tlik] convlikout[M] = metapop(do_metapop,do_in_out,
+        Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
+    for (k in 1:M)
+      Cpred[,(1+(k-1)*Tlik):(k*Tlik)] = convlikout[k];
+  }
+
+
+  // forecasting expected counts given parameters
   {
     matrix[N,1] convprojall[1];
-    //matrix[N,1] convprojrad;
-    //matrix[N,1] convprojunif;
     matrix[F1,N*1] convprojflux[1];
-    row_vector[F1] pred_fluxproportions[1];
-    matrix[N,1] pred_Rin;
-    matrix[N,1] pred_Rout;
+    row_vector[F1] proj_fluxproportions[1];
+    matrix[N,1] proj_Rin;
+    matrix[N,1] proj_Rout;
 
-    pred_fluxproportions[1] = fluxproportions[M];
-    pred_Rin = block(Rin, 1, M, N, 1);
-    pred_Rout = block(Rout, 1, M, N, 1);
+    proj_fluxproportions[1] = fluxproportions[M];
+    proj_Rin = block(Rin, 1, M, N, 1);
+    proj_Rout = block(Rout, 1, M, N, 1);
 
     for (i in 1:Tproj) {
       for (j in 1:N) 
@@ -425,8 +424,8 @@ generated quantities {
       if (do_metapop && !do_in_out)
         convprojflux = in_compute_flux(convprojall,fluxt);
       Cproj[:,i] = metapop(do_metapop,do_in_out,
-          pred_Rin,pred_Rout,convprojall,convprojflux,fluxproportions,fluxt)[1,:,1];
+          proj_Rin,proj_Rout,convprojall,convprojflux,fluxproportions,fluxt)[1,:,1];
     }
   }
-
 }
+

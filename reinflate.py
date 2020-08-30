@@ -9,8 +9,7 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                  output_r_filename: str='website/default/Rt.csv',
                  output_exceed_filename: str='website/default/Pexceed.csv',
                  output_pred_filename: str='website/default/Cpred.csv',
-                 output_proj_filename: str='website/default/Cproj.csv'
-):
+                 output_proj_filename: str='website/default/Cproj.csv'):
 
     reproduction_numbers = pd.read_csv(input_r_filename) \
                              .rename(columns={'Date': 'day'})
@@ -19,27 +18,26 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
     reproduction_numbers = reproduction_numbers.set_index(['area', 'day'])
 
     exceedance_probs = pd.read_csv(input_exceed_filename) \
-                             .rename(columns={'Date': 'day'})
+                         .rename(columns={'Date': 'day'})
     exceedance_probs['day'] = pd.to_datetime(exceedance_probs['day'],
-                                                 format='%Y-%m-%d')
+                                             format='%Y-%m-%d')
     exceedance_probs = exceedance_probs.set_index(['area', 'day'])
 
-
     predictions = pd.read_csv(input_pred_filename) \
-                         .rename(columns={'Date': 'day'})
-    predictions['day'] = pd.to_datetime(predictions['day'],
-                                             format='%Y-%m-%d')
+                    .rename(columns={'Date': 'day'})
+    predictions['day'] = pd.to_datetime(predictions['day'], format='%Y-%m-%d')
     predictions = predictions.set_index(['area', 'day'])
 
-
     projections = pd.read_csv(input_proj_filename) \
-                         .rename(columns={'Date': 'day'})
-    projections['day'] = pd.to_datetime(projections['day'],
-                                             format='%Y-%m-%d')
+                    .rename(columns={'Date': 'day'})
+    projections['day'] = pd.to_datetime(projections['day'], format='%Y-%m-%d')
     projections = projections.set_index(['area', 'day'])
 
-    reproduction_numbers, exceedance_probs, predictions, projections = reinflate(
-        reproduction_numbers, exceedance_probs, predictions, projections)
+    (reproduction_numbers, exceedance_probs,
+     predictions, projections) = reinflate(reproduction_numbers,
+                                           exceedance_probs,
+                                           predictions,
+                                           projections)
 
     reproduction_numbers.index.names = ['area', 'Date']
     exceedance_probs.index.names = ['area', 'Date']
@@ -102,11 +100,6 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     england = england_map.merge(reproduction_numbers.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
-                                how='left')
-
-    england = england_map.merge(reproduction_numbers.reset_index(level=1),
-                                left_on=['Meta area'],
-                                right_on=['area'],
                                 how='left') \
                          .set_index(['area', 'day']) \
                          .drop(columns=['Meta area', 'ratio'])
@@ -134,11 +127,6 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     england = england_map.merge(exceedance_probs.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
-                                how='left')
-
-    england = england_map.merge(exceedance_probs.reset_index(level=1),
-                                left_on=['Meta area'],
-                                right_on=['area'],
                                 how='left') \
                          .set_index(['area', 'day']) \
                          .drop(columns=['Meta area', 'ratio'])
@@ -162,7 +150,6 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     exceedance_probs = exceedance_probs.append(england) \
                                        .append(scotland)
 
-
     # Case predictions 
     england = england_map.merge(predictions.reset_index(level=1),
                                 left_on=['Meta area'],
@@ -171,9 +158,9 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     if divide_predictions_by_population_ratio:
         england['C_025'] = england['C_025'] * england['ratio']
-        england['C_25']  = england['C_25']  * england['ratio']
-        england['C_50']  = england['C_50']  * england['ratio']
-        england['C_75']  = england['C_75']  * england['ratio']
+        england['C_25'] = england['C_25'] * england['ratio']
+        england['C_50'] = england['C_50'] * england['ratio']
+        england['C_75'] = england['C_75'] * england['ratio']
         england['C_975'] = england['C_975'] * england['ratio']
 
     england = england.drop(columns=['Meta area', 'ratio']) \
@@ -186,9 +173,9 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     if divide_predictions_by_population_ratio:
         scotland['C_025'] = scotland['C_025'] * scotland['ratio']
-        scotland['C_25']  = scotland['C_25']  * scotland['ratio']
-        scotland['C_50']  = scotland['C_50']  * scotland['ratio']
-        scotland['C_75']  = scotland['C_75']  * scotland['ratio']
+        scotland['C_25'] = scotland['C_25'] * scotland['ratio']
+        scotland['C_50'] = scotland['C_50'] * scotland['ratio']
+        scotland['C_75'] = scotland['C_75'] * scotland['ratio']
         scotland['C_975'] = scotland['C_975'] * scotland['ratio']
 
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
@@ -211,9 +198,9 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     if divide_predictions_by_population_ratio:
         england['C_025'] = england['C_025'] * england['ratio']
-        england['C_25']  = england['C_25']  * england['ratio']
-        england['C_50']  = england['C_50']  * england['ratio']
-        england['C_75']  = england['C_75']  * england['ratio']
+        england['C_25'] = england['C_25'] * england['ratio']
+        england['C_50'] = england['C_50'] * england['ratio']
+        england['C_75'] = england['C_75'] * england['ratio']
         england['C_975'] = england['C_975'] * england['ratio']
 
     england = england.drop(columns=['Meta area', 'ratio']) \
@@ -226,9 +213,9 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     if divide_predictions_by_population_ratio:
         scotland['C_025'] = scotland['C_025'] * scotland['ratio']
-        scotland['C_25']  = scotland['C_25']  * scotland['ratio']
-        scotland['C_50']  = scotland['C_50']  * scotland['ratio']
-        scotland['C_75']  = scotland['C_75']  * scotland['ratio']
+        scotland['C_25'] = scotland['C_25'] * scotland['ratio']
+        scotland['C_50'] = scotland['C_50'] * scotland['ratio']
+        scotland['C_75'] = scotland['C_75'] * scotland['ratio']
         scotland['C_975'] = scotland['C_975'] * scotland['ratio']
 
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
@@ -242,7 +229,6 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     projections = projections.append(england) \
                              .append(scotland)
-
 
     # The original reproduction numbers and case predictions data frames might
     # already have been reinflated, so that we append duplicate rows. Duplicate
@@ -274,13 +260,11 @@ if __name__ == '__main__':
                      output_r_filename=args[4],
                      output_exceed_filename=args[5],
                      output_pred_filename=args[6],
-                     output_proj_filename=args[7]
-        )
+                     output_proj_filename=args[7])
     elif len(args) == 4:
         process_csvs(input_r_filename=args[0],
                      input_exceed_filename=args[1],
                      input_pred_filename=args[2],
-                     input_proj_filename=args[3]
-        )
+                     input_proj_filename=args[3])
     else:
         process_csvs()

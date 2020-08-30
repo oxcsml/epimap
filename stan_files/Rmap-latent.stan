@@ -162,15 +162,18 @@ functions {
 data {
   int<lower=1> N;           // number of regions
   int<lower=1> M;           // number of time steps
-  int<lower=1> D;           // length of infection profile
   int<lower=1> Tall;        // number of all days in case count time series
   int<lower=1> Tcond;       // number of days we will condition on
   int<lower=1> Tlik;        // number of days for likelihood computation
   int<lower=0> Tproj;       // number of days to forecast
   int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
   int Count[N, Tall];       // case counts,
-  // vector[2] geoloc[N];   // geo locations of regions
-  vector[D] infprofile;     // infection profile aka serial interval distribution
+
+  int<lower=1> Tip;         // length of infection profile
+  vector[Tip] infprofile;   // infection profile aka serial interval distribution
+  int<lower=1> Tdp;
+  vector[Tdp] delayprofile; // delay profile
+
   matrix[N,N] geodist;      // distance between locations
   matrix[M,M] timedist;     // distance between time samples
   matrix[M,M] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
@@ -187,7 +190,7 @@ transformed data {
   vector[max(1,F)] ones = rep_vector(1.0,max(1,F));
 
   vector[Tall] Creal[N];     // real type version of Count
-  vector[D] infprofile_rev; // reversed infection profile
+  vector[Tip] infprofile_rev; // reversed infection profile
 
   // precompute convolutions between Count and infprofile 
   matrix[N,Tlik] convlik[M];      // for use in likelihood computation
@@ -199,8 +202,8 @@ transformed data {
   matrix[F1,N*Tpred] convpredflux[1];
 
   // reverse infection profile
-  for (i in 1:D)
-    infprofile_rev[i] = infprofile[D-i+1];
+  for (i in 1:Tip)
+    infprofile_rev[i] = infprofile[Tip-i+1];
 
   {
     fluxt[1,] = to_row_vector(diag_matrix(rep_vector(1.0,N)));
@@ -217,18 +220,18 @@ transformed data {
   for (j in 1:N) {
     for (k in 1:M) {
       for (i in 1:Tlik) {
-        int L = min(D,Tcond+i-1-((M-k) * Tstep)); // length of infection profile that overlaps with case counts 
-        convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[D-L+1:D])+1e-6;
+        int L = min(Tip,Tcond+i-1-((M-k) * Tstep)); // length of infection profile that overlaps with case counts 
+        convlik[k,j,i] = dot_product(Creal[j][Tcond+i-((M-k) * Tstep)-L:Tcond-1+i-((M-k) * Tstep)], infprofile_rev[Tip-L+1:Tip])+1e-6;
       }
     }
     
     for (i in 1:Tpred) {
-      int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convpred[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[D-L+1:D])+1e-6;
+      int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
+      convpred[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
     }
     for (i in 1:Tproj) {
-      int L = min(D,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convproj[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[D-L+1:D-i+1])+1e-6;
+      int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
+      convproj[1,j,i] = dot_product(Creal[j][Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
     }
   }
 
@@ -420,7 +423,7 @@ generated quantities {
     for (i in 1:Tproj) {
       for (j in 1:N) 
         convprojall[1,j,1] = convproj[1,j,i] + 
-            dot_product(Cproj[j,1:(i-1)], infprofile_rev[(D-i+2):D]);
+            dot_product(Cproj[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
       if (do_metapop && !do_in_out)
         convprojflux = in_compute_flux(convprojall,fluxt);
       Cproj[:,i] = metapop(do_metapop,do_in_out,

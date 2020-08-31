@@ -1,5 +1,6 @@
 import pandas as pd
 import warnings
+import numpy as np
 
 traffic_raw = pd.read_csv("data/uk_traffic_mergedflows.csv", index_col=0)
 name_code = pd.read_csv("data/metadata.csv")
@@ -82,45 +83,8 @@ for i, region_from in enumerate(traffic.index):
 
 traffic.to_csv('real_transport_scripts/traffic.csv')
 
+traffic = pd.read_csv("real_transport_scripts/traffic.csv", index_col=0)
 
-
-        # if region_from in nhs_scot["NHS Scotland Health Board"]:        
-        #     subregions_from = nhs_scot[nhs_scot["NHS Scotland Health Board"] == region_from]['area']
-
-        #     flow = 0
-        #     for subregion in subregions_from: 
-        #         subregion_code = region2code(subregion)
-        #         get_flow(subregion_code, )
-
-
-
-
-
-
-
-
-        # code_from = name_code[name_code['AREA'] == region_from]['CODE']
-        # code_to = name_code[name_code['AREA'] == region_to]['CODE']
-
-
-
-
-        # flow = traffic_raw[(traffic_raw['From'] == code_from) & (traffic_raw['To'] == code_to)]['Flow']
-
-        # if len(flow) == 0:
-        #     continue
-        # else:
-        #     print(traffic_raw[(traffic_raw['From'] == code_from) & (traffic_raw['To'] == code_to)]['Flow'].sum())
-
-
-
-# from_codes = list(set(traffic["From"]))
-# to_codes = list(set(traffic["To"]))
-
-# sum(1 for k in from_codes if k[0]=="S")
-
-# 9721 
-# 206000
-
-# rad_flux.index
+traffic.iloc[range(len(traffic)), range(len(traffic))]
+(np.diag(traffic) > 0).all()
 

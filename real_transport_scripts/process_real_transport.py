@@ -31,7 +31,7 @@ def region2code(region):
         return BUCKINGHAM_SUBREGIONS[region]
     elif region == "Cornwall and Isles of Scilly":
         return 'E06000052,E06000053'
-    elif region == 'Hackney and City of London'
+    elif region == 'Hackney and City of London':
         return "E09000012" # this is just Hackney
     elif region == 'Westminster':
         return 'E09000001,E09000033' # westminster and city of london
@@ -79,6 +79,8 @@ for i, region_from in enumerate(traffic.index):
         if k % 1000 == 0:
             print(f"Done {k}/{NN}.")
 
+
+traffic.to_csv('real_transport_scripts/traffic.csv')
 
 
 

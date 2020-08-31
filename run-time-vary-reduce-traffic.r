@@ -40,7 +40,7 @@ options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 source('read_data.r')
-source('read_radiation_fluxes.r')
+source('read_fluxes.r')
 
 M <- opt$time_steps        # Testing with 1 time period
 Tignore <- 4  # counts in most recent 7 days may not be reliable?

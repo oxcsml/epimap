@@ -1,7 +1,6 @@
 Rscript run-time-vary-reduce-traffic.r --metapop radiation2_uniform_in --localkernel none
 Rscript run-time-vary-reduce-traffic.r --metapop traffic1_uniform_in --localkernel none
 Rscript run-time-vary-reduce-traffic.r --metapop traffic2_uniform_in --localkernel none 
-
 Rscript run-time-vary-reduce-traffic.r --metapop radiation2_uniform_in --localkernel local
 Rscript run-time-vary-reduce-traffic.r --metapop traffic1_uniform_in --localkernel local
 Rscript run-time-vary-reduce-traffic.r --metapop traffic2_uniform_in --localkernel local

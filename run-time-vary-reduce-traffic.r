@@ -122,8 +122,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = traffic_flux[,,2]
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-}
- else if (opt$metapop == 'uniform_in' || 
+} else if (opt$metapop == 'uniform_in' || 
            opt$metapop == 'uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'uniform_in' ) {

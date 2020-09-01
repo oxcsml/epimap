@@ -7,7 +7,7 @@ name_code = pd.read_csv("data/metadata.csv")
 rad_flux = pd.read_csv("data/radiation_flux_ls=0.1.csv", index_col=0)
 nhs_scot = pd.read_csv("data/nhs_scotland_health_boards.csv")
 
-traffic = pd.DataFrame(0., index=rad_flux.index, columns=rad_flux.columns)
+traffic = pd.DataFrame(0.0, index=rad_flux.index, columns=rad_flux.columns)
 
 BUCKINGHAM_SUBREGIONS = {
     "_B4": "E07000004",
@@ -16,45 +16,55 @@ BUCKINGHAM_SUBREGIONS = {
     "_B7": "E07000007",
 }
 
+
 def get_flow(code_from, code_to):
-    flow = traffic_raw[(traffic_raw['From'] == code_from) & (traffic_raw['To'] == code_to)]['Flow']
+    flow = traffic_raw[
+        (traffic_raw["From"] == code_from) & (traffic_raw["To"] == code_to)
+    ]["Flow"]
 
     if len(flow) == 0:
-        if (code_from not in list(traffic_raw['From'])) or (code_to not in list(traffic_raw['To'])):
+        if (code_from not in list(traffic_raw["From"])) or (
+            code_to not in list(traffic_raw["To"])
+        ):
             print(f"Didn't find one of the codes at all in the table.")
             # print(f"Didn't find entry from {code_from} to {code_to}.")
         return 0
     else:
         return flow.sum()
 
+
 def region2code(region):
     if region in BUCKINGHAM_SUBREGIONS.keys():
         return BUCKINGHAM_SUBREGIONS[region]
     elif region == "Cornwall and Isles of Scilly":
-        return 'E06000052,E06000053'
-    elif region == 'Hackney and City of London':
-        return "E09000012" # this is just Hackney
-    elif region == 'Westminster':
-        return 'E09000001,E09000033' # westminster and city of london
+        return "E06000052,E06000053"
+    elif region == "Hackney and City of London":
+        return "E09000012"  # this is just Hackney
+    elif region == "Westminster":
+        return "E09000001,E09000033"  # westminster and city of london
 
-    codes = name_code[name_code['AREA'] == region]['CODE']
+    codes = name_code[name_code["AREA"] == region]["CODE"]
 
     if len(codes) == 1:
         return codes.item()
     else:
-        assert region == 'Highland' # should only happen for this?
+        assert region == "Highland"  # should only happen for this?
         # print(f"Unsure what to return as code. Got: {codes}") #, returned {codes[0]}.")
         return list(codes)[0]
 
+
 def get_subregions(region):
     if region in list(nhs_scot["NHS Scotland Health Board"]):
-        subregions = list(nhs_scot[nhs_scot["NHS Scotland Health Board"] == region]['area'])
-    elif region == "Buckinghamshire": # special case
+        subregions = list(
+            nhs_scot[nhs_scot["NHS Scotland Health Board"] == region]["area"]
+        )
+    elif region == "Buckinghamshire":  # special case
         subregions = list(BUCKINGHAM_SUBREGIONS.keys())
     else:
         subregions = [region]
 
     return subregions
+
 
 NN = len(traffic.index) * len(traffic.columns)
 
@@ -81,10 +91,46 @@ for i, region_from in enumerate(traffic.index):
             print(f"Done {k}/{NN}.")
 
 
-traffic.to_csv('real_transport_scripts/traffic.csv')
+traffic.to_csv("real_transport_scripts/traffic.csv")
+
+# %%
 
 traffic = pd.read_csv("real_transport_scripts/traffic.csv", index_col=0)
 
-traffic.iloc[range(len(traffic)), range(len(traffic))]
-(np.diag(traffic) > 0).all()
+assert (np.diag(traffic) > 0).all()
+assert (traffic.sum(axis=1) > 0).all()
+
+# %%
+
+areas = pd.read_csv("data/areas.csv", index_col=0)
+populations = areas["population"]
+
+# %%
+np.fill_diagonal(traffic.values, 0)  # remove all diagonal terms, setting to zero
+
+# Normalized version
+traffic_prop = traffic.divide(populations, axis="index")
+
+np.fill_diagonal(
+    traffic_prop.values,
+    traffic_prop.sum(axis=1).values.max() - traffic_prop.sum(axis=1).values,
+)
+
+traffic_prop /= traffic_prop.sum(axis=1).max()
+
+assert np.isclose(traffic_prop.sum(axis=1).values, 1).all()
+
+traffic_prop.to_csv("data/traffic_flux_normalised.csv")
+
+
+# %%
+# Unnormalized version
+
+traffic_prop_unnorm = traffic.divide(populations, axis="index")
+traffic_prop_unnorm /= traffic_prop_unnorm.sum(axis=1).max()
+
+traffic_prop_unnorm.to_csv("data/traffic_flux_unnormalised.csv")
+
+
+
 

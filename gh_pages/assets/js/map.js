@@ -3,7 +3,7 @@ layout: null
 ---
 // Constants
 const assets = "/assets/data"
-const MAP_PATH = assets.concat('/', 'default')
+const MAP_PATH = assets.concat('/', 'generated')
 
 const urlParams = new URLSearchParams(window.location.search);
 const map_path = urlParams.get('map') || MAP_PATH

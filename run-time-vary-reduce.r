@@ -10,7 +10,8 @@ option_list = list(
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
-  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                     help="Number of periods to fit Rt in"),
+  make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -336,10 +337,40 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 
 ####################################################################
 # pairs plot
-pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
-pairs(fit, pars=c(
-    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-    "global_sigma","local_scale","precision")) 
-dev.off()
+# pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
+# pairs(fit, pars=c(
+#     "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+#     "global_sigma","local_scale","precision")) 
+# dev.off()
+
+if (opt$daily_update) {
+  dir.create('fits/latest_updates')
+
+  runname2 = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
+    'latest',
+    opt$spatialkernel, 
+    opt$localkernel, 
+    opt$globalkernel, 
+    opt$metapop, 
+    opt$observation,
+    opt$time_steps
+  )
+
+  file.copy(paste('fits/', runname, '_Rt.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Rt.csv', sep=''), paste('fits/latest_updates/', runname2, '_Rt.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Pexceed.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Pexceed.csv', sep=''), paste('fits/latest_updates/', runname2, '_Pexceed.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Cpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Cpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cpred.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Cproj.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Cproj.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cproj.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
+
+}
  
 print(runname)

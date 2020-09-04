@@ -2,7 +2,7 @@
 layout: null
 ---
 // Constants
-const assets = "/assets/data"
+const assets = "{{site.baseurl}}/assets"
 const MAP_PATH = assets.concat('/', 'generated')
 
 const urlParams = new URLSearchParams(window.location.search);

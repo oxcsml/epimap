@@ -9,10 +9,10 @@ option_list = list(
   make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/[traffic{1[2]}_uniform_in{_out}]/none)"),
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=6,                      help="number of MCMC chains [6]"),
-  make_option(c("-i", "--iterations"),    type="integer",   default=8000,                   help="Length of MCMC chains [8000]"),
+  make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
-); 
+);
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
@@ -23,14 +23,14 @@ numiters = opt$iterations
 # If using Slurm, override other CLI options and use grid instead.
 if (opt$task_id > 0) {
   grid = expand.grid(
-    spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
-    metapop=c("radiation1_uniform_in", "radiation1_uniform_in_out", "radiation2_uniform_in", "radiation2_uniform_in_out", "radiation3_uniform_in", "radiation3_uniform_in_out", "uniform_in", "uniform_in_out", "none"), 
+    spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"),
+    metapop=c("radiation1_uniform_in", "radiation1_uniform_in_out", "radiation2_uniform_in", "radiation2_uniform_in_out", "radiation3_uniform_in", "radiation3_uniform_in_out", "uniform_in", "uniform_in_out", "none"),
     observation=c("negative_binomial_2", "negative_binomial_3", "poisson"),
     localkernel=c("local","none"),
     globalkernel=c("global","none")
   )
   grid = sapply(grid, as.character)
-  update = as.list(grid[opt$task_id, ]) 
+  update = as.list(grid[opt$task_id, ])
   for (name in names(update)){
     opt[name] = update[name]
   }
@@ -62,7 +62,7 @@ print("Days used for held out likelihood")
 print(days_pred_held_out)
 
 # metapopulation cross-area fluxes.
-if (opt$metapop == 'radiation1_uniform_in' || 
+if (opt$metapop == 'radiation1_uniform_in' ||
     opt$metapop == 'radiation1_uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'radiation1_uniform_in' ) {
@@ -74,7 +74,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = radiation_flux[,,1] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'radiation2_uniform_in' || 
+} else if (opt$metapop == 'radiation2_uniform_in' ||
            opt$metapop == 'radiation2_uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'radiation2_uniform_in' ) {
@@ -86,7 +86,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = radiation_flux[,,2] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'radiation3_uniform_in' || 
+} else if (opt$metapop == 'radiation3_uniform_in' ||
            opt$metapop == 'radiation3_uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'radiation3_uniform_in' ) {
@@ -98,7 +98,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = radiation_flux[,,3] # ls=.1
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'traffic1_uniform_in' || 
+} else if (opt$metapop == 'traffic1_uniform_in' ||
            opt$metapop == 'traffic1_uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'traffic1_uniform_in' ) {
@@ -110,7 +110,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = traffic_flux[,,1]
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'traffic2_uniform_in' || 
+} else if (opt$metapop == 'traffic2_uniform_in' ||
            opt$metapop == 'traffic2_uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'traffic2_uniform_in' ) {
@@ -122,7 +122,7 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux[[1]] = traffic_flux[,,2]
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
   F = length(flux)
-} else if (opt$metapop == 'uniform_in' || 
+} else if (opt$metapop == 'uniform_in' ||
            opt$metapop == 'uniform_in_out') {
   do_metapop = 1
   if (opt$metapop == 'uniform_in' ) {
@@ -168,9 +168,9 @@ for (i in 1:M) {
 # Main computation
 
 Rmap_data <- list(
-  N = N, 
+  N = N,
   M = M,
-  D = D, 
+  D = D,
   Tall = Tall,
   Tcond = Tcond,
   Tlik = Tlik,
@@ -188,12 +188,12 @@ Rmap_data <- list(
   infprofile = infprofile
 )
 
-runname = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
+runname = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s',
   as.character(Sys.time(),format='%Y%m%d%H%M%S'),
-  opt$spatialkernel, 
-  opt$localkernel, 
-  opt$globalkernel, 
-  opt$metapop, 
+  opt$spatialkernel,
+  opt$localkernel,
+  opt$globalkernel,
+  opt$metapop,
   opt$observation,
   opt$time_steps
 )
@@ -214,11 +214,13 @@ writeLines(content, stan_file_name)
 start_time <- Sys.time()
 
 fit <- stan(file = stan_file_name,
-            data = Rmap_data, 
-            iter = numiters, 
+            data = Rmap_data,
+            iter = numiters,
             chains = numchains,
             control = list(adapt_delta = .9))
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+
+fits_folder <- '/data/ziz/not-backed-up/bhe/rmap_fits' # assume already made
+saveRDS(fit, paste(fits_folder, runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()
 
@@ -228,18 +230,18 @@ print(end_time - start_time)
 #############################################################################################
 #############################################################################################
 
-# fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
+# fit = readRDS(paste(fits_folder, runname, '_stanfit', '.rds', sep=''))
 
 
 #################################################################
 # Summary of fit
-print(summary(fit, 
+print(summary(fit,
     pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
         "global_sigma","local_scale","precision",
-        "R0","coupling_rate"), 
+        "R0","coupling_rate"),
     probs=0.5)$summary)
- 
- 
+
+
 #################################################################
 
 area_date_dataframe <- function(areas,dates,data,data_names) {
@@ -272,7 +274,7 @@ Rt = Rt[indicies,]
 Rt <- Rt[sapply(1:(N*M),function(i)rep(i,Tlik)),]
 print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
 df <- area_date_dataframe(
-    quoted_areas, 
+    quoted_areas,
     #dates[Tcond+1],
     days_likelihood,
     format(round(Rt,1),nsmall=1),
@@ -301,7 +303,7 @@ for (k in 1:M) {
 Pexceedance <- Pexceedance[sapply(1:M,function(k)rep(k,Tlik)),,]
 dim(Pexceedance) <- c(Tlik*M*N,numthresholds)
 df <- area_date_dataframe(
-    quoted_areas, 
+    quoted_areas,
     days_likelihood,
     format(round(Pexceedance,2),nsmall=2),
     c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
@@ -363,7 +365,7 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
 pairs(fit, pars=c(
     "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-    "global_sigma","local_scale","precision")) 
+    "global_sigma","local_scale","precision"))
 dev.off()
- 
+
 print(runname)

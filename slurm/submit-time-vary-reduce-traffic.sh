@@ -8,14 +8,13 @@
 #SBATCH --partition=ziz-large
 #
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=15G # `seff' indicated that we need between 1.5-2G mem-per-cpu. 
+#SBATCH --mem-per-cpu=15G # `seff' indicated that we need between 1.5-2G mem-per-cpu.
 #SBATCH --cpus-per-task=7
 #
-#SBATCH --array=1-6
+#SBATCH --array=1-3
 
 set -e
 
 $(sed -n "${SLURM_ARRAY_TASK_ID}p" < slurm/commands.txt)
 
 echo 'Run completed.'
-

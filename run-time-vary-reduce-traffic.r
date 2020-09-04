@@ -219,7 +219,7 @@ fit <- stan(file = stan_file_name,
             chains = numchains,
             control = list(adapt_delta = .9))
 
-fits_folder <- '/data/ziz/not-backed-up/bhe/rmap_fits' # assume already made
+fits_folder <- '/data/ziz/not-backed-up/scratch/bhe/rmap_fits/' # assume already made
 saveRDS(fit, paste(fits_folder, runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()

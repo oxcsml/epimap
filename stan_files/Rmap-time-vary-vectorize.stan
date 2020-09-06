@@ -314,7 +314,7 @@ transformed parameters {
       for (m in 1:M){
         fluxproportions[m, 1] = 1.0-coupling_rate[m];
       for (f in 2:F1)
-        fluxproportions[m, f] = coupling_rate[m]*(1.0-flux_probs[f-1]);
+        fluxproportions[m, f] = coupling_rate[m]*flux_probs[f-1];
       }
     } else {
       for (m in 1:M){

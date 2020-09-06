@@ -285,7 +285,7 @@ transformed parameters {
   if (do_metapop) {
     fluxproportions[1] = 1.0-coupling_rate;
     for (f in 2:F1)
-      fluxproportions[f] = coupling_rate*(1.0-flux_probs[f-1]);
+      fluxproportions[f] = coupling_rate*flux_probs[f-1];
   } else {
     fluxproportions[1] = 1.0;
     for (f in 2:F1)

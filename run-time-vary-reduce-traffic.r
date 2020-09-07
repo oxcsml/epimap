@@ -6,7 +6,7 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/[traffic{1[2]}_uniform_in{_out}]/none)"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/[traffic{1[2]3}_uniform_in{_out}]/none)"),
   make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
   make_option(c("-c", "--chains"),        type="integer",   default=6,                      help="number of MCMC chains [6]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
@@ -121,6 +121,20 @@ if (opt$metapop == 'radiation1_uniform_in' ||
   flux = list()
   flux[[1]] = traffic_flux[,,2]
   flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
+  F = length(flux)
+} else if (opt$metapop == 'traffic3_uniform_in' ||
+           opt$metapop == 'traffic3_uniform_in_out') {
+  do_metapop = 1
+  if (opt$metapop == 'traffic3_uniform_in' ) {
+    do_in_out = 0
+  } else {
+    do_in_out = 1
+  }
+  flux = list()
+  flux[[1]] = traffic_flux[,,1] # 4 flux matrices: traffic, traffic transpose, radiation2, uniform
+  flux[[2]] = traffic_flux[,,3]
+  flux[[3]] = radiation_flux[,,2]
+  flux[[4]] = matrix(1.0/N,N,N)
   F = length(flux)
 } else if (opt$metapop == 'uniform_in' ||
            opt$metapop == 'uniform_in_out') {

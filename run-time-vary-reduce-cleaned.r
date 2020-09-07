@@ -226,8 +226,8 @@ print(end_time - start_time)
 # Summary of fit
 print(summary(fit, 
     pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-        "global_sigma","local_scale","precision",
-        "R0","coupling_rate"), 
+        "global_sigma","local_scale","dispersion",
+        "Rt_all","coupling_rate","flux_probs"), 
     probs=0.5)$summary)
  
  

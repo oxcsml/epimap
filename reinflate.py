@@ -4,10 +4,12 @@ import sys
 
 def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                  input_exceed_filename: str='fits/0_Pexceed.csv',
+                 input_weekly_filename: str='fits/0_Cweekly.csv',
                  input_pred_filename: str='fits/0_Cpred.csv',
                  input_proj_filename: str='fits/0_Cproj.csv',
                  output_r_filename: str='website/default/Rt.csv',
                  output_exceed_filename: str='website/default/Pexceed.csv',
+                 output_weekly_filename: str='website/default/Cweekly.csv',
                  output_pred_filename: str='website/default/Cpred.csv',
                  output_proj_filename: str='website/default/Cproj.csv'):
 
@@ -23,6 +25,12 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                                              format='%Y-%m-%d')
     exceedance_probs = exceedance_probs.set_index(['area', 'day'])
 
+    weekly = pd.read_csv(input_weekly_filename) \
+                    .rename(columns={'Date': 'day'})
+    weekly['day'] = pd.to_datetime(weekly['day'], format='%Y-%m-%d')
+    weekly = weekly.set_index(['area', 'day'])
+
+
     predictions = pd.read_csv(input_pred_filename) \
                     .rename(columns={'Date': 'day'})
     predictions['day'] = pd.to_datetime(predictions['day'], format='%Y-%m-%d')
@@ -34,24 +42,28 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
     projections = projections.set_index(['area', 'day'])
 
     (reproduction_numbers, exceedance_probs,
-     predictions, projections) = reinflate(reproduction_numbers,
+     weekly, predictions, projections) = reinflate(reproduction_numbers,
                                            exceedance_probs,
+                                           weekly,
                                            predictions,
                                            projections)
 
     reproduction_numbers.index.names = ['area', 'Date']
     exceedance_probs.index.names = ['area', 'Date']
+    weekly.index.names = ['area', 'Date']
     predictions.index.names = ['area', 'Date']
     projections.index.names = ['area', 'Date']
 
     reproduction_numbers.to_csv(output_r_filename, float_format='%.1f')
     exceedance_probs.to_csv(output_exceed_filename, float_format='%.2f')
+    weekly.to_csv(output_weekly_filename, float_format='%3d')
     predictions.to_csv(output_pred_filename, float_format='%2.1f')
     projections.to_csv(output_proj_filename, float_format='%2.1f')
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
               exceedance_probs: pd.DataFrame,
+              weekly: pd.DataFrame,
               predictions: pd.DataFrame,
               projections: pd.DataFrame,
               divide_predictions_by_population_ratio: bool=False):
@@ -149,7 +161,39 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     exceedance_probs = exceedance_probs.append(england) \
                                        .append(scotland)
+    # Weekly Cases 
+    england = england_map.merge(weekly.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
 
+    if divide_predictions_by_population_ratio:
+        england['C_weekly'] = england['C_weekly'] * england['ratio']
+
+    england = england.drop(columns=['Meta area', 'ratio']) \
+                     .set_index(['area', 'day'])
+
+    scotland = scotland_map.merge(weekly.reset_index(level=1),
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left')
+
+    if divide_predictions_by_population_ratio:
+        scotland['C_weekly'] = scotland['C_weekly'] * scotland['ratio']
+
+    scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
+                       .set_index(['area', 'day'])
+
+    # We only keep the case for `Highland` as a local area, not
+    # weekly = weekly.drop(['Highland'])
+    if divide_predictions_by_population_ratio:
+        weekly = weekly.rename(
+            index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+    weekly = weekly.append(england) \
+                   .append(scotland)
+
+ 
     # Case predictions 
     england = england_map.merge(predictions.reset_index(level=1),
                                 left_on=['Meta area'],
@@ -239,6 +283,8 @@ def reinflate(reproduction_numbers: pd.DataFrame,
         ~reproduction_numbers.index.duplicated(keep='first')]
     exceedance_probs = exceedance_probs.loc[
         ~exceedance_probs.index.duplicated(keep='first')]
+    weekly = weekly.loc[
+        ~weekly.index.duplicated(keep='first')]
     predictions = predictions.loc[
         ~predictions.index.duplicated(keep='first')]
     projections = projections.loc[
@@ -246,25 +292,29 @@ def reinflate(reproduction_numbers: pd.DataFrame,
 
     return reproduction_numbers.sort_index(), \
            exceedance_probs.sort_index(), \
+           weekly.sort_index(), \
            predictions.sort_index(), \
            projections.sort_index()
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if len(args) == 8:
+    if len(args) == 10:
         process_csvs(input_r_filename=args[0],
                      input_exceed_filename=args[1],
-                     input_pred_filename=args[2],
-                     input_proj_filename=args[3],
-                     output_r_filename=args[4],
-                     output_exceed_filename=args[5],
-                     output_pred_filename=args[6],
-                     output_proj_filename=args[7])
-    elif len(args) == 4:
+                     input_weekly_filename=args[2],
+                     input_pred_filename=args[3],
+                     input_proj_filename=args[4],
+                     output_r_filename=args[5],
+                     output_exceed_filename=args[6],
+                     output_weekly_filename=args[7],
+                     output_pred_filename=args[8],
+                     output_proj_filename=args[9])
+    elif len(args) == 5:
         process_csvs(input_r_filename=args[0],
                      input_exceed_filename=args[1],
-                     input_pred_filename=args[2],
-                     input_proj_filename=args[3])
+                     input_weekly_filename=args[2],
+                     input_pred_filename=args[3],
+                     input_proj_filename=args[4])
     else:
         process_csvs()

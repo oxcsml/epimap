@@ -164,6 +164,18 @@ Rmap_data <- list(
   infprofile = infprofile
 )
 
+init = list()
+for (i in 1:numchains) {
+  init[[i]] = list(
+    gp_time_length_scale = 100.0,
+    gp_space_length_scale = 2.0,
+    gp_space_sigma = .01,
+    global_sigma = .01,
+    local_scale = .01,
+    precision = 5.0
+    )
+}
+
 runname = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
   as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 

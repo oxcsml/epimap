@@ -338,7 +338,7 @@ transformed parameters {
 }
 
 model {
-  coupling_rate ~ normal(0.0, .25);
+  coupling_rate ~ normal(0.0, .1);
   flux_probs ~ dirichlet(ones);
   precision ~ normal(0.0,5.0);
 
@@ -348,11 +348,10 @@ model {
   epsilon_in ~ std_normal();
   epsilon_out ~ std_normal();
 
+  gp_time_length_scale ~ gig(7, 0.2, 1.0);
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
-
-  gp_time_length_scale ~ gig(14, 1.0, 1.0);
-
+  global_sigma ~  normal(0.0, 0.25);
   local_scale ~ normal(0.0, 0.25);
   for (j in 1:M){
     for (i in 1:N) {
@@ -360,7 +359,6 @@ model {
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
     }
   }
-  global_sigma ~  normal(0.0, 0.25);
 
   // compute likelihoods
   for (k in 1:M) {

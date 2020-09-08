@@ -23,6 +23,10 @@
     fill: orange;
 }
 
+.active {
+    font-weight: bold;
+}
+
 .mesh {
     fill: none;
     stroke: #fff;
@@ -116,14 +120,9 @@ div.tooltip span.header {
     margin-top:2em;
 }
 
-span.info-heading {
-}
 
 h1, h2, h3, h4, h5, h6, p, span {
     font-family: sans-serif;
-}
-
-.active {
 }
 
 h1 {
@@ -163,12 +162,6 @@ h3 small {
     margin-left: 0.25em;
 }
 
-#cases-title {
-}
-
-#estimates-title {
-}
-
 .overlay {
     fill: none;
     pointer-events: all;
@@ -184,4 +177,46 @@ h3 small {
     stroke: #333;
     stroke-width: 2px;
     stroke-dasharray: 3,3;
+}
+
+#areaSearch {
+    width: 75%;
+}
+
+.search-container {
+    padding-left: 2em;
+}
+
+/* From https://github.com/Pixabay/JavaScript-autoComplete */
+.autocomplete-suggestions {
+    text-align: left; 
+    cursor: default; 
+    border: 1px solid #ccc; 
+    border-top: 0; 
+    background: #fff; 
+    box-shadow: -1px 1px 3px rgba(0,0,0,.1);
+    position: absolute; 
+    display: none; 
+    z-index: 9999; 
+    max-height: 254px; 
+    overflow: hidden; 
+    overflow-y: auto; 
+    box-sizing: border-box;
+}
+.autocomplete-suggestion { 
+    position: relative; 
+    padding: 0 .6em; 
+    line-height: 23px; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    font-size: 1.02em; 
+    color: #333; 
+}
+.autocomplete-suggestion b { 
+    font-weight: normal; 
+    color: #1f8dd6; 
+}
+.autocomplete-suggestion.selected { 
+    background: #f0f0f0; 
 }

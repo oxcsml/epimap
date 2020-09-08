@@ -2,7 +2,7 @@
 library(rstan)
 
 numchains = 1
-numiters = 1000
+numiters = 3000
 
 options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)

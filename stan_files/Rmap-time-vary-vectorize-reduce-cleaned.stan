@@ -378,7 +378,7 @@ model {
   epsilon_out ~ std_normal();
 
 
-  gp_time_length_scale ~ gig(7, 0.2, 1.0);
+  gp_time_length_scale ~ gig(14, 0.2, 1.0);
   gp_space_length_scale ~ gig(5, 5.0, 5.0);
   gp_space_sigma ~ normal(0.0, 0.25);
   global_sigma ~  normal(0.0, 0.25);

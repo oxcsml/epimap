@@ -167,6 +167,7 @@ const rtData = d3.map();
 const caseTimeseries = d3.map();
 const caseProjTimeseries = d3.map();
 const casePredTimeseries = d3.map();
+const pexceedData = d3.map();
 const nextWeekCaseProj = d3.map();
 const nextWeekCaseProjPer100k = d3.map();
 const caseHistory = d3.map();
@@ -190,6 +191,9 @@ const tooltip_info2 = tooltip_div.append("span")
 tooltip_div.append("br");
 const tooltip_info3 = tooltip_div.append("span")
     .attr("class", "info-row3");
+tooltip_div.append("br");
+const tooltip_info4 = tooltip_div.append("span")
+    .attr("class", "info-row4");
 
 // Load external data
 const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
@@ -214,10 +218,11 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const map_path = urlParams.get('map') || MAP_PATH
-const rt_path = map_path.concat('/', RT_PATH);
-const case_projection_path = map_path.concat('/', CASE_PROJECTION_PATH);
-const case_prediction_path = map_path.concat('/', CASE_PREDICTION_PATH);
+const map_path = urlParams.get("map") || MAP_PATH
+const rt_path = map_path.concat("/", RT_PATH);
+const case_projection_path = map_path.concat("/", CASE_PROJECTION_PATH);
+const case_prediction_path = map_path.concat("/", CASE_PREDICTION_PATH);
+const pexceed_path = map_path.concat("/", PEXCEED_PATH);
 
 const loadRt = d3.csv(rt_path).then(data => {
     data.forEach(d => {
@@ -237,6 +242,21 @@ const loadRt = d3.csv(rt_path).then(data => {
             Rt90: +d.Rt_90
         };
         rtData.get(d.area).push(current);
+    });
+});
+
+const loadPExceed = d3.csv(pexceed_path).then(data => {
+    data.forEach(d => {
+        if (!pexceedData.has(d.area)) {
+            pexceedData.set(d.area, []);
+        }
+
+        const current = {
+            Date: d3.timeParse("%Y-%m-%d")(d.Date),
+            P10: +d.P_10
+            // Ignoring other fields, P_08,P_09,P_11,P_12,P_15,P_20 for now
+        };
+        pexceedData.get(d.area).push(current);
     });
 });
 
@@ -355,10 +375,12 @@ const casesAndMeta = Promise.all([
 Promise.all([
     d3.json(TOPOJSON_PATH),
     loadRt,
+    loadPExceed,
     casesAndMeta
 ]).then(ready).catch(e => { console.log("ERROR", e); throw e; });
 
 const colorDomain = [0.5, 1.0, 2.0];
+const pExceedColorDomain = [0, 1.0];
 
 function getRtForArea(area) {
     const rtSeries = rtData.get(area);
@@ -384,6 +406,16 @@ function getCaseProjForArea(area) {
     const cprojupper = projection.caseProjUpper;
 
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
+}
+
+function getPExceedForArea(area) {
+    if (!pexceedData.has(area)) {
+        return "Unknown";
+    }
+    const pExceedSeries = pexceedData.get(area);
+    const [lastPExceed] = pExceedSeries.slice(-1)
+    const pRtOver1 = lastPExceed.P10.toFixed(2);
+    return `${pRtOver1}`;
 }
 
 function getCaseProjPer100kForArea(area) {
@@ -426,9 +458,10 @@ function ready(data) {
 
     console.log("Drawing map");
 
-    // 1 is yellow, below 1 is green, above is red
     const rtColorScale = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t))
         .domain(colorDomain);
+    const pExceedColorScale = d3.scaleDiverging(t => d3.interpolateRdBu(1 - t))
+        .domain(pExceedColorDomain);
 
     minCases = 1;
     maxCases = MAX_CASES; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
@@ -448,6 +481,10 @@ function ready(data) {
         .range([margin.left, margin.left + barWidth])
         .domain([minCases, maxCases]);
 
+    const pExceedAxisScale = d3.scaleLinear()
+        .range([margin.left, margin.left + barWidth])
+        .domain(pExceedColorDomain[0], pExceedColorDomain[1]);
+
     console.log("rtColorScale.ticks: " + rtColorScale.ticks());
     console.log("rtColorScale.tickFormat: " + rtColorScale.tickFormat());
 
@@ -461,6 +498,11 @@ function ready(data) {
         .tickFormat(d => d)
         .tickSize(-barHeight);
 
+    const pexceedAxisFn = () => d3.axisBottom(pExceedAxisScale)
+        .tickValues(logScale.ticks(2))
+        .tickFormat(d => d)
+        .tickSize(-barHeight);  
+
     const axisBottom = map_svg.append("g")
         .attr("class", `x-axis`)
         .attr("transform", `translate(${width - barHeight},${margin.top}) rotate(90)`)
@@ -469,6 +511,7 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
+    const pExceedDates = pexceedData.get(pexceedData.keys()[0]).map(r=>r.Date);
     const bisectDate = d3.bisector(d=>d).left;
 
     rtFillFn = date => {
@@ -496,7 +539,19 @@ function ready(data) {
             }
         );
         return [d3.min(rts), d3.max(rts)]
+    }
 
+    pExceedFillFn = date => {
+        const idx = bisectDate(pExceedDates, date, 1);
+        return d => {  // Fill based on value of PExceed
+            const pExceedSeries = pexceedData.get(d.properties.lad20nm);
+            if (!pExceedSeries) {
+                return "#ccc";
+            }
+            const pExceed = pExceedSeries[idx];
+            console.log(`PExceed for ${d.properties.lad20nm}: ${pExceed.P10}`);
+            return pExceedColorScale(pExceed.P10);
+        }
     }
 
     caseFillFn = d => { // Fill based on value of case projection
@@ -522,6 +577,7 @@ function ready(data) {
             tooltip_info1.text(`Last week Rt: ${getRtForArea(d.properties.lad20nm)}`);
             tooltip_info2.text(`Last week cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
             tooltip_info3.text(`Next week cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
+            tooltip_info4.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -567,6 +623,9 @@ function ready(data) {
     const caseGradient = defs.append("linearGradient")
         .attr("id", "case-gradient");
 
+    const pExceedGradient = defs.append("linearGradient")
+        .attr("id", "pexceed-gradient");
+
     rtGradient.selectAll("stop")
         //.data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .data([0.5,0.75,.9,1.0,1.1,1.5,2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
@@ -576,6 +635,12 @@ function ready(data) {
 
     caseGradient.selectAll("stop")
         .data(logScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
+        .enter().append("stop")
+        .attr("offset", d => d.offset)
+        .attr("stop-color", d => d.color);
+
+    pExceedGradient.selectAll("stop")
+        .data([0.0, 0.25, 0.5, 0.75, 1.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: pExceedColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
@@ -624,10 +689,15 @@ function ready(data) {
         .style("cursor", "pointer")
         .text("Case Projections (Per 100k)");
 
+    const showPExceed = map_svg.append("text")
+        .attr("x", margin.left)
+        .attr("y", margin.top + 50)
+        .style("font-size", "16px")
+        .style("cursor", "pointer")
+        .text("P(Rt > 1)");
     
-
     showRt.on("click", () => {
-        if (showCases.classed("active")) {
+        if (showCases.classed("active") || showPExceed.classed("active")) {
             map.attr("fill", rtFillFn(d3.max(availableDates)));
             legend.style("fill", "url(#rt-gradient)");
             legendBar.call(d3.axisLeft(
@@ -644,10 +714,11 @@ function ready(data) {
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
+        showPExceed.attr("class", "");
     });
 
     showCases.on("click", () => {
-        if (showRt.classed("active")) {
+        if (showRt.classed("active") || showPExceed.classed("active")) {
             map.attr("fill", caseFillFn);
             legend.style("fill", "url(#case-gradient)");
             legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
@@ -657,9 +728,26 @@ function ready(data) {
             legendText.text("Cases");
             sliderSvg.style("visibility", "hidden");
         }
-        showCases.attr("class", "active");
         showRt.attr("class", "");
+        showCases.attr("class", "active");
+        showPExceed.attr("class", "");
     });
+
+    showPExceed.on("click", () => {
+        if (showRt.classed("active") || showCases.classed("active")) {
+            map.attr("fill", pExceedFillFn(d3.max(pExceedDates)));
+            legend.style("fill", "url(#pexceed-gradient)");
+            legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
+            axisBottom.call(pexceedAxisFn)
+                .selectAll("text")
+                .attr("transform", "translate(-5, 15) rotate(-90)");
+            legendText.text("P(Rt > 1)");
+            sliderSvg.style("visibility", "hidden");
+        }
+        showCases.attr("class", "");
+        showRt.attr("class", "");
+        showPExceed.attr("class", "active");
+    })
 
     const timeSlider = d3.sliderHorizontal()
         .ticks(5)

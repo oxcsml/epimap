@@ -17,7 +17,7 @@ else
     website/$2/Cproj.csv
 
   cp -r website/$2 ~/pub_html/Rmap_time
-  cp `ls fits/*$1*_pairs.pdf` ~/pub_html/Rmap_time/$2/pairs.pdf
+  #cp `ls fits/*$1*_pairs.pdf` ~/pub_html/Rmap_time/$2/pairs.pdf
   chmod a+rx ~/pub_html/Rmap_time/$2
   chmod a+r ~/pub_html/Rmap_time/$2/*
 fi

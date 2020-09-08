@@ -5,29 +5,40 @@ data {
   int Count[1,Tall];
   int<lower=1> Tip;
   vector[Tip] infprofile;
-  int<lower=1> Tdp;
-  vector[Tdp] delayprofile;
+  int<lower=1> Ttdp;
+  vector[Ttdp] testdelayprofile;
+  int<lower=1> Trdp;
+  vector[Trdp] resultdelayprofile;
   real<lower=0> mu_scale;
   real<lower=0> sigma_scale;
   real<lower=0> alpha_scale;
   real<lower=0> phi_latent_scale;
   real<lower=0> phi_observed_scale;
-  real<lower=0,upper=1> outlier_threshold;
+  real<lower=0,upper=1> outlier_prob_threshold;
+  int<lower=1> outlier_count_threshold;
   real<lower=0> exogeneous_infections;
+  int<lower=0,upper=1> reconstruct_infections;
 }
 
 transformed data {
   int Tlik = Nstep*Tstep;
   int Tcond = Tall-Tlik;
   vector[Tip] infprofile_rev;
-  vector[Tdp] delayprofile_rev;
+  vector[Ttdp] testdelayprofile_rev;
+  vector[Trdp] resultdelayprofile_revcum;
 
-  // reverse infection and delay profile
-  for (i in 1:Tip)
-    infprofile_rev[i] = infprofile[Tip-i+1];
-
-  for (i in 1:Tdp)
-    delayprofile_rev[i] = delayprofile[Tdp-i+1];
+  // reverse infection and test delay profiles and accumulated result delay profile
+  {
+    real s = 0.0;
+    for (i in 1:Tip)
+      infprofile_rev[i] = infprofile[Tip-i+1];
+    for (i in 1:Ttdp)
+      testdelayprofile_rev[i] = testdelayprofile[Ttdp-i+1];
+    for (i in 1:Trdp) {
+      s += resultdelayprofile[i];
+      resultdelayprofile_revcum[Trdp-i+1] = s;
+    }
+  }
 }
 
 parameters {
@@ -67,8 +78,14 @@ transformed parameters {
             Clatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         );
-        Clatent[t] = exogeneous_infections + fabs(Einfection + sqrt((phi_latent) * Einfection) * Ceta[s]);
-        Ecount[s] = dot_product(Clatent[t-Tdp:t-1], delayprofile_rev);
+        Clatent[t] = exogeneous_infections + fabs(
+            Einfection + 
+            sqrt((1.0+phi_latent) * Einfection) * Ceta[s]
+        );
+        Ecount[s] = dot_product(
+            Clatent[t-Ttdp:t-1], 
+            testdelayprofile_rev
+        );
     } } 
   }
 }
@@ -83,47 +100,51 @@ model {
   Ceta ~ std_normal();
 
   {
-    for (t in Tcond+1:Tall) {
+    for (t in Tcond+1:Tall-Trdp+1) {
       int s = t-Tcond;
       Count[1,t] ~ neg_binomial_2(Ecount[s], Ecount[s] / phi_observed);
+    }
+    for (i in 2:Trdp) {
+      int t = Tall-Trdp+i;
+      int s = t-Tcond;
+      real ec = Ecount[s] * resultdelayprofile_revcum[i];
+      Count[1,t] ~ neg_binomial_2(ec, ec / phi_observed);
     }
   }
 }
 
 generated quantities {
-  vector[Tlik] Cinfer;
-  int Clean[Tall];
+  int Crecon[Tall];
   int Noutliers = 0;
 
-  Cinfer = Clatent[Tcond+1:Tall];
   for (t in 1:Tcond)
-    Clean[t] = Count[1,t];
+    Crecon[t] = Count[1,t];
   for (t in Tcond+1:Tcond+Tlik) 
-    Clean[t] = 0;
+    Crecon[t] = 0;
   for (t in Tcond+1:Tall) {
     int s = t-Tcond;
     int c = Count[1,t];
     real Ec = Ecount[s];
     real psi = Ec / phi_observed;
-    vector[Tdp] Precon;
-    int Crecon[Tdp];
-    if (c==0) continue;
-    if (neg_binomial_2_cdf(c,Ec,psi)>outlier_threshold) {
-      int lo = 1;
-      int hi = c;
-      for (mid in lo:hi) {
-        if (neg_binomial_2_cdf(mid,Ec,psi)>outlier_threshold) {
-          c = mid;
-          break;
-        }
-      }
+    vector[Ttdp] Precon;
+    int Crecon_t[Ttdp];
+    if (Tall-t<Trdp-1) {
+      c = neg_binomial_2_rng(Ec,psi);
+    } else if (c>outlier_count_threshold && 
+               neg_binomial_2_cdf(c,Ec,psi)>outlier_prob_threshold) {
+      c = max(outlier_count_threshold,neg_binomial_2_rng(Ec,psi));
       Noutliers += 1;
     }
-    Precon = delayprofile_rev .* Clatent[t-Tdp:t-1];
-    Precon /= sum(Precon);
-    Crecon = multinomial_rng(Precon,c);
-    for (i in 1:Tdp) 
-      Clean[t-Tdp-1+i] += Crecon[i];
+    if (c==0) continue;
+    if (reconstruct_infections) {
+      Precon = testdelayprofile_rev .* Clatent[t-Ttdp:t-1];
+      Precon /= sum(Precon);
+      Crecon_t = multinomial_rng(Precon,c);
+      for (i in 1:Ttdp) 
+        Crecon[t-Ttdp-1+i] += Crecon_t[i];
+    } else {
+      Crecon[t] = c;
+    }
   }
 } 
 

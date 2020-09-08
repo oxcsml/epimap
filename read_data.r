@@ -35,11 +35,4 @@ dates <- as.Date(colnames(Count), format='X%Y.%m.%d')
 colnames(Count) <- dates
 rownames(Count) <- areas
 
-Clean_sample <- read.csv('data/Clean_sample.csv')
-colnames(Clean_sample) <- dates[1:dim(Clean_sample)[2]]
-rownames(Clean_sample) <- areas
-Clean_mean <- read.csv('data/Clean_mean.csv')
-colnames(Clean_mean) <- dates[1:dim(Clean_sample)[2]]
-rownames(Clean_mean) <- areas
-
 

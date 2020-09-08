@@ -7,7 +7,7 @@ option_list = list(
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="neg_binomial_3",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned)"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
@@ -41,9 +41,11 @@ rstan_options(auto_write = TRUE)
 
 source('read_data.r')
 source('read_radiation_fluxes.r')
+#source('read_clean_data.r')
+Clean_sample <- read.csv('data/Clean_sample.csv')
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 5  # counts in most recent 7 days may not be reliable?
+Tignore <- 15  # counts in most recent 7 days may not be reliable?
 Tpred <- 3    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
 Tlik <- M*Tstep     # number of days for likelihood to infer Rt

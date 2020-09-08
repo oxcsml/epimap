@@ -202,7 +202,8 @@ transformed data {
   matrix[N,Tstep] convlik[M];      // for use in likelihood computation
   matrix[N,1] convlik_reduced[M];      // for use in likelihood computation
   matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
-  matrix[N,Tproj] convproj[1];    // for use in forecasting into future 
+  int Tforw = max(Tpred,Tproj);
+  matrix[N,Tforw] convforw[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tstep] convlikflux[M];
@@ -271,9 +272,9 @@ transformed data {
       int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
       convpred[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
     }
-    for (i in 1:Tproj) {
+    for (i in 1:Tforw) {
       int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convproj[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
+      convforw[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
     }
   }
 
@@ -440,88 +441,104 @@ generated quantities {
   {
     matrix[N,Tstep] convlikout[M];
 
-    row_vector[F1] pred_fluxproportions[1];
-    matrix[N,1] pred_Rin;
-    matrix[N,1] pred_Rout;
-    matrix[N,Tpred] convpredout[1];
-
-    row_vector[F1] proj_fluxproportions[1];
-    matrix[F1,N*1] convprojflux[1];
-    matrix[N,1] proj_Rin;
-    matrix[N,1] proj_Rout;
-    matrix[N,1] convprojall[1];
-    matrix[N,Tproj] Cforw;
-
     convlikout = metapop(DO_METAPOP,DO_IN_OUT,
         Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
 
-    pred_fluxproportions[1] = fluxproportions[M];
-    pred_Rin = block(Rin, 1, M, N, 1);
-    pred_Rout = block(Rout, 1, M, N, 1);
-    convpredout = metapop(DO_METAPOP,DO_IN_OUT,
-        pred_Rin,pred_Rout,convpred,convpredflux,pred_fluxproportions,fluxt);
-
-    proj_fluxproportions[1] = fluxproportions[M];
-    proj_Rin = block(Rin, 1, M, N, 1);
-    proj_Rout = block(Rout, 1, M, N, 1);
-
-    for (i in 1:Tproj) {
-      for (j in 1:N) 
-        convprojall[1,j,1] = convproj[1,j,i] + 
-            dot_product(Cforw[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
-      if (DO_METAPOP && !DO_IN_OUT)
-        convprojflux = in_compute_flux(convprojall,fluxt);
-      Cforw[:,i] = metapop(DO_METAPOP,DO_IN_OUT,
-          proj_Rin,proj_Rout,convprojall,convprojflux,fluxproportions,fluxt)[1,:,1];
-    }
- 
     // posterior predictive expected counts
     for (k in 1:M) 
       Cpred[,(1+(k-1)*Tstep):(k*Tstep)] = convlikout[k];
 
     if (OBSERVATIONMODEL != CLEANED) {
-      // predictive probability of future counts 
-      for (i in 1:Tpred) {
-        for (j in 1:N) {
-          if (OBSERVATIONMODEL == POISSON) {
-            Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
-                convpredout[1,j,i]
-            ));
-          } else if (OBSERVATIONMODEL == NEG_BINOMIAL_2) {
-            Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                convpredout[1,j,i],
-                1.0 / dispersion
-            ));
-          } else if (OBSERVATIONMODEL == NEG_BINOMIAL_3) {
-            Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                convpredout[1,j,i],
-                convpredout[1,j,i] / dispersion
-            ));
-          } 
+      { // predictive probability of future counts 
+        row_vector[F1] pred_fluxproportions[1];
+        matrix[N,1] pred_Rin;
+        matrix[N,1] pred_Rout;
+        matrix[N,Tpred] convpredout[1];
+
+        pred_fluxproportions[1] = fluxproportions[M];
+        pred_Rin = block(Rin, 1, M, N, 1);
+        pred_Rout = block(Rout, 1, M, N, 1);
+        convpredout = metapop(DO_METAPOP,DO_IN_OUT,
+            pred_Rin,pred_Rout,convpred,convpredflux,pred_fluxproportions,fluxt);
+
+        for (i in 1:Tpred) {
+          for (j in 1:N) {
+            if (OBSERVATIONMODEL == POISSON) {
+              Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
+                  convpredout[1,j,i]
+              ));
+            } else if (OBSERVATIONMODEL == NEG_BINOMIAL_2) {
+              Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                  convpredout[1,j,i],
+                  1.0 / dispersion
+              ));
+            } else if (OBSERVATIONMODEL == NEG_BINOMIAL_3) {
+              Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                  convpredout[1,j,i],
+                  convpredout[1,j,i] / dispersion
+              ));
+            } 
+          }
         }
       }
-      // forecasting expected counts given parameters
-      Cproj = Cforw;
-    } else {
+      { // forecasting expected counts given parameters
+        row_vector[F1] forw_fluxproportions[1];
+        matrix[F1,N*1] convforwflux[1];
+        matrix[N,1] forw_Rin;
+        matrix[N,1] forw_Rout;
+        matrix[N,1] convforwall[1];
+
+        forw_fluxproportions[1] = fluxproportions[M];
+        forw_Rin = block(Rin, 1, M, N, 1);
+        forw_Rout = block(Rout, 1, M, N, 1);
+
+        for (i in 1:Tproj) {
+          for (j in 1:N) 
+            convforwall[1,j,1] = convforw[1,j,i] + 
+                dot_product(Cproj[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+          if (DO_METAPOP && !DO_IN_OUT)
+            convforwflux = in_compute_flux(convforwall,fluxt);
+          Cproj[,i] = metapop(DO_METAPOP,DO_IN_OUT,
+              forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
+        }
+      }
+    } else { // OBSERVATIONMODEL == CLEANED
       int Tidp = max(Tip,Tdp);
-      matrix[N,Tidp+Tpred+Tproj] Clatent;
-      Clatent[,1:Tidp] = Creal[,Tcur-Tidp+1:Tcur];
-      //*** TODO note below has leakage of future information ***//
-      Clatent[,Tidp+1:Tidp+Tpred] = convpredout[1];
-      Clatent[,Tidp+Tpred+1:Tidp+Tpred+Tproj] = Cforw;
+      matrix[N,Tidp+Tforw] Cforw;
+      row_vector[F1] forw_fluxproportions[1];
+      matrix[F1,N*1] convforwflux[1];
+      matrix[N,1] forw_Rin;
+      matrix[N,1] forw_Rout;
+      matrix[N,1] convforwall[1];
+
+      forw_fluxproportions[1] = fluxproportions[M];
+      forw_Rin = block(Rin, 1, M, N, 1);
+      forw_Rout = block(Rout, 1, M, N, 1);
+
+      Cforw[,1:Tidp] = Creal[,Tcur-Tidp+1:Tcur];
+      for (i in 1:Tforw) {
+        for (j in 1:N) 
+          convforwall[1,j,1] = convforw[1,j,i] + 
+              dot_product(Cforw[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+        if (DO_METAPOP && !DO_IN_OUT)
+          convforwflux = in_compute_flux(convforwall,fluxt);
+        Cforw[,Tidp+i] = metapop(DO_METAPOP,DO_IN_OUT,
+            forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
+      }
+ 
       // predictive probability of future counts 
       for (i in 1:Tpred) {
-        vector[N] convdelayed = Clatent[,Tidp+i-Tdp:Tidp+i-1] * delayprofile_rev;
+        vector[N] convdelayed = Cforw[,Tidp+i-Tdp:Tidp+i-1] * delayprofile_rev;
         for (j in 1:N) {
           Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
               convdelayed[j],
-              1.0 / 0.5 //*** TODO use better estimated dispersion ***//
+              convdelayed[j] / 2.0 //*** TODO use better estimated dispersion ***//
           )); 
         }
       }
       // forecasting expected counts given parameters
       for (i in 1:Tproj) 
-        Cproj[,i] = Clatent[,Tidp+Tpred+i-Tdp:Tidp+Tpred+i-1] * delayprofile_rev;
+        Cproj[,i] = Cforw[,Tidp+i-Tdp:Tidp+i-1] * delayprofile_rev;
     }
 
   } 

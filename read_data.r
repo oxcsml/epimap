@@ -1,5 +1,16 @@
 infprofile <- read.csv("data/serial_interval.csv")$fit
 D <- length(infprofile)
+Tip <- 30
+infprofile <- infprofile[1:Tip]
+infprofile <- infprofile/sum(infprofile)
+
+Tdp <- 14
+Adp <- 5.0
+Bdp <- 1.0
+delayprofile <- pgamma(1:Tdp,shape=Adp,rate=Bdp)
+delayprofile <- delayprofile/delayprofile[Tdp]
+delayprofile <- delayprofile - c(0.0,delayprofile[1:(Tdp-1)])
+
 
 df <- read.csv("data/areas.csv",row.names=1)
 N <- nrow(df)
@@ -23,4 +34,12 @@ Tall <- ncol(Count)
 dates <- as.Date(colnames(Count), format='X%Y.%m.%d')
 colnames(Count) <- dates
 rownames(Count) <- areas
+
+Clean_sample <- read.csv('data/Clean_sample.csv')
+colnames(Clean_sample) <- dates[1:dim(Clean_sample)[2]]
+rownames(Clean_sample) <- areas
+Clean_mean <- read.csv('data/Clean_mean.csv')
+colnames(Clean_mean) <- dates[1:dim(Clean_sample)[2]]
+rownames(Clean_mean) <- areas
+
 

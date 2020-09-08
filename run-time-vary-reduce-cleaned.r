@@ -6,12 +6,11 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation2_uniform_in",help="metapopulation model for inter-region cross infections (uniform_in{_out}/[radiation{1[2]3}_uniform_in{_out}]/none)"),
-  make_option(c("-o", "--observation"),   type="character", default="negative_binomial_3",  help="observation model ([negative_binomial_{2[3]}]/poisson)"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
+  make_option(c("-o", "--observation"),   type="character", default="neg_binomial_3",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned)"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
-  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                     help="Number of periods to fit Rt in"),
-  make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -25,8 +24,8 @@ numiters = opt$iterations
 if (opt$task_id > 0) {
   grid = expand.grid(
     spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
-    metapop=c("radiation1_uniform_in", "radiation1_uniform_in_out", "radiation2_uniform_in", "radiation2_uniform_in_out", "radiation3_uniform_in", "radiation3_uniform_in_out", "uniform_in", "uniform_in_out", "none"), 
-    observation=c("negative_binomial_2", "negative_binomial_3", "poisson"),
+    metapop=c("radiation1,uniform,in", "radiation1,uniform,in_out", "radiation2,uniform,in", "radiation2,uniform,in_out", "radiation3,uniform,in", "radiation3,uniform,in_out", "uniform,in", "uniform,in_out", "none"), 
+    observation=c("neg_binomial_2", "neg_binomial_3", "poisson", "cleaned"),
     localkernel=c("local","none"),
     globalkernel=c("global","none")
   )
@@ -44,81 +43,74 @@ source('read_data.r')
 source('read_radiation_fluxes.r')
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 4  # counts in most recent 7 days may not be reliable?
+Tignore <- 5  # counts in most recent 7 days may not be reliable?
 Tpred <- 3    # number of days held out for predictive probs eval
-Tlik <- 7     # number of days for likelihood to infer Rt
-Tstep <- Tlik # number of days to step for each time step of Rt prediction
+Tstep <- 7 # number of days to step for each time step of Rt prediction
+Tlik <- M*Tstep     # number of days for likelihood to infer Rt
 Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
-Tcond <- Tall-Tlik-Tpred       # number of days we condition on
+Tcur <- Tall-Tpred       # number of days we condition on
+Tcond <- Tcur-Tlik       # number of days we condition on
 Tproj <- 7            # number of days to project forward
 
 Count <- Count[,1:Tall] # get rid of ignored last days
+Clean <- Clean_sample[,1:Tall] # get rid of ignored last days
 
-days_likelihood = seq(dates[Tcond - (M-1)*Tlik +1],by=1,length.out=Tlik*M)
-days_pred_held_out = seq(dates[Tcond+Tlik+1],by=1,length.out=Tpred)
+days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*M)
+days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
 
 print("Days used for likelihood fitting")
 print(days_likelihood)
 print("Days used for held out likelihood")
 print(days_pred_held_out)
 
+OBSERVATIONMODELS = list(
+  'poisson' = 1,
+  'neg_binomial_2' = 2,
+  'neg_binomial_3' = 3,
+  'cleaned' = 4
+)
+OBSERVATIONMODEL = OBSERVATIONMODELS[[opt$observation]]
+if (is.null(OBSERVATIONMODEL)) {
+  stop(c('Unrecognised observation option ',opt$observation));
+}
+
 # metapopulation cross-area fluxes.
-if (opt$metapop == 'radiation1_uniform_in' || 
-    opt$metapop == 'radiation1_uniform_in_out') {
-  do_metapop = 1
-  if (opt$metapop == 'radiation1_uniform_in' ) {
-    do_in_out = 0
-  } else {
-    do_in_out = 1
-  }
-  flux = list()
-  flux[[1]] = radiation_flux[,,1] # ls=.1
-  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
-  F = length(flux)
-} else if (opt$metapop == 'radiation2_uniform_in' || 
-           opt$metapop == 'radiation2_uniform_in_out') {
-  do_metapop = 1
-  if (opt$metapop == 'radiation2_uniform_in' ) {
-    do_in_out = 0
-  } else {
-    do_in_out = 1
-  }
-  flux = list()
-  flux[[1]] = radiation_flux[,,2] # ls=.1
-  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
-  F = length(flux)
-} else if (opt$metapop == 'radiation3_uniform_in' || 
-           opt$metapop == 'radiation3_uniform_in_out') {
-  do_metapop = 1
-  if (opt$metapop == 'radiation3_uniform_in' ) {
-    do_in_out = 0
-  } else {
-    do_in_out = 1
-  }
-  flux = list()
-  flux[[1]] = radiation_flux[,,3] # ls=.1
-  flux[[2]] = matrix(1.0/N,N,N) # uniform cross-area infections
-  F = length(flux)
-} else if (opt$metapop == 'uniform_in' || 
-           opt$metapop == 'uniform_in_out') {
-  do_metapop = 1
-  if (opt$metapop == 'uniform_in' ) {
-    do_in_out = 0
-  } else {
-    do_in_out = 1
-  }
-  flux = list()
-  flux[[1]] = matrix(1.0/N,N,N) # uniform cross-area infections
-  F = length(flux)
-} else if (opt$metapop == 'none') {
-  do_metapop = 0
-  do_in_out = 0
+METAPOPMODEL = strsplit(opt$metapop,',')[[1]]
+METAPOPOPTIONS = list(
+  'radiation1' = radiation_flux[,,1], # smoothed radiation model with length scale = .1 (10km)
+  'radiation2' = radiation_flux[,,2], # smoothed radiation model with length scale = .2 (20km)
+  'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
+  'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
+)
+if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {
+  DO_METAPOP = 0
+  DO_IN_OUT = 0
   flux = array(0,dim=c(0,N,N));
   F = 0
 } else {
-  stop(c('Unrecognised metapop option ',opt$metapop));
+  DO_METAPOP = 1
+  if ('in_out' %in% METAPOPMODEL) {
+    DO_IN_OUT = 1
+  } else if ('in' %in% METAPOPMODEL) {
+    DO_IN_OUT = 0
+  } else {
+    stop(c('One of "in" or "in_out" should be in metapop option ',opt$metapop));
+  }
+  flux = list()
+  F = 0
+  for (s in METAPOPMODEL) {
+    if (! s %in% c('in','in_out')) {
+      t = METAPOPOPTIONS[[s]]
+      if (is.null(t)) {
+        stop(c('Unrecognised metapop option in ',opt$observation));
+      }
+      F = F+1
+      flux[[F]] = t
+    }
+  }
 }
 
+# time steps
 times = 1:M
 timedist = matrix(0, M, M)
 for (i in 1:M) {
@@ -129,7 +121,7 @@ for (i in 1:M) {
 
 # precompute lockdown cutoff kernel
 lockdown_day = as.Date("2020-03-23")
-days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tlik)]
+days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tstep)]
 days_lik_start = vapply(days_lik_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
 day_pre_lockdown = vapply(days_lik_start, (function (day) day < lockdown_day), logical(1))
 
@@ -147,22 +139,29 @@ for (i in 1:M) {
 Rmap_data <- list(
   N = N, 
   M = M,
-  D = D, 
   Tall = Tall,
   Tcond = Tcond,
   Tlik = Tlik,
   Tproj = Tproj,
   Tstep=Tstep,
+
   Count = Count,
+  Clean = Clean,
   # geoloc = geoloc,
   geodist = geodist,
   timedist = timedist,
   timecorcut = time_corellation_cutoff,
-  do_metapop = do_metapop,
-  do_in_out = do_in_out,
+
+  DO_METAPOP = DO_METAPOP,
+  DO_IN_OUT = DO_IN_OUT,
+  OBSERVATIONMODEL = OBSERVATIONMODEL,
+
+  Tip = Tip, 
+  infprofile = infprofile,
+  Tdp = Tdp,
+  delayprofile = delayprofile,
   F = F,
-  flux = flux,
-  infprofile = infprofile
+  flux = flux
 )
 
 init = list()
@@ -173,11 +172,11 @@ for (i in 1:numchains) {
     gp_space_sigma = .01,
     global_sigma = .01,
     local_scale = .01,
-    precision = 5.0
+    dispersion = 5.0
     )
 }
 
-runname = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
+runname = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
   as.character(Sys.time(),format='%Y%m%d%H%M%S'),
   opt$spatialkernel, 
   opt$localkernel, 
@@ -191,13 +190,13 @@ print(runname)
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
-content = readLines(paste('stan_files/', 'Rmap-time-vary-vectorize-reduce.stan',sep=''))
+content = readLines(paste('stan_files/', 'Rmap-time-vary-vectorize-reduce-cleaned.stan',sep=''))
 content = gsub(pattern="SPATIAL", replace=opt$spatialkernel, content)
 content = gsub(pattern='TEMPORAL', replace=opt$spatialkernel, content)
 content = gsub(pattern="LOCAL", replace=opt$localkernel, content)
 content = gsub(pattern="GLOBAL", replace=opt$globalkernel, content)
 # content = gsub(pattern="METAPOP", replace=opt$metapop, content)
-content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
+#content = gsub(pattern="OBSERVATION", replace=opt$observation, content)
 writeLines(content, stan_file_name)
 
 start_time <- Sys.time()
@@ -207,25 +206,28 @@ fit <- stan(file = stan_file_name,
             iter = numiters, 
             chains = numchains,
             control = list(adapt_delta = .9))
-saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+
+#############################################################################################
+
+#saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+
+# fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 end_time <- Sys.time()
 
 print("Time to run")
 print(end_time - start_time)
 
-#############################################################################################
-#############################################################################################
 
-# fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
+#############################################################################################
 
 
 #################################################################
 # Summary of fit
 print(summary(fit, 
     pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-        "global_sigma","local_scale","precision",
-        "R0","coupling_rate"), 
+        "global_sigma","local_scale","dispersion",
+        "Rt_all","coupling_rate","flux_probs"), 
     probs=0.5)$summary)
  
  
@@ -248,26 +250,26 @@ area_date_dataframe <- function(areas,dates,data,data_names) {
 
 #################################################################
 # Rt posterior
-#s <- summary(fit, pars="Rt", probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
-#Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
-s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
-Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
+s <- summary(fit, pars="Rt", probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+#s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
+#Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
 
 times = rep(1:M, N)
 places = rep(1:N, each=M)
 indicies = places + (N)*(times-1)
 Rt = Rt[indicies,]
 
-Rt <- Rt[sapply(1:(N*M),function(i)rep(i,Tlik)),]
+Rt <- Rt[sapply(1:(N*M),function(i)rep(i,Tstep)),]
 print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas, 
     #dates[Tcond+1],
     days_likelihood,
     format(round(Rt,1),nsmall=1),
-    c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
-    #c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
-    #  "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
+    #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
+    c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+      "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
 )
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
@@ -287,8 +289,8 @@ for (k in 1:M) {
     }
   }
 }
-Pexceedance <- Pexceedance[sapply(1:M,function(k)rep(k,Tlik)),,]
-dim(Pexceedance) <- c(Tlik*M*N,numthresholds)
+Pexceedance <- Pexceedance[sapply(1:M,function(k)rep(k,Tstep)),,]
+dim(Pexceedance) <- c(Tstep*M*N,numthresholds)
 df <- area_date_dataframe(
     quoted_areas, 
     days_likelihood,
@@ -309,13 +311,30 @@ Cpred <- t(t(Cpred))
 print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas,
-    seq(dates[Tcond-(M-1)*Tlik]+1,by=1,length.out=M*Tlik),
+    seq(dates[Tcond]+1,by=1,length.out=M*Tstep),
     format(round(Cpred,1),nsmall=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
 )
 write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
     row.names=FALSE,quote=FALSE)
+
+Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
+dim(Cweekly) <- c(N,Tstep,M)
+Cweekly <- apply(Cweekly,c(1,3),sum)
+Cweekly <- t(Cweekly)
+Cweekly <- Cweekly[sapply(1:M,function(k)rep(k,Tstep)),]
+dim(Cweekly) <- c(N*Tlik)
+df <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    format(Cweekly,digits=3),
+    c("C_weekly")
+)
+write.csv(df, paste('fits/', runname, '_Cweekly.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+
+
 
 s <- summary(fit, pars=c("Cproj"), probs=c(0.025, .25, .5, .75, .975))$summary
 Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
@@ -324,7 +343,7 @@ Cproj <- t(t(Cproj))
 print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas,
-    seq(dates[Tcond+Tlik]+1,by=1,length.out=Tproj),
+    seq(dates[Tcur]+1,by=1,length.out=Tproj),
     format(round(Cproj,1),digits=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
@@ -349,40 +368,10 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 
 ####################################################################
 # pairs plot
-# pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
-# pairs(fit, pars=c(
-#     "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
-#     "global_sigma","local_scale","precision")) 
-# dev.off()
-
-if (opt$daily_update) {
-  dir.create('fits/latest_updates')
-
-  runname2 = sprintf('Rmap-time-vary-reduce-%s-%s-%s-%s-%s-%s-%s', 
-    'latest',
-    opt$spatialkernel, 
-    opt$localkernel, 
-    opt$globalkernel, 
-    opt$metapop, 
-    opt$observation,
-    opt$time_steps
-  )
-
-  file.copy(paste('fits/', runname, '_Rt.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Rt.csv', sep=''), paste('fits/latest_updates/', runname2, '_Rt.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Pexceed.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Pexceed.csv', sep=''), paste('fits/latest_updates/', runname2, '_Pexceed.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Cpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Cpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cpred.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Cproj.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Cproj.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cproj.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
-
-}
+#pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
+#pairs(fit, pars=c(
+#    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+#    "global_sigma","local_scale","precision")) 
+#dev.off()
  
 print(runname)

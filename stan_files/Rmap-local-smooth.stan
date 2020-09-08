@@ -56,7 +56,7 @@ transformed parameters {
     // negative binomial noise approximated by gaussian
     vector[Tall] Clatent;
     for (t in 1:Tcond) 
-      Clatent[t] = Count[1,t];
+      Clatent[t] = 1e-2 + Count[1,t];
     for (i in 1:Nstep) {
       for (j in 1:Tstep) {
         int s = (i-1)*Tstep + j;
@@ -66,7 +66,7 @@ transformed parameters {
             Clatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         );
-        Clatent[t] = fabs(Einf + sqrt((1.0+phi_latent) * Einf) * Ceta[s]);
+        Clatent[t] = 1e-2 + fabs(Einf + sqrt((1.0+phi_latent) * Einf) * Ceta[s]);
     } } 
     Cinfer = Clatent[Tcond+1:Tall];
   }
@@ -84,7 +84,7 @@ model {
   {
     vector[Tall] Clatent;
     for (t in 1:Tcond) 
-      Clatent[t] = Count[1,t];
+      Clatent[t] = 1e-2 + Count[1,t];
     Clatent[Tcond+1:Tall] = Cinfer;
     for (t in Tcond+1:Tall) {
       real Ecase = dot_product(Clatent[t-Tdp:t-1], delayprofile_rev);

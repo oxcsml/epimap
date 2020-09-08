@@ -380,7 +380,7 @@ Promise.all([
 ]).then(ready).catch(e => { console.log("ERROR", e); throw e; });
 
 const colorDomain = [0.5, 1.0, 2.0];
-const pExceedColorDomain = [0, 1.0];
+const pExceedColorDomain = [0, 0.5, 1.0];
 
 function getRtForArea(area) {
     const rtSeries = rtData.get(area);
@@ -483,7 +483,7 @@ function ready(data) {
 
     const pExceedAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
-        .domain(pExceedColorDomain[0], pExceedColorDomain[1]);
+        .domain(pExceedColorDomain[0], pExceedColorDomain[2]);
 
     console.log("rtColorScale.ticks: " + rtColorScale.ticks());
     console.log("rtColorScale.tickFormat: " + rtColorScale.tickFormat());
@@ -702,8 +702,8 @@ function ready(data) {
             legend.style("fill", "url(#rt-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
-                .range([margin.left, margin.left + barWidth])
-                .domain([colorDomain[0], colorDomain[2]]))
+                    .range([margin.left, margin.left + barWidth])
+                    .domain([colorDomain[0], colorDomain[2]]))
             );
             axisBottom.call(rtAxisFn)
                 .selectAll("text")
@@ -737,7 +737,11 @@ function ready(data) {
         if (showRt.classed("active") || showCases.classed("active")) {
             map.attr("fill", pExceedFillFn(d3.max(pExceedDates)));
             legend.style("fill", "url(#pexceed-gradient)");
-            legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
+            legendBar.call(d3.axisLeft(
+                d3.scaleLinear()
+                    .range([margin.left, margin.left + barWidth])
+                    .domain([pExceedColorDomain[0], pExceedColorDomain[2]]))
+            );
             axisBottom.call(pexceedAxisFn)
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");

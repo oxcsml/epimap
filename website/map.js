@@ -26,7 +26,7 @@ const g = map_svg.append("g");
 const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2);
 const sliderSvg = d3.select("#slider-svg").style("display", "block");
 const sliderG = sliderSvg.append("g")
-    .attr('transform', `translate(${sliderLeft},10)`)
+    .attr('transform', `translate(${sliderLeft},10)`);
 sliderSvg.append("text")
     .attr("x", sliderLeft-50)
     .attr("y", 15)
@@ -513,7 +513,6 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-    const pExceedDates = pexceedData.get(pexceedData.keys()[0]).map(r=>r.Date);
     const bisectDate = d3.bisector(d=>d).left;
 
     rtFillFn = date => {
@@ -528,30 +527,14 @@ function ready(data) {
         }
     }
 
-    rtRangeFn = date => {
-        const idx = bisectDate(availableDates, date, 1);
-        rts = Object.keys(rtData)
-        .map(
-        function(key){
-            return rtData[key][idx]
-        })
-        .map(
-            function(item){
-                return (typeof item !== 'undefined') ? item.Rt50 : 1.0
-            }
-        );
-        return [d3.min(rts), d3.max(rts)]
-    }
-
     pExceedFillFn = date => {
-        const idx = bisectDate(pExceedDates, date, 1);
+        const idx = bisectDate(availableDates, date, 1);
         return d => {  // Fill based on value of PExceed
             const pExceedSeries = pexceedData.get(d.properties.lad20nm);
             if (!pExceedSeries) {
                 return "#ccc";
             }
             const pExceed = pExceedSeries[idx];
-            console.log(`PExceed for ${d.properties.lad20nm}: ${pExceed.P10}`);
             return pExceedColorScale(pExceed.P10);
         }
     }
@@ -616,7 +599,6 @@ function ready(data) {
         .attr("id", "pexceed-gradient");
 
     rtGradient.selectAll("stop")
-        //.data(rtColorScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .data([0.5,0.75,.9,1.0,1.1,1.5,2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
@@ -654,7 +636,6 @@ function ready(data) {
         .range([margin.left, margin.left + barWidth])
         .domain([colorDomain[0], colorDomain[2]])
     );
-    // legendAxis = d3.axisLeft(caseAxisScale)
         
     legendBar = map_svg.append("g")
         .attr("transform", `translate(${width - barHeight},${margin.top})`)
@@ -698,8 +679,9 @@ function ready(data) {
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
             legendText.text("Rt");
+
             sliderSvg.style("visibility", "visible");
-            timeSlider.value(d3.max(availableDates));
+            changeSlider(pExceedSliderChangeFn);
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
@@ -724,7 +706,6 @@ function ready(data) {
 
     showPExceed.on("click", () => {
         if (showRt.classed("active") || showCases.classed("active")) {
-            map.attr("fill", pExceedFillFn(d3.max(pExceedDates)));
             legend.style("fill", "url(#pexceed-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -735,12 +716,24 @@ function ready(data) {
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");
             legendText.text("P(Rt > 1)");
-            sliderSvg.style("visibility", "hidden");
+
+            sliderSvg.style("visibility", "visible");
+            changeSlider(pExceedSliderChangeFn);
         }
         showCases.attr("class", "");
         showRt.attr("class", "");
         showPExceed.attr("class", "active");
     })
+
+    rtSliderChangeFn = (date) => {
+        sliderValueLabel.text(dateFormat(date));
+        map.transition().duration(50).attr("fill", rtFillFn(date));
+    }
+
+    pExceedSliderChangeFn = (date) => {
+        sliderValueLabel.text(dateFormat(date));
+        map.transition().duration(50).attr("fill", pExceedFillFn(date));
+    }
 
     const timeSlider = d3.sliderHorizontal()
         .ticks(5)
@@ -751,21 +744,18 @@ function ready(data) {
         .width(sliderWidth)
         .displayValue(false)
         .value(d3.max(availableDates))
-        .on('onchange', (date) => {
-            sliderValueLabel.text(dateFormat(date));
-            console.log('idx: ',bisectDate(availableDates, date, 1));
-            rtData.set('date',date);
-            rtData.set('idx',bisectDate(availableDates, date, 1));
-            map.transition().duration(50).attr("fill", rtFillFn(date));
-            legendBar.call(d3.axisLeft(
-                d3.scaleLinear()
-                .range([margin.left, margin.left + barWidth])
-                .domain([colorDomain[0], colorDomain[2]]))
-            );
-        });
+        .on('onchange', rtSliderChangeFn);
     
     sliderG.call(timeSlider);
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
+
+    changeSlider = (changeFn) => {
+        timeSlider.min(d3.min(dates))
+            .on('onchange', changeFn)
+            .value(d3.max(availableDates));
+            
+        sliderValueLabel.text(dateFormat(d3.max(availableDates)));
+    }
 
     // Set up local area search box
     const areas = rtData.keys();

@@ -23,6 +23,10 @@
     fill: orange;
 }
 
+.active {
+    font-weight: bold;
+}
+
 .mesh {
     fill: none;
     stroke: #fff;

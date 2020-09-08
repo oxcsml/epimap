@@ -231,15 +231,19 @@ const loadRt = d3.csv(rt_path).then(data => {
         }
         const current = {
             Date: d3.timeParse("%Y-%m-%d")(d.Date),
+            Rt025: +d.Rt_2_5,
             Rt10: +d.Rt_10,
             Rt20: +d.Rt_20,
+            Rt25: +d.Rt_25,
             Rt30: +d.Rt_30,
             Rt40: +d.Rt_40,
             Rt50: +d.Rt_50,
             Rt60: +d.Rt_60,
             Rt70: +d.Rt_70,
+            Rt75: +d.Rt_75,
             Rt80: +d.Rt_80,
-            Rt90: +d.Rt_90
+            Rt90: +d.Rt_90,
+            Rt975: +d.Rt_97_5
         };
         rtData.get(d.area).push(current);
     });
@@ -781,7 +785,7 @@ function ready(data) {
 
 function plotCaseChart(chartData, projectionData, predictionData, area) {
     const xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    const yDomain = [0, MAX_CASES+2]; //d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
+    const yDomain = [0, d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
     const x = d3.scaleTime()
         .domain(xDomain)
@@ -932,13 +936,13 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
 
     const rtInnerArea = d3.area()
         .x(function (d) { return x(d.Date); })
-        .y0(function (d) { return y(d.Rt30); })
-        .y1(function (d) { return y(d.Rt70); });
+        .y0(function (d) { return y(d.Rt25); })
+        .y1(function (d) { return y(d.Rt75); });
     
     const rtOuterArea = d3.area()
         .x(function (d) { return x(d.Date); })
-        .y0(function (d) { return y(d.Rt10); })
-        .y1(function (d) { return y(d.Rt90); });
+        .y0(function (d) { return y(d.Rt025); })
+        .y1(function (d) { return y(d.Rt975); });
 
     rtChartMedianLine
         .datum(rtData)

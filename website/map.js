@@ -681,7 +681,7 @@ function ready(data) {
             legendText.text("Rt");
 
             sliderSvg.style("visibility", "visible");
-            changeSlider(pExceedSliderChangeFn);
+            changeSlider(rtSliderChangeFn);
         }
         showRt.attr("class", "active");
         showCases.attr("class", "");
@@ -706,6 +706,7 @@ function ready(data) {
 
     showPExceed.on("click", () => {
         if (showRt.classed("active") || showCases.classed("active")) {
+            map.attr("fill", pExceedFillFn(d3.max(availableDates)));
             legend.style("fill", "url(#pexceed-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -750,7 +751,7 @@ function ready(data) {
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
 
     changeSlider = (changeFn) => {
-        timeSlider.min(d3.min(dates))
+        timeSlider.min(d3.min(availableDates))
             .on('onchange', changeFn)
             .value(d3.max(availableDates));
             
@@ -775,7 +776,7 @@ function ready(data) {
         },
         onSelect: (e, term, item) => {
             selectArea(term);
-            e.srcElement.value = "";
+            document.getElementById("#areaSearch").value = "";
         }
     });
 }

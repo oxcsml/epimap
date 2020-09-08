@@ -9,11 +9,6 @@
     margin-top: 2em;
 }
 
-h3 small {
-    font-size: 50%;
-    display: block;
-}
-
 
 .background {
     fill: none;
@@ -69,7 +64,20 @@ div.tooltip span.header {
     fill: none;
     stroke: rgba(70, 130, 180);
     stroke-width: 1.5;
+    opacity: 0.0;
 }
+
+.predicted-cases-median-line {
+    fill: none;
+    stroke: rgb(70, 130, 180);
+    stroke-width: 1.5;
+}
+
+.predicted-cases-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.4;
+}
+
 
 .projected-cases-median-line {
     fill: none;
@@ -108,35 +116,46 @@ div.tooltip span.header {
     margin-top:2em;
 }
 
-span.info-heading {
-    font-weight: bold;
-}
 
 h1, h2, h3, h4, h5, h6, p, span {
     font-family: sans-serif;
 }
 
-.active {
-    font-weight: bold;
+h1 {
+    font-size: 30px;
+    margin-bottom: 0em;
 }
 
+h3 {
+    font-size: 24px;
+    margin-bottom: 0em;
+}
+
+h3 small {
+    font-size: 50%;
+    display: block;
+    margin-bottom: 0em;
+}
+
+
 .info-row {
-    margin-bottom: 0.5em;
+    font-size: 14px;
+    width: 250px;
+}
+
+.column {
+    margin-top: 0em;
+    width: 250px;
+}
+
+.row {
+    margin-top: 0em;
+    width: 520px;
 }
 
 #sub-heading {
-    margin-top: -1em;
     font-size: 0.9em;
     margin-left: 0.25em;
-    margin-bottom: 2em;
-}
-
-#cases-title {
-    margin-top: 1em;
-}
-
-#estimates-title {
-    margin-top: 1em;
 }
 
 .overlay {

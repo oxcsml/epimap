@@ -456,6 +456,10 @@ function getCaseHistoryPer100kForArea(area) {
     return caseHistoryPer100k.get(area);
 }
 
+function areaNameToId(areaName) {
+    return areaName.replace(" and ", "-").replace(" upon ", "-").replace(",", "").replace(" ", "-");
+}
+
 // Handle data loaded
 function ready(data) {
     const topo = data[0];
@@ -470,12 +474,9 @@ function ready(data) {
     minCases = 1;
     maxCases = MAX_CASES; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
     maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
-    console.log("minCases:", minCases, "maxCases:", maxCases);
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseLogScale = d3.scaleLog().domain([minCases, maxColorCases]).range([margin.left, margin.left + barWidth]);
     const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
-
-    console.log("logScale.ticks:", logScale.ticks());
 
     const rtAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
@@ -488,9 +489,6 @@ function ready(data) {
     const pExceedAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
         .domain(pExceedColorDomain[0], pExceedColorDomain[2]);
-
-    console.log("rtColorScale.ticks: " + rtColorScale.ticks());
-    console.log("rtColorScale.tickFormat: " + rtColorScale.tickFormat());
 
     const rtAxisFn = () => d3.axisBottom(rtAxisScale)
         .tickValues(rtColorScale.ticks())
@@ -571,6 +569,7 @@ function ready(data) {
         .data(topojson.feature(topo, topo.objects.Local_Authority_Districts__May_2020__Boundaries_UK_BFC).features)
         .enter().append("path")
         .attr("fill", rtFillFn(d3.max(availableDates)))
+        .attr("id", d => "path-" + areaNameToId(d.properties.lad20nm))
         .style("fill-opacity", 1)
         .on("mouseover", function (d) {  // Add Tooltip on hover
             tooltip_div.transition()
@@ -594,20 +593,6 @@ function ready(data) {
         })
         .on("click", function (d) {
             selectArea(d.properties.lad20nm);
-            g.selectAll("path")
-                .style("zIndex", "inherit")
-                .style("vector-effect", "non-scaling-stroke")
-                .style("stroke-linecap", "round")
-                .style("stroke-linejoin", "round")
-                .style("stroke-width", "0.5px")
-                .style("stroke","#fff");
-            d3.select(this)
-                .style("zIndex", "1")
-                .style("vector-effect", "non-scaling-stroke")
-                .style("stroke-linecap", "round")
-                .style("stroke-linejoin", "round")
-                .style("stroke-width", "2px")
-                .style("stroke", "#222");
         })
         .attr("d", path)
         .attr("class", "feature")
@@ -781,6 +766,28 @@ function ready(data) {
     
     sliderG.call(timeSlider);
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
+
+    // Set up local area search box
+    const areas = rtData.keys();
+
+    new autoComplete({
+        selector: '#areaSearch',
+        minChars: 1,
+        source: function(term, suggest){
+            term = term.toLowerCase();
+            var matches = [];
+            for (let i = 0; i < areas.length; i++) {
+                if (~areas[i].toLowerCase().indexOf(term)) {
+                    matches.push(areas[i]);
+                }
+            }
+            suggest(matches);
+        },
+        onSelect: (e, term, item) => {
+            selectArea(term);
+            e.srcElement.value = "";
+        }
+    });
 }
 
 function plotCaseChart(chartData, projectionData, predictionData, area) {
@@ -1026,6 +1033,22 @@ function selectArea(selectedArea) {
         //d3.select("#cases-title").text(`Cases`);
         //d3.select("#estimates-title").text(`Estimates`);
     }
+
+    g.selectAll("path")
+        .style("zIndex", "inherit")
+        .style("vector-effect", "non-scaling-stroke")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round")
+        .style("stroke-width", "0.5px")
+        .style("stroke","#fff");
+
+    d3.select("#path-" + areaNameToId(selectedArea))
+        .style("zIndex", "1")
+        .style("vector-effect", "non-scaling-stroke")
+        .style("stroke-linecap", "round")
+        .style("stroke-linejoin", "round")
+        .style("stroke-width", "2px")
+        .style("stroke", "#222");
 
     d3.select("#data-heading").text(selectedArea);
 

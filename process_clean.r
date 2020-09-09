@@ -8,7 +8,8 @@ options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 source('read_data.r')
-Tignore <- 5  # counts in most recent 5 days may not be reliable?
+# counts in most recent 5 days may not be reliable
+Tignore <- 5  # don't ignore for now? can ignore last 5 days of cleaned data instead?
 Tall <- Tall-Tignore
 Count <- Count[,1:Tall]
 
@@ -26,16 +27,19 @@ testdelayprofile <- pgamma(1:Ttdp,shape=Adp,rate=Bdp)
 testdelayprofile <- testdelayprofile/testdelayprofile[Ttdp]
 testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Ttdp-1)])
 
-# Case only reported a few days after testing, Use a Geometric(.5) delay distribution.
+# Case only reported a few days after testing, 
+# no result delay truncation
 Trdp <- 1
-#resultdelayprofile <- .5^seq(1,by=1,length.out=Trdp)
-#resultdelayprofile <- resultdelayprofile / sum(resultdelayprofile)
 resultdelayprofile <- array(1)
+# Geometric(.5) delay distribution.
+# Trdp <- 5
+# resultdelayprofile <- .5^seq(1,by=1,length.out=Trdp)
+# resultdelayprofile <- resultdelayprofile / sum(resultdelayprofile)
 
 
 Tstep <- 7
 #Nstep <- floor((Tall-max(Tip,Ttdp)) / Tstep)
-Nstep <- 18
+Nstep <- 18 # about 4 months
 Tlik <- Nstep*Tstep
 Tcond <- Tall-Tlik
 
@@ -81,7 +85,7 @@ print(area)
 #############################################################################################
 # Main computation
 
-Rmap_local_smooth_data <- list(
+Rmap_clean_data <- list(
   Tall = Tall,
   Tstep = Tstep, 
   Nstep = Nstep,
@@ -129,8 +133,8 @@ init[[1]] = list(
 
 start_time <- Sys.time()
 
-fit <- stan(file = 'stan_files/Rmap-local-smooth.stan',
-            data = Rmap_local_smooth_data, 
+fit <- stan(file = 'stan_files/Rmap-clean.stan',
+            data = Rmap_clean_data, 
             init = init,
             iter = numiters, 
             chains = numchains,

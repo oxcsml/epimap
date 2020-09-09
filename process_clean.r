@@ -172,7 +172,7 @@ dim(Crecon_s) <- c(1,Tall,Nsample)
 Crecon_sample[area_index,,] <- Crecon_s
 Crecon_m <- summary(fit,pars="Crecon",probs=c(0.5))$summary
 Crecon_m <- t(as.matrix(Crecon_m[,"50%"]))
-Crecon_median[area_index,] <- Crecon_m
+Crecon_median[area_index,] <- round(Crecon_m)
 
 
 ####################################################################

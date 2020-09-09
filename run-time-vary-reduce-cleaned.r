@@ -52,7 +52,7 @@ if (opt$observation == 'cleaned_sample') {
 }
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 5  # counts in most recent 7 days may not be reliable?
+Tignore <- 6  # counts in most recent 7 days may not be reliable?
 Tpred <- 2    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
 Tlik <- M*Tstep     # number of days for likelihood to infer Rt

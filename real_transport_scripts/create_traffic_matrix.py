@@ -26,7 +26,6 @@ def get_flow(code_from, code_to):
             code_to not in list(traffic_raw["To"])
         ):
             print(f"Didn't find one of the codes at all in the table.")
-            # print(f"Didn't find entry from {code_from} to {code_to}.")
         return 0
     else:
         return flow.sum()
@@ -48,7 +47,6 @@ def region2code(region):
         return codes.item()
     else:
         assert region == "Highland"  # should only happen for this?
-        # print(f"Unsure what to return as code. Got: {codes}") #, returned {codes[0]}.")
         return list(codes)[0]
 
 
@@ -65,82 +63,28 @@ def get_subregions(region):
     return subregions
 
 
-NN = len(traffic.index) * len(traffic.columns)
+if __name__ == "__main__":
+    NN = len(traffic.index) * len(traffic.columns)
+    k = 0
+    for i, region_from in enumerate(traffic.index):
+        for j, region_to in enumerate(traffic.columns):
 
-# uncomment below if need to recreate traffic.csv
-# k = 0
-# for i, region_from in enumerate(traffic.index):
-#     for j, region_to in enumerate(traffic.columns):
+            subregions_from = get_subregions(region_from)
+            subregions_to = get_subregions(region_to)
 
-#         subregions_from = get_subregions(region_from)
-#         subregions_to = get_subregions(region_to)
+            flow = 0
+            for subregion_from in subregions_from:
+                for subregion_to in subregions_to:
+                    code_from = region2code(subregion_from)
+                    code_to = region2code(subregion_to)
 
-#         flow = 0
-#         for subregion_from in subregions_from:
-#             for subregion_to in subregions_to:
-#                 code_from = region2code(subregion_from)
-#                 code_to = region2code(subregion_to)
+                    flow += get_flow(code_from, code_to)
 
-#                 flow += get_flow(code_from, code_to)
+            traffic.loc[region_from, region_to] = flow
 
-#         traffic.loc[region_from, region_to] = flow
+            k += 1
 
-#         k += 1
+            if k % 1000 == 0:
+                print(f"Done {k}/{NN} entries.")
 
-#         if k % 1000 == 0:
-#             print(f"Done {k}/{NN}.")
-
-
-# traffic.to_csv("real_transport_scripts/traffic.csv")
-
-# %%
-
-traffic = pd.read_csv("real_transport_scripts/traffic.csv", index_col=0)
-
-assert (np.diag(traffic) > 0).all()
-assert (traffic.sum(axis=1) > 0).all()
-
-# %%
-
-areas = pd.read_csv("data/areas.csv", index_col=0)
-populations = areas["population"]
-
-# %%
-np.fill_diagonal(traffic.values, 0)  # remove all diagonal terms, setting to zero
-
-# row normalized version
-traffic_prop = traffic.divide(populations, axis="index")
-
-np.fill_diagonal(
-    traffic_prop.values,
-    traffic_prop.sum(axis=1).values.max() - traffic_prop.sum(axis=1).values,
-)
-
-traffic_prop /= traffic_prop.sum(axis=1).max()
-
-assert np.isclose(traffic_prop.sum(axis=1).values, 1).all()
-
-traffic_prop.to_csv("data/traffic_flux_row-normed.csv")
-
-# row normalized transpose version
-traffic_T_prop = traffic.divide(populations, axis="index")
-
-np.fill_diagonal(
-    traffic_T_prop.values,
-    traffic_T_prop.sum(axis=0).values.max() - traffic_T_prop.sum(axis=0).values,
-)
-
-traffic_T_prop /= traffic_T_prop.sum(axis=0).max()
-
-assert np.isclose(traffic_T_prop.sum(axis=0).values, 1).all()
-
-traffic_T_prop = traffic_T_prop.T
-traffic_T_prop.to_csv("data/traffic_flux_transpose_row-normed.csv")
-# %%
-# Unnormalized version
-
-traffic_prop_unnorm = traffic.divide(populations, axis="index")
-traffic_prop_unnorm /= traffic_prop_unnorm.sum(axis=1).max()
-
-traffic_prop_unnorm.to_csv("data/traffic_flux_max-normed.csv")
-
+    traffic.to_csv("real_transport_scripts/traffic.csv")

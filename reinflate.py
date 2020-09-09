@@ -54,7 +54,7 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
     predictions.index.names = ['area', 'Date']
     projections.index.names = ['area', 'Date']
 
-    reproduction_numbers.to_csv(output_r_filename, float_format='%.1f')
+    reproduction_numbers.to_csv(output_r_filename, float_format='%.2f')
     exceedance_probs.to_csv(output_exceed_filename, float_format='%.2f')
     weekly.to_csv(output_weekly_filename, float_format='%3d')
     predictions.to_csv(output_pred_filename, float_format='%2.1f')

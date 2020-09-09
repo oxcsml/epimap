@@ -61,6 +61,7 @@ Tcur <- Tall-Tpred       # number of days we condition on
 Tcond <- Tcur-Tlik       # number of days we condition on
 Tproj <- 14           # number of days to project forward
 
+AllCount <- Count
 Count <- Count[,1:Tall] # get rid of ignored last days
 Clean <- Clean_sample[,1:Tall] # get rid of ignored last days
 
@@ -276,7 +277,7 @@ df <- area_date_dataframe(
     quoted_areas, 
     #dates[Tcond+1],
     days_likelihood,
-    format(round(Rt,1),nsmall=1),
+    format(round(Rt,2),nsmall=2),
     #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
     c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
       "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
@@ -329,15 +330,17 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+# weekly counts. Includes 1 last column of actual counts among days ignored in model
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,M)
 Cweekly <- apply(Cweekly,c(1,3),sum)
+Cweekly <- cbind(Cweekly,apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum))
 Cweekly <- t(Cweekly)
-Cweekly <- Cweekly[sapply(1:M,function(k)rep(k,Tstep)),]
-dim(Cweekly) <- c(N*Tlik)
+Cweekly <- Cweekly[sapply(1:(M+1),function(k)rep(k,Tstep)),]
+dim(Cweekly) <- c(N*(Tlik+Tstep))
 df <- area_date_dataframe(
     quoted_areas,
-    days_likelihood,
+    c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tstep)),
     format(Cweekly,digits=3),
     c("C_weekly")
 )

@@ -44,8 +44,8 @@ choropleth.html
 *.rds
 *.csv
 *.html
-!/gh_pages/**/*.html
-!/gh_pages/**/*.csv
+!/docs/**/*.html
+!/docs/**/*.csv
 
 # PyCharm files
 .idea*

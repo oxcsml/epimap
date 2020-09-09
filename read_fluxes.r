@@ -1,3 +1,4 @@
+
 radiation_length_scales <- c(.1,.2,.5)
 radiation_flux <- array(0,dim=c(N,N,length(radiation_length_scales)))
 for (i in 1:length(radiation_length_scales)) {
@@ -8,3 +9,13 @@ for (i in 1:length(radiation_length_scales)) {
 colnames(radiation_flux) <- areas
 rownames(radiation_flux) <- areas
 dimnames(radiation_flux)[[3]] <- radiation_length_scales
+
+traffic_flux <- array(0, dim=c(N,N,3))
+df <- data.matrix(read.csv('data/traffic_flux_row-normed.csv', row.names=1))
+traffic_flux[,,1] <- df
+df <- data.matrix(read.csv('data/traffic_flux_max-normed.csv', row.names=1))
+traffic_flux[,,2] <- df
+df <- data.matrix(read.csv('data/traffic_flux_transpose_row-normed.csv', row.names=1))
+traffic_flux[,,3] <- df
+colnames(traffic_flux) <- areas
+rownames(traffic_flux) <- areas

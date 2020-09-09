@@ -1,22 +1,22 @@
 #!/usr/bin/bash
 
 if [ "$#" -ne 2 ]; then
-  echo reinflate.sh unique_experiment_id_in_fits experiment_id_in_website
+  echo reinflate.sh unique_experiment_id_in_fits experiment_id_in_docs/assets/data/
 else
-  mkdir website/$2 
+  mkdir docs/assets/data/$2 
   python3 reinflate.py \
     `ls fits/*$1*_Rt.csv` \
     `ls fits/*$1*_Pexceed.csv` \
     `ls fits/*$1*_Cweekly.csv` \
     `ls fits/*$1*_Cpred.csv` \
     `ls fits/*$1*_Cproj.csv` \
-    website/$2/Rt.csv \
-    website/$2/Pexceed.csv \
-    website/$2/Cweekly.csv \
-    website/$2/Cpred.csv \
-    website/$2/Cproj.csv
+    docs/assets/data/$2/Rt.csv \
+    docs/assets/data/$2/Pexceed.csv \
+    docs/assets/data/$2/Cweekly.csv \
+    docs/assets/data/$2/Cpred.csv \
+    docs/assets/data/$2/Cproj.csv
 
-  cp -r website/$2 ~/pub_html/Rmap
+  cp -r docs/assets/data/$2 ~/pub_html/Rmap
   #cp `ls fits/*$1*_pairs.pdf` ~/pub_html/Rmap/$2/pairs.pdf
   chmod a+rx ~/pub_html/Rmap/$2
   chmod a+r ~/pub_html/Rmap/$2/*

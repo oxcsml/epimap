@@ -16,8 +16,8 @@ else
     website/$2/Cpred.csv \
     website/$2/Cproj.csv
 
-  cp -r website/$2 ~/pub_html/Rmap_time
-  #cp `ls fits/*$1*_pairs.pdf` ~/pub_html/Rmap_time/$2/pairs.pdf
-  chmod a+rx ~/pub_html/Rmap_time/$2
-  chmod a+r ~/pub_html/Rmap_time/$2/*
+  cp -r website/$2 ~/pub_html/Rmap
+  #cp `ls fits/*$1*_pairs.pdf` ~/pub_html/Rmap/$2/pairs.pdf
+  chmod a+rx ~/pub_html/Rmap/$2
+  chmod a+r ~/pub_html/Rmap/$2/*
 fi

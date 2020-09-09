@@ -7,7 +7,8 @@ option_list = list(
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="cleaned",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned)"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
+  make_option(c("-c", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
@@ -25,7 +26,7 @@ if (opt$task_id > 0) {
   grid = expand.grid(
     spatialkernel=c("matern12", "matern32", "matern52", "exp_quad", "none"), 
     metapop=c("radiation1,uniform,in", "radiation1,uniform,in_out", "radiation2,uniform,in", "radiation2,uniform,in_out", "radiation3,uniform,in", "radiation3,uniform,in_out", "uniform,in", "uniform,in_out", "none"), 
-    observation=c("neg_binomial_2", "neg_binomial_3", "poisson", "cleaned"),
+    observation=c("neg_binomial_2", "neg_binomial_3", "poisson", "cleaned_sample","cleaned_mean"),
     localkernel=c("local","none"),
     globalkernel=c("global","none")
   )
@@ -42,11 +43,17 @@ rstan_options(auto_write = TRUE)
 source('read_data.r')
 source('read_radiation_fluxes.r')
 #source('read_clean_data.r')
-Clean_sample <- read.csv('data/Clean_sample.csv')
+if (opt$observation == 'cleaned_sample') {
+  id = opt$cleaned_sample_id
+  Clean_sample <- read.csv(paste('data/Clatent_sample',id,'.csv',sep=''))
+} else {
+  Clean_sample <- read.csv('data/Clatent_mean.csv')
+  # placeholder if not using cleaned data
+}
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 15  # counts in most recent 7 days may not be reliable?
-Tpred <- 3    # number of days held out for predictive probs eval
+Tignore <- 5  # counts in most recent 7 days may not be reliable?
+Tpred <- 2    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
 Tlik <- M*Tstep     # number of days for likelihood to infer Rt
 Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
@@ -69,7 +76,8 @@ OBSERVATIONMODELS = list(
   'poisson' = 1,
   'neg_binomial_2' = 2,
   'neg_binomial_3' = 3,
-  'cleaned' = 4
+  'cleaned_mean' = 4,
+  'cleaned_sample' = 4
 )
 OBSERVATIONMODEL = OBSERVATIONMODELS[[opt$observation]]
 if (is.null(OBSERVATIONMODEL)) {

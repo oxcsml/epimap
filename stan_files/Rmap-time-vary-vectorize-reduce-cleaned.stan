@@ -444,11 +444,12 @@ generated quantities {
     convlikout = metapop(DO_METAPOP,DO_IN_OUT,
         Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
 
-    // posterior predictive expected counts
-    for (k in 1:M) 
-      Cpred[,(1+(k-1)*Tstep):(k*Tstep)] = convlikout[k];
 
     if (OBSERVATIONMODEL != CLEANED) {
+      { // posterior predictive expected counts
+        for (k in 1:M) 
+          Cpred[,(1+(k-1)*Tstep):(k*Tstep)] = convlikout[k];
+      }
       { // predictive probability of future counts 
         row_vector[F1] pred_fluxproportions[1];
         matrix[N,1] pred_Rin;
@@ -504,7 +505,7 @@ generated quantities {
       }
     } else { // OBSERVATIONMODEL == CLEANED
       int Tidp = max(Tip,Tdp);
-      matrix[N,Tidp+Tforw] Cforw;
+      matrix[N,Tcur+Tforw] Clatent;
       row_vector[F1] forw_fluxproportions[1];
       matrix[F1,N*1] convforwflux[1];
       matrix[N,1] forw_Rin;
@@ -515,30 +516,42 @@ generated quantities {
       forw_Rin = block(Rin, 1, M, N, 1);
       forw_Rout = block(Rout, 1, M, N, 1);
 
-      Cforw[,1:Tidp] = Creal[,Tcur-Tidp+1:Tcur];
+      Clatent[,1:Tcond] = Creal[,1:Tcond];
+      for (k in 1:M) 
+        Clatent[,Tcond+(k-1)*Tstep+1:Tcond+k*Tstep] = convlikout[k];
       for (i in 1:Tforw) {
         for (j in 1:N) 
           convforwall[1,j,1] = convforw[1,j,i] + 
-              dot_product(Cforw[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+              dot_product(Clatent[j,Tcur+1:Tcur+(i-1)], infprofile_rev[(Tip-i+2):Tip]);
         if (DO_METAPOP && !DO_IN_OUT)
           convforwflux = in_compute_flux(convforwall,fluxt);
-        Cforw[,Tidp+i] = metapop(DO_METAPOP,DO_IN_OUT,
+        Clatent[,Tcur+i] = metapop(DO_METAPOP,DO_IN_OUT,
             forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
       }
  
+      { // posterior predictive expected counts
+        for (t in Tcond+1:Tcur) {
+          int s = t-Tcond;
+          Cpred[,s] = Clatent[,t-Tdp:t-1] * delayprofile_rev;
+        }
+      }
+      { // forecasting expected counts given parameters
+        for (t in Tcur+1:Tcur+Tproj) {
+          int i = t-Tcur;
+          Cproj[,i] = Clatent[,t-Tdp:t-1] * delayprofile_rev;
+        }
+      }
       // predictive probability of future counts 
-      for (i in 1:Tpred) {
-        vector[N] convdelayed = Cforw[,Tidp+i-Tdp:Tidp+i-1] * delayprofile_rev;
+      for (t in Tcur+1:Tcur+Tpred) {
+        int i = t-Tcur;
+        vector[N] cc = Clatent[,t-Tdp:t-1] * delayprofile_rev;
         for (j in 1:N) {
-          Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-              convdelayed[j],
-              convdelayed[j] / 2.0 //*** TODO use better estimated dispersion ***//
+          Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,t] |
+              cc[j],
+              cc[j] / 2.0 //*** TODO use better estimated dispersion ***//
           )); 
         }
       }
-      // forecasting expected counts given parameters
-      for (i in 1:Tproj) 
-        Cproj[,i] = Cforw[,Tidp+i-Tdp:Tidp+i-1] * delayprofile_rev;
     }
 
   } 

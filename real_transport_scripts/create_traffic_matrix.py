@@ -25,7 +25,7 @@ def get_flow(code_from, code_to):
         if (code_from not in list(traffic_raw["From"])) or (
             code_to not in list(traffic_raw["To"])
         ):
-            print(f"Didn't find one of the codes at all in the table.")
+            print(f"Didn't find one of the codes at all in the table.") # shouldn't happen
         return 0
     else:
         return flow.sum()
@@ -46,7 +46,7 @@ def region2code(region):
     if len(codes) == 1:
         return codes.item()
     else:
-        assert region == "Highland"  # should only happen for this?
+        assert region == "Highland" # should only happen for this?
         return list(codes)[0]
 
 

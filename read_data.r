@@ -1,8 +1,8 @@
 infprofile <- read.csv("data/serial_interval.csv")$fit
-D <- length(infprofile)
 Tip <- 30
 infprofile <- infprofile[1:Tip]
 infprofile <- infprofile/sum(infprofile)
+D <- length(infprofile)
 
 Tdp <- 14
 Adp <- 5.0

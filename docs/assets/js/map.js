@@ -1,5 +1,3 @@
----
----
 // Constants
 const TOPOJSON_PATH = "assets/data/uk_lad_boundaries.json";
 const SITE_DATA_PATH = "assets/data/site_data.csv";
@@ -69,6 +67,13 @@ const projectedChartLine = caseChartSvg.append("path")
 const projectedArea = caseChartSvg.append("path")
     .attr("class", "projected-cases-area");
 
+const caseCurrentDateLine = caseChartSvg.append("g");
+
+caseCurrentDateLine.append("line")
+    .attr("class", "current-date-line")
+    .attr("y1", 0)
+    .attr("y2", chartHeight);
+
 const rtChartSvg = d3.select("#rt-chart");
 
 const rtChartMedianLine = rtChartSvg.append("path")
@@ -83,6 +88,13 @@ const rtChartOuterArea = rtChartSvg.append("path")
 const rtHorizontalLine = rtChartSvg.append("g")
     .attr("class", "rt-horizontal-line");
 
+const rtCurrentDateLine = rtChartSvg.append("g");
+
+rtCurrentDateLine.append("line")
+    .attr("class", "current-date-line")
+    .attr("y1", 0)
+    .attr("y2", chartHeight);
+
 // Add the X Axes
 const caseChartXAxis = caseChartSvg.append("g")
     .attr("class", "chart-x-axis")
@@ -91,6 +103,12 @@ const caseChartXAxis = caseChartSvg.append("g")
 const rtChartXAxis = rtChartSvg.append("g")
     .attr("class", "chart-x-axis")
     .attr("transform", `translate(0,${chartHeight})`);
+
+const caseX = d3.scaleTime()
+    .range([chartMargin.left, chartMargin.left + chartWidth]);
+
+const rtX = d3.scaleTime()
+    .range([chartMargin.left, chartMargin.left + chartWidth]);
 
 // Add the Y Axis
 const caseChartYAxis = caseChartSvg.append("g")
@@ -177,6 +195,7 @@ const caseHistoryPer100k = d3.map();
 const groupedAreaMap = d3.map();
 const groupedAreaConstituents = d3.map();
 const populations = d3.map();
+let selectedDate = null;
 
 // Tooltip container
 const tooltip_div = d3.select("body").append("div")
@@ -387,16 +406,25 @@ Promise.all([
 
 const colorDomain = [0.5, 1.0, 2.0];
 const pExceedColorDomain = [0, 0.5, 1.0];
+const bisectDate = d3.bisector(d=>d).left;
 
-function getRtForArea(area) {
+function getRtForArea(area, availableDates) {
     const rtSeries = rtData.get(area);
     if (!rtSeries) {
         return "? [? - ?]";
     }
-    const [lastRt] = rtSeries.slice(-1)
-    const median = lastRt.Rt50.toFixed(2);
-    const upper = lastRt.Rt90.toFixed(2);
-    const lower = lastRt.Rt10.toFixed(2);
+    let rt = null;
+    if (availableDates) {
+        const idx = bisectDate(availableDates, selectedDate, 1);
+        rt = rtSeries[idx];
+    }
+    else {
+        [rt] = rtSeries.slice(-1);
+    }
+
+    const median = rt.Rt50.toFixed(1);
+    const upper = rt.Rt90.toFixed(1);
+    const lower = rt.Rt10.toFixed(1);
     return `${median} [${lower} - ${upper}]`;
 }
 
@@ -414,13 +442,22 @@ function getCaseProjForArea(area) {
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
 
-function getPExceedForArea(area) {
+function getPExceedForArea(area, availableDates) {
     if (!pexceedData.has(area)) {
         return "Unknown";
     }
     const pExceedSeries = pexceedData.get(area);
-    const [lastPExceed] = pExceedSeries.slice(-1)
-    const pRtOver1 = lastPExceed.P10.toFixed(2);
+
+    let pExceed = null;
+    if (availableDates) {
+        const idx = bisectDate(availableDates, selectedDate, 1);
+        pExceed = pExceedSeries[idx];
+    }
+    else {
+        [pExceed] = pExceedSeries.slice(-1)
+    }
+
+    const pRtOver1 = pExceed.P10.toFixed(2);
     return `${pRtOver1}`;
 }
 
@@ -459,7 +496,7 @@ function getCaseHistoryPer100kForArea(area) {
 }
 
 function areaNameToId(areaName) {
-    return areaName.replace(" and ", "-").replace(" upon ", "-").replace(",", "").replace(" ", "-");
+    return areaName.replace(" and ", "-").replace(" upon ", "-").replace(",", "").replace(" ", "-").replace("'", "");
 }
 
 // Handle data loaded
@@ -515,7 +552,7 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-    const bisectDate = d3.bisector(d=>d).left;
+    selectDate(d3.max(availableDates));
 
     rtFillFn = date => {
         const idx = bisectDate(availableDates, date, 1);
@@ -562,10 +599,10 @@ function ready(data) {
                 .style("opacity", .9);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Last week Rt: ${getRtForArea(d.properties.lad20nm)}`);
-            tooltip_info2.text(`Last week cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm).casesLast7Day}`);
-            tooltip_info3.text(`Next week cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm)}`);
-            tooltip_info4.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm)}`);
+            tooltip_info1.text(`Last week Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info2.text(`Last week cases (per 100k): ${getCaseHistoryPer100kForArea(d.properties.lad20nm, availableDates).casesLast7Day}`);
+            tooltip_info3.text(`Next week cases (per 100k): ${getCaseProjPer100kForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info4.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -671,6 +708,7 @@ function ready(data) {
     showRt.on("click", () => {
         if (showCases.classed("active") || showPExceed.classed("active")) {
             map.attr("fill", rtFillFn(d3.max(availableDates)));
+            selectDate(d3.max(availableDates));
             legend.style("fill", "url(#rt-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -709,6 +747,7 @@ function ready(data) {
     showPExceed.on("click", () => {
         if (showRt.classed("active") || showCases.classed("active")) {
             map.attr("fill", pExceedFillFn(d3.max(availableDates)));
+            selectDate(d3.max(availableDates));
             legend.style("fill", "url(#pexceed-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -729,12 +768,12 @@ function ready(data) {
     })
 
     rtSliderChangeFn = (date) => {
-        sliderValueLabel.text(dateFormat(date));
+        selectDate(date);
         map.transition().duration(50).attr("fill", rtFillFn(date));
     }
 
     pExceedSliderChangeFn = (date) => {
-        sliderValueLabel.text(dateFormat(date));
+        selectDate(date);
         map.transition().duration(50).attr("fill", pExceedFillFn(date));
     }
 
@@ -745,20 +784,20 @@ function ready(data) {
         .marks(availableDates)
         .tickFormat(d3.timeFormat("%b"))
         .width(sliderWidth)
-        .displayValue(false)
-        .value(d3.max(availableDates))
-        .on('onchange', rtSliderChangeFn);
+        .displayValue(false);
     
     sliderG.call(timeSlider);
     sliderValueLabel.text(dateFormat(d3.max(availableDates)));
 
     changeSlider = (changeFn) => {
-        timeSlider.min(d3.min(availableDates))
-            .on('onchange', changeFn)
+        timeSlider
+            .on('onchange', _.debounce(changeFn, 100))
             .value(d3.max(availableDates));
             
         sliderValueLabel.text(dateFormat(d3.max(availableDates)));
     }
+
+    changeSlider(rtSliderChangeFn);
 
     // Set up local area search box
     const areas = rtData.keys();
@@ -787,38 +826,39 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
     const xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
     const yDomain = [0, d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
 
-    const x = d3.scaleTime()
-        .domain(xDomain)
-        .range([chartMargin.left, chartMargin.left + chartWidth]);
+    caseX.domain(xDomain);
+    // const x = d3.scaleTime()
+    //     .domain(xDomain)
+    //     .range([chartMargin.left, chartMargin.left + chartWidth]);
     const y = d3.scaleLinear()
         .domain(yDomain)
         .range([chartHeight, 0]);
 
     // Define the lines
     const actualCasesLine = d3.line()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.cases_new); });
 
     const smoothedCasesLine = d3.line()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.cases_new_smoothed); });
 
     const predictedCasesLine = d3.line()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.C_median); });
 
     const predictedCasesArea = d3.area()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y0(function (d) { return y(d.C_lower); })
         .y1(function (d) { return y(d.C_upper); });
 
 
     const projectedCasesLine = d3.line()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.C_median); });
 
     const projectedCasesArea = d3.area()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return caseX(d.Date); })
         .y0(function (d) { return y(d.C_lower); })
         .y1(function (d) { return y(d.C_upper); });
 
@@ -859,12 +899,16 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .duration(500)
         .attr("d", projectedCasesLine);
 
-    caseChartXAxis.call(d3.axisBottom(x));
+    caseChartXAxis.call(d3.axisBottom(caseX));
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
     caseChartTitle.text(`COVID-19 Cases for ${area}`);
 
     const predictionDate = d3.min(predictionData.map(c => c.Date));
     const projectionDate = d3.max(chartData.map(c => c.Date));
+
+    caseCurrentDateLine
+        .style("display", null)
+        .attr("transform", "translate(" + caseX(selectedDate) + ", 0)");
 
     const focus = caseChartSvg.append("g")
         .attr("class", "focus")
@@ -904,14 +948,14 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
     }
 
     function mousemove() {
-        const x0 = x.invert(d3.mouse(this)[0] + chartMargin.left),
+        const x0 = caseX.invert(d3.mouse(this)[0] + chartMargin.left),
             i = bisectDate(allData, x0, 1),
             d0 = allData[i - 1],
             d1 = allData[i],
             d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
 
         // TODO: Change this to cases actual, smoothed and projections
-        focus.attr("transform", "translate(" + x(d.Date) + "," + y(getValue(d)) + ")");
+        focus.attr("transform", "translate(" + caseX(d.Date) + "," + y(getValue(d)) + ")");
         focus.select("text").text(function () { return Math.round(getValue(d)); });
         focus.select(".x-hover-line").attr("y2", chartHeight - y(getValue(d)));
     }
@@ -922,25 +966,27 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
     //const xDomain = d3.extent(rtData.map(c => c.Date));
     const yDomain = [0, 3.1];
 
-    const x = d3.scaleTime()
-        .domain(xDomain)
-        .range([chartMargin.left, chartMargin.left + chartWidth]);
+    rtX.domain(xDomain);
+
+    // const x = d3.scaleTime()
+    //     .domain(xDomain)
+    //     .range([chartMargin.left, chartMargin.left + chartWidth]);
     const y = d3.scaleLinear()
         .domain(yDomain)
         .range([chartHeight, 0]);
 
     // Define the lines
     const rtMedianLine = d3.line()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return rtX(d.Date); })
         .y(function (d) { return y(d.Rt50); });
 
     const rtInnerArea = d3.area()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return rtX(d.Date); })
         .y0(function (d) { return y(d.Rt25); })
         .y1(function (d) { return y(d.Rt75); });
     
     const rtOuterArea = d3.area()
-        .x(function (d) { return x(d.Date); })
+        .x(function (d) { return rtX(d.Date); })
         .y0(function (d) { return y(d.Rt025); })
         .y1(function (d) { return y(d.Rt975); });
 
@@ -967,9 +1013,13 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
         .append("line")
         .attr("x2", chartWidth);
 
-    rtChartXAxis.call(d3.axisBottom(x));
+    rtChartXAxis.call(d3.axisBottom(rtX));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
     rtChartTitle.text(`Estimated Rt ${area}`);
+
+    rtCurrentDateLine
+        .style("display", null)
+        .attr("transform", "translate(" + rtX(selectedDate) + ", 0)");
 
     //TODO: Refactor this out into a function!
     const focus = rtChartSvg.append("g")
@@ -1000,13 +1050,13 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
     const bisectDate = d3.bisector(function (d) { return d.Date; }).left;
 
     function mousemove() {
-        const x0 = x.invert(d3.mouse(this)[0] + chartMargin.left),
+        const x0 = rtX.invert(d3.mouse(this)[0] + chartMargin.left),
             i = bisectDate(rtData, x0, 1),
             d0 = rtData[i - 1],
             d1 = rtData[i],
             d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
 
-        focus.attr("transform", "translate(" + x(d.Date) + "," + y(d.Rt50) + ")");
+        focus.attr("transform", "translate(" + rtX(d.Date) + "," + y(d.Rt50) + ")");
         focus.select("text").text(function () { return Math.round(d.Rt50); });
         focus.select(".x-hover-line").attr("y2", chartHeight - y(d.Rt50));
     }
@@ -1018,13 +1068,9 @@ function selectArea(selectedArea) {
         area = groupedAreaMap.get(selectedArea);
         const otherAreas = groupedAreaConstituents.get(area).join(", ");
         d3.select("#sub-heading").text(`Data shown for ${area}, including ${otherAreas}`);
-        //d3.select("#cases-title").text(`Cases for ${area} (including ${selectedArea})`);
-        //d3.select("#estimates-title").text(`Estimates for ${area} (including ${selectedArea})`);
     }
     else {
         d3.select("#sub-heading").text(`Data shown for ${area}`);
-        //d3.select("#cases-title").text(`Cases`);
-        //d3.select("#estimates-title").text(`Estimates`);
     }
 
     g.selectAll("path")
@@ -1061,7 +1107,6 @@ function selectArea(selectedArea) {
         return;
     }
 
-
     const rtChartData = rtData.get(area);
     if (!rtChartData) {
         console.log("ERROR: No Rt data found for area ", area);
@@ -1079,4 +1124,15 @@ function selectArea(selectedArea) {
     rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
     caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
+}
+
+function selectDate(date) {
+    sliderValueLabel.text(dateFormat(date));
+    selectedDate = date;
+    rtCurrentDateLine
+        .transition().duration(100)
+        .attr("transform", "translate(" + rtX(selectedDate) + ", 0)");
+    caseCurrentDateLine
+        .transition().duration(100)
+        .attr("transform", "translate(" + caseX(selectedDate) + ", 0)");
 }

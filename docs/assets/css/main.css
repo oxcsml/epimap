@@ -187,6 +187,12 @@ h3 small {
     padding-left: 2em;
 }
 
+.current-date-line {
+    stroke: #777;
+    stroke-width: 1px;
+    stroke-dasharray: 3,3;
+}
+
 /* From https://github.com/Pixabay/JavaScript-autoComplete */
 .autocomplete-suggestions {
     text-align: left; 

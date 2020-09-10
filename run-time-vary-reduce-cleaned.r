@@ -7,7 +7,7 @@ option_list = list(
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
   make_option(c("-c", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
@@ -17,6 +17,8 @@ option_list = list(
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
+
+opt$cleaned_sample_id <- cleaned_sample_id
 
 numchains = opt$chains
 numiters = opt$iterations
@@ -46,6 +48,7 @@ source('read_radiation_fluxes.r')
 if (opt$observation == 'cleaned_sample') {
   id = opt$cleaned_sample_id
   Clean_sample <- read.csv(paste('data/Clatent_sample',id,'.csv',sep=''))
+  print(paste('Using samples from data/Clatent_sample',id,'.csv',sep=''))
 } else {
   # Clean_sample <- read.csv('data/Clean_sample_0831.csv')
   Clean_sample <- read.csv('data/Clatent_mean.csv')
@@ -221,7 +224,7 @@ fit <- stan(file = stan_file_name,
 
 #############################################################################################
 
-#saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
@@ -335,13 +338,25 @@ write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,M)
 Cweekly <- apply(Cweekly,c(1,3),sum)
-Cweekly <- cbind(Cweekly,apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum))
+
+ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum)
+Cweekly <- cbind(Cweekly,ignoredweek)
+
+s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
+projectedweeks <- as.matrix(s[,"50%"])
+Nprojweek = Tproj/Tstep
+dim(projectedweeks) <- c(Tstep,Nprojweek,N)
+projectedweeks <- projectedweeks[,2:Nprojweek,]
+projectedweeks <- apply(projectedweeks,c(2,3),sum)
+projectedweeks <- t(projectedweeks)
+Cweekly <- cbind(Cweekly,projectedweeks)
+
 Cweekly <- t(Cweekly)
-Cweekly <- Cweekly[sapply(1:(M+1),function(k)rep(k,Tstep)),]
-dim(Cweekly) <- c(N*(Tlik+Tstep))
+Cweekly <- Cweekly[sapply(1:(M+Nprojweek),function(k)rep(k,Tstep)),]
+dim(Cweekly) <- c(N*(Tlik+Tstep*Nprojweek))
 df <- area_date_dataframe(
     quoted_areas,
-    c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tstep)),
+    c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tstep*Nprojweek)),
     format(Cweekly,digits=3),
     c("C_weekly")
 )

@@ -8,10 +8,11 @@ option_list = list(
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
   make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
-  make_option(c("-c", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
+  make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
+  make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -44,9 +45,10 @@ source('read_data.r')
 source('read_radiation_fluxes.r')
 #source('read_clean_data.r')
 if (opt$observation == 'cleaned_sample') {
-  id = opt$cleaned_sample_id
-  Clean_sample <- read.csv(paste('data/Clatent_sample',id,'.csv',sep=''))
+  sample_id = opt$cleaned_sample_id
+  Clean_sample <- read.csv(paste('data/Clatent_sample',sample_id,'.csv',sep=''))
 } else {
+  sample_id = 'mean'
   Clean_sample <- read.csv('data/Clatent_mean.csv')
   # placeholder if not using cleaned data
 }
@@ -186,14 +188,15 @@ for (i in 1:numchains) {
     )
 }
 
-runname = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
-  as.character(Sys.time(),format='%Y%m%d%H%M%S'),
-  opt$spatialkernel, 
-  opt$localkernel, 
-  opt$globalkernel, 
-  opt$metapop, 
-  opt$observation,
-  opt$time_steps
+runname = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s-%s',  
+  as.character(Sys.time(),format='%Y%m%d%H%M%S'), 
+  opt$spatialkernel,  
+  opt$localkernel,  
+  opt$globalkernel,  
+  opt$metapop,  
+  opt$observation, 
+  opt$time_steps, 
+  sample_id
 )
 print(runname)
 
@@ -219,7 +222,7 @@ fit <- stan(file = stan_file_name,
 
 #############################################################################################
 
-#saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
@@ -383,5 +386,41 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 #    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
 #    "global_sigma","local_scale","precision")) 
 #dev.off()
- 
+
+if (opt$daily_update) {
+  dir.create('fits/latest_updates')
+
+  runname2 = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
+    'latest',
+    opt$spatialkernel, 
+    opt$localkernel, 
+    opt$globalkernel, 
+    opt$metapop, 
+    opt$observation,
+    opt$time_steps,
+    sample_id
+  )
+
+  file.copy(paste('fits/', runname, '_stanfit.rds', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_stanfit.rds', sep=''), paste('fits/latest_updates/', runname2, '_stanfit.rds', sep=''))
+
+  file.copy(paste('fits/', runname, '_Rt.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Rt.csv', sep=''), paste('fits/latest_updates/', runname2, '_Rt.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Pexceed.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Pexceed.csv', sep=''), paste('fits/latest_updates/', runname2, '_Pexceed.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Cpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Cpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cpred.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Cproj.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Cproj.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cproj.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_Cweekly.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_Cweekly.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cweekly.csv', sep=''))
+
+  file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
+  file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
+
+
 print(runname)

@@ -1,11 +1,10 @@
 ---
-layout: null
 ---
 <!DOCTYPE html>
-{% include noindex.html %}
 <meta charset="utf-8">
 
 <html>
+
     <head>
         <!-- Load d3.js -->
         <script src="https://d3js.org/d3.v5.js"></script>
@@ -17,7 +16,9 @@ layout: null
         <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.0/milligram.css">
-        <link rel="stylesheet" href="{{site.baseurl}}/assets/css/main.css">
+        <link rel="stylesheet" href="assets/css/main.css"/>
+
+        <link rel="shortcut icon" href="{{ "/favicon.ico" | prepend: site.baseurl | prepend: site.url }}" />
     </head>
 
     <body>
@@ -26,6 +27,9 @@ layout: null
                 <div class="column">
                     <svg id="slider-svg" width="500" height="50"></svg>
                     <svg id="map" width="500" height="500"></svg>
+                    <div class="search-container">
+                        <input id="areaSearch" tabindex="1" placeholder="Find Local Authority">
+                    </div>
                 </div>
                 <div class="column" width="500">
                     <h1 id="data-heading">Select an area in the map...</h1>
@@ -51,7 +55,8 @@ layout: null
             </div>
         </div>
 
-        <script src='{{site.baseurl}}/assets/js/map.js'></script>
+        <script src="assets/js/auto-complete.min.js"></script>
+        <script src="assets/js/map.js"></script>
 
     </body>
 

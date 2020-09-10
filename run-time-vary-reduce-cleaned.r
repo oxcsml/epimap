@@ -47,6 +47,7 @@ if (opt$observation == 'cleaned_sample') {
   id = opt$cleaned_sample_id
   Clean_sample <- read.csv(paste('data/Clatent_sample',id,'.csv',sep=''))
 } else {
+  # Clean_sample <- read.csv('data/Clean_sample_0831.csv')
   Clean_sample <- read.csv('data/Clatent_mean.csv')
   # placeholder if not using cleaned data
 }

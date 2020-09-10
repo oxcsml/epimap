@@ -6,13 +6,13 @@ option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
-  make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
-  make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
+  make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},traffic{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",         help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
+  make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",                help="id of cleaned sample to use"),
   make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
-  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
-  make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
+  make_option(c("-n", "--time_steps"),    type="integer",   default=15,                     help="Number of periods to fit Rt in"),
+  make_option(c("-d", "--daily_update"),  action="store_true", default=FALSE,               help="If True, will overide the lastest daily update of this model on compleation"),
   make_option(c("-t", "--task_id"),       type="integer",   default=0,                      help="Task ID for Slurm usage. By default, turned off [0].")
 ); 
 
@@ -42,7 +42,7 @@ options(mc.cores = min(numchains,parallel::detectCores()))
 rstan_options(auto_write = TRUE)
 
 source('read_data.r')
-source('read_radiation_fluxes.r')
+source('read_fluxes.r')
 #source('read_clean_data.r')
 if (opt$observation == 'cleaned_sample') {
   sample_id = opt$cleaned_sample_id
@@ -93,6 +93,9 @@ METAPOPOPTIONS = list(
   'radiation1' = radiation_flux[,,1], # smoothed radiation model with length scale = .1 (10km)
   'radiation2' = radiation_flux[,,2], # smoothed radiation model with length scale = .2 (20km)
   'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
+  'traffic1' = traffic_flux[,,1], # traffic flux (all row sums = 1)
+  'traffic2' = traffic_flux[,,2], # traffic flux (max row sum = 1)
+  'traffic3' = traffic_flux[,,3], # traffic flux transpose (all row sums = 1) 
   'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
 )
 if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {
@@ -424,6 +427,6 @@ if (opt$daily_update) {
 
   file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
   file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
-
+}
 
 print(runname)

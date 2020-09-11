@@ -147,7 +147,9 @@ runs = c(
   'Rmap-time-vary-reduce-cleaned-20200910225318-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910225535-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910230223-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910224547-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
+  'Rmap-time-vary-reduce-cleaned-20200910224547-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
+  'Rmap-time-vary-reduce-cleaned-20200910231253-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
+  'Rmap-time-vary-reduce-cleaned-20200910211954-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
 )
 numruns = length(runs)
 

@@ -19,26 +19,46 @@ const map_svg = d3.select("#map"),
     height = +map_svg.attr("height");
 
 const barHeight = 20;
-const sliderWidth = 300;
+const sliderWidth = 260;
 const barWidth = Math.floor(height / 3);
 const margin = ({ top: 20, right: 40, bottom: 30, left: 40 });
 const g = map_svg.append("g");
 
-const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2);
+const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2) + 30;
 const sliderSvg = d3.select("#slider-svg").style("display", "block");
 const sliderG = sliderSvg.append("g")
     .attr('transform', `translate(${sliderLeft},10)`);
 sliderSvg.append("text")
-    .attr("x", sliderLeft-50)
+    .attr("x", sliderLeft-60)
     .attr("y", 15)
     .attr("text-anchor", "middle")
     .style("font-size", "13px")
-    .text("Rt Date");
+    .text("Date");
 const sliderValueLabel = sliderSvg.append("text")
-    .attr("x", sliderLeft +sliderWidth + 60)
+    .attr("x", sliderLeft + sliderWidth + 70)
     .attr("y", 15)
     .attr("text-anchor", "middle")
     .style("font-size", "13px");
+
+const dateToggleG = sliderSvg.append("g")
+    .attr('transform', `translate(${sliderLeft-35},0)`)
+    .attr("fill", "none")
+    .attr("stroke", "currentColor");
+
+const sliderLeftPath = dateToggleG.append("path")
+    .attr("d", "M15 19l-7-7 7-7")
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("stroke-width", "2")
+    .style("cursor", "pointer");
+
+const sliderRightPath = dateToggleG.append("path")
+    .attr("d", "M9 5l7 7-7 7")
+    .attr('transform', `translate(${sliderWidth+45},0)`)
+    .attr("stroke-linecap", "round")
+    .attr("stroke-linejoin", "round")
+    .attr("stroke-width", "2")
+    .style("cursor", "pointer");
 
 // Set up dimensions for chart
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
@@ -182,6 +202,8 @@ d3.select("#zoom_out").on("click", function () {
 });
 
 const dateFormat = d3.timeFormat("%Y-%m-%d");
+const tooltipDateFormat = d3.timeFormat("%d %b")
+const sevenDays = (24*60*60*1000) * 7;
 
 // Data containers
 const rtData = d3.map();
@@ -209,10 +231,14 @@ tooltip_div.append("br");
 const tooltip_info1 = tooltip_div.append("span")
     .attr("class", "info-row1");
 tooltip_div.append("br");
+tooltip_div.append("br");
 const tooltip_info2 = tooltip_div.append("span")
     .attr("class", "info-row2");
 tooltip_div.append("br");
 const tooltip_info3 = tooltip_div.append("span")
+    .attr("class", "info-row3");
+tooltip_div.append("br");
+const tooltip_info4 = tooltip_div.append("span")
     .attr("class", "info-row4");
 
 // Load external data
@@ -264,7 +290,8 @@ const loadRt = d3.csv(rt_path).then(data => {
             Rt75: +d.Rt_75,
             Rt80: +d.Rt_80,
             Rt90: +d.Rt_90,
-            Rt975: +d.Rt_97_5
+            Rt975: +d.Rt_97_5,
+            provenance: d.provenance
         };
         rtData.get(d.area).push(current);
     });
@@ -278,7 +305,8 @@ const loadPExceed = d3.csv(pexceed_path).then(data => {
 
         const current = {
             Date: d3.timeParse("%Y-%m-%d")(d.Date),
-            P10: +d.P_10
+            P10: +d.P_10,
+            provenance: d.provenance
             // Ignoring other fields, P_08,P_09,P_11,P_12,P_15,P_20 for now
         };
         pexceedData.get(d.area).push(current);
@@ -341,7 +369,7 @@ const loadCaseWeekly = d3.csv(case_weekly_path).then(data => data.forEach(d => {
         caseWeeklyTimeseries.set(d.area, []);
     }
     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    d.C_actual = +d.C_actual;
+    d.C_weekly = +d.C_weekly;
     caseWeeklyTimeseries.get(d.area).push(d);
 }));
 
@@ -385,7 +413,7 @@ const loadCaseWeeklyAndPopulation = Promise.all([
 ]).then(() => {
     caseWeeklyTimeseries.each((series, area) => {
         series.forEach(c => {
-            c.C_actual = (c.C_actual / getPopulation(area)) * 100000;
+            c.C_weekly = (c.C_weekly / getPopulation(area)) * 100000;
         });
     });
 })
@@ -401,17 +429,17 @@ const casesAndMeta = Promise.all([
     nextWeekCaseProj.each((caseProj, area) => {
         const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
-            caseProjLower: Math.round(caseProj.caseProjLower / pop),
-            caseProjMedian: Math.round(caseProj.caseProjMedian / pop),
-            caseProjUpper: Math.round(caseProj.caseProjUpper / pop)
+            caseProjLower: caseProj.caseProjLower / pop,
+            caseProjMedian: caseProj.caseProjMedian / pop,
+            caseProjUpper: caseProj.caseProjUpper / pop
         });
     });
 
     caseHistory.each((cases, area) => {
         const pop = getPopulation(area) / 100000;
         caseHistoryPer100k.set(area, {
-            casesLast7Day: Math.round(cases.casesLast7Day / pop),
-            casesTotal: Math.round(cases.casesTotal / pop)
+            casesLast7Day: cases.casesLast7Day / pop,
+            casesTotal: cases.casesTotal / pop
         });
     });
 });
@@ -426,6 +454,8 @@ Promise.all([
 const colorDomain = [0.5, 1.0, 2.0];
 const pExceedColorDomain = [0, 0.5, 1.0];
 const bisectDate = d3.bisector(d=>d).left;
+
+let currentSliderChangeFn = null;
 
 function getRtForArea(area, availableDates) {
     const rtSeries = rtData.get(area);
@@ -492,10 +522,13 @@ function getCaseWeeklyForArea(area, availableDates) {
         caseWeekly = caseWeeklySeries[idx];
     }
     else {
-        [caseWeekly] = caseWeeklySeries.slice(-1)
+        [caseWeekly] = caseWeeklySeries.slice(-1);
     }
 
-    const cases = caseWeekly.C_actual.toFixed(1);
+    console.log("caseWeekly:", caseWeekly);
+    const cases = caseWeekly.C_weekly.toFixed(1);
+    console.log("Cases:", cases);
+
     return `${cases}`;
 }
 
@@ -506,9 +539,9 @@ function getCaseProjPer100kForArea(area) {
 
     const projection = nextWeekCaseProjPer100k.get(area);
 
-    const cprojmedian = projection.caseProjMedian;
-    const cprojlower = projection.caseProjLower;
-    const cprojupper = projection.caseProjUpper;
+    const cprojmedian = projection.caseProjMedian.toFixed(1);
+    const cprojlower = projection.caseProjLower.toFixed(1);
+    const cprojupper = projection.caseProjUpper.toFixed(1);
 
     return `${cprojmedian} [${cprojlower} - ${cprojupper}]`;
 }
@@ -557,7 +590,7 @@ function ready(data) {
 
     const rtAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
-        .domain([colorDomain[0], colorDomain[2]]);
+        .domain(colorDomain);
 
     const caseAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
@@ -565,7 +598,7 @@ function ready(data) {
 
     const pExceedAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
-        .domain(pExceedColorDomain[0], pExceedColorDomain[2]);
+        .domain(pExceedColorDomain);
 
     const rtAxisFn = () => d3.axisBottom(rtAxisScale)
         .tickValues(rtColorScale.ticks())
@@ -578,7 +611,7 @@ function ready(data) {
         .tickSize(-barHeight);
 
     const pexceedAxisFn = () => d3.axisBottom(pExceedAxisScale)
-        .tickValues(logScale.ticks(2))
+        .tickValues(pExceedColorScale.ticks(2))
         .tickFormat(d => d)
         .tickSize(-barHeight);  
 
@@ -624,7 +657,7 @@ function ready(data) {
                 return "#ccc";
             }
             const cases = caseSeries[idx];
-            return caseColorScale(cases.C_actual);
+            return caseColorScale(cases.C_weekly);
         }
     }
 
@@ -641,9 +674,12 @@ function ready(data) {
                 .style("opacity", .9);
 
             tooltip_header.text(d.properties.lad20nm);
-            tooltip_info1.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
-            tooltip_info2.text(`Cases / 100k): ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates).casesLast7Day}`);
-            tooltip_info3.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
+            const startDate = new Date();
+            startDate.setTime(selectedDate.getTime() - sevenDays);
+            tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
+            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info3.text(`Cases / 100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info4.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -679,7 +715,7 @@ function ready(data) {
         .attr("id", "pexceed-gradient");
 
     rtGradient.selectAll("stop")
-        .data([0.5,0.75,.9,1.0,1.1,1.5,2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        .data([0.5, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
@@ -691,7 +727,7 @@ function ready(data) {
         .attr("stop-color", d => d.color);
 
     pExceedGradient.selectAll("stop")
-        .data([0.0, 0.25, 0.5, 0.75, 1.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: pExceedColorScale(t) })))
+        .data([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: pExceedColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
@@ -815,6 +851,8 @@ function ready(data) {
         map.transition().duration(50).attr("fill", rtFillFn(date));
     }
 
+    currentSliderChangeFn = rtSliderChangeFn;
+
     pExceedSliderChangeFn = (date) => {
         selectDate(date);
         map.transition().duration(50).attr("fill", pExceedFillFn(date));
@@ -843,9 +881,30 @@ function ready(data) {
             .value(d3.max(availableDates));
             
         sliderValueLabel.text(dateFormat(d3.max(availableDates)));
+        currentSliderChangeFn = changeFn;
     }
 
     changeSlider(rtSliderChangeFn);
+
+    sliderLeftPath.on("click", () => {
+        let updatedDate = new Date();
+        updatedDate.setTime(selectedDate.getTime() - sevenDays);
+        if (updatedDate < d3.min(availableDates)) {
+            updatedDate = d3.min(availableDates);
+        }
+        timeSlider.value(updatedDate);
+        currentSliderChangeFn(updatedDate);
+    });
+
+    sliderRightPath.on("click", () => {
+        let updatedDate = new Date();
+        updatedDate.setTime(selectedDate.getTime() + sevenDays);
+        if (updatedDate > d3.max(availableDates)) {
+            updatedDate = d3.max(availableDates);
+        }
+        timeSlider.value(updatedDate);
+        currentSliderChangeFn(updatedDate);
+    });
 
     // Set up local area search box
     const areas = rtData.keys();
@@ -1168,7 +1227,7 @@ function selectArea(selectedArea) {
     casesLast7Info.text(caseHistory.casesLast7Day);
     casesTotalInfo.text(caseHistory.casesTotal);
     const caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
-    casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day);
+    casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day.toFixed(1));
     rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
     caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));

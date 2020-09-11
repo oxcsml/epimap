@@ -201,6 +201,18 @@ runname = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s-%s',
 )
 print(runname)
 
+if (opt$daily_update) {
+  runname_latest = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
+    'latest',
+    opt$spatialkernel, 
+    opt$localkernel, 
+    opt$globalkernel, 
+    opt$metapop, 
+    opt$observation,
+    opt$time_steps,
+    sample_id
+  )
+}
 
 # copy the stan file and put in the right kernel
 stan_file_name = paste('fits/', runname, '.stan', sep='')
@@ -224,6 +236,9 @@ fit <- stan(file = stan_file_name,
 #############################################################################################
 
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
+if (opt$daily_update) {
+  saveRDS(fit, paste('fits/latest_updates', runname_latest, '_stanfit', '.rds', sep=''))
+}
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
 
@@ -287,6 +302,11 @@ df <- area_date_dataframe(
 )
 write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
+  
+if (opt$daily_update) {
+  write.csv(df, paste('fits/latest_updates', runname, '_Rt.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+}
 
 #################################################################
 # Rt exceedance probabilities
@@ -314,6 +334,11 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Pexceed.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+if (opt$daily_update) {
+  write.csv(df, paste('fits/latest_update', runname_latest, '_Pexceed.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+}
+
 
 
 #################################################################
@@ -333,6 +358,11 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+if (opt$daily_update) {
+  write.csv(df, paste('fits/latest_update', runname_latest, '_Cpred.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+}
+
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,M)
@@ -350,6 +380,10 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Cweekly.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+if (opt$daily_update) {
+  write.csv(df, paste('fits/latest_update', runname_latest, '_Cweekly.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+}
 
 
 s <- summary(fit, pars=c("Cproj"), probs=c(0.025, .25, .5, .75, .975))$summary
@@ -367,6 +401,9 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
+if (opt$daily_update) {write.csv(df, paste('fits/latest_update', runname_latest, '_Cproj.csv', sep=''),
+    row.names=FALSE,quote=FALSE)
+}
 
 #################################################################
 # predictive probabilities
@@ -382,6 +419,12 @@ for (i in 1:Tpred)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
     row.names=FALSE)
 
+if (opt$daily_update) {
+  write.csv(df, paste('fits/latest_update', runname_latest, '_logpred', '.csv', sep=''),
+    row.names=FALSE)
+
+}
+
 ####################################################################
 # pairs plot
 #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
@@ -389,41 +432,5 @@ write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
 #    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
 #    "global_sigma","local_scale","precision")) 
 #dev.off()
-
-if (opt$daily_update) {
-  dir.create('fits/latest_updates')
-
-  runname2 = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
-    'latest',
-    opt$spatialkernel, 
-    opt$localkernel, 
-    opt$globalkernel, 
-    opt$metapop, 
-    opt$observation,
-    opt$time_steps,
-    sample_id
-  )
-
-  file.copy(paste('fits/', runname, '_stanfit.rds', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_stanfit.rds', sep=''), paste('fits/latest_updates/', runname2, '_stanfit.rds', sep=''))
-
-  file.copy(paste('fits/', runname, '_Rt.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Rt.csv', sep=''), paste('fits/latest_updates/', runname2, '_Rt.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Pexceed.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Pexceed.csv', sep=''), paste('fits/latest_updates/', runname2, '_Pexceed.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Cpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Cpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cpred.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Cproj.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Cproj.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cproj.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_Cweekly.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_Cweekly.csv', sep=''), paste('fits/latest_updates/', runname2, '_Cweekly.csv', sep=''))
-
-  file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
-  file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
-
 
 print(runname)

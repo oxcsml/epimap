@@ -9,7 +9,7 @@ option_list = list(
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
   make_option(c("-o", "--observation"),   type="character", default="cleaned_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
   make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
-  make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
+  make_option(c("-c", "--chains"),        type="integer",   default=1,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
   make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
@@ -19,8 +19,8 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
-# opt$cleaned_sample_id <- cleaned_sample_id
 
+opt$cleaned_sample_id <- cleaned_sample_id
 numchains = opt$chains
 numiters = opt$iterations
 
@@ -254,14 +254,19 @@ print(summary(fit,
 # save raw samples
 save_samples = function(pars,areafirst=FALSE) {
   samples = extract(fit,pars=pars,permuted=FALSE)
-  ns = dim(samples)[1]
+  samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=F]
+  ns = numiters/2
   np = dim(samples)[3]/N
+  parnames = dimnames(samples)[[3]]
+  dim(samples) = c(ns,np*N)
+  colnames(samples) = parnames
   if (areafirst) {
     ind = N*(rep(1:np,N)-1) + rep(1:N,each=np) 
-    samples = samples[,,ind,drop=T]
+    samples = samples[,ind,drop=F]
   } else {
-    samples = samples[,,,drop=T]
+    samples = samples[,,drop=F]
   }
+  samples = round(samples,2)
   write.csv(samples,paste('fits/',runname,'_',pars,'_samples.csv',sep=''))
 }
 save_samples("Rt")

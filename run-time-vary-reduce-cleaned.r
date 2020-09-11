@@ -7,9 +7,9 @@ option_list = list(
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="cleaned_mean",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
   make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
-  make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
+  make_option(c("-c", "--chains"),        type="integer",   default=1,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
   make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
@@ -19,6 +19,8 @@ option_list = list(
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
+
+opt$cleaned_sample_id <- cleaned_sample_id
 numchains = opt$chains
 numiters = opt$iterations
 
@@ -47,6 +49,7 @@ source('read_radiation_fluxes.r')
 if (opt$observation == 'cleaned_sample') {
   sample_id = opt$cleaned_sample_id
   Clean_sample <- read.csv(paste('data/Clatent_sample',sample_id,'.csv',sep=''))
+  print(paste('Using samples from data/Clatent_sample',sample_id,'.csv',sep=''))
 } else {
   sample_id = 'mean'
   Clean_sample <- read.csv('data/Clatent_mean.csv')
@@ -62,6 +65,8 @@ Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcur <- Tall-Tpred       # number of days we condition on
 Tcond <- Tcur-Tlik       # number of days we condition on
 Tproj <- 14           # number of days to project forward
+
+Mproj = Tproj/Tstep
 
 AllCount <- Count
 Count <- Count[,1:Tall] # get rid of ignored last days
@@ -243,24 +248,52 @@ print(summary(fit,
         "global_sigma","local_scale","dispersion",
         "Rt_all","coupling_rate","flux_probs"), 
     probs=0.5)$summary)
- 
+
+
+#################################################################
+# save raw samples
+save_samples = function(pars,areafirst=FALSE) {
+  samples = extract(fit,pars=pars,permuted=FALSE)
+  samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=F]
+  ns = numiters/2
+  np = dim(samples)[3]/N
+  parnames = dimnames(samples)[[3]]
+  dim(samples) = c(ns,np*N)
+  colnames(samples) = parnames
+  if (areafirst) {
+    ind = N*(rep(1:np,N)-1) + rep(1:N,each=np) 
+    samples = samples[,ind,drop=F]
+  } else {
+    samples = samples[,,drop=F]
+  }
+  samples = round(samples,2)
+  write.csv(samples,paste('fits/',runname,'_',pars,'_samples.csv',sep=''))
+}
+save_samples("Rt")
+save_samples("Cpred",areafirst=TRUE)
+save_samples("Cproj",areafirst=TRUE)
  
 #################################################################
 
-area_date_dataframe <- function(areas,dates,data,data_names) {
+area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
   numareas <- length(areas)
   numdates <- length(dates)
   dates <- rep(dates,numareas)
   dim(dates) <- c(numareas*numdates)
+  provenance <- rep(provenance,numareas)
+  dim(provenance) <- c(numareas*numdates)
   areas <- rep(areas,numdates)
   dim(areas) <- c(numareas,numdates)
   areas <- t(areas)
   dim(areas) <- c(numareas*numdates)
-  df <- data.frame(area=areas,Date=dates,data=data)
-  colnames(df)[3:ncol(df)] <- data_names
+  df <- data.frame(area=areas,Date=dates,data=data,provenance=provenance)
+  colnames(df)[3:(ncol(df)-1)] <- data_names
   df
 }
 
+
+provenance <- c(rep('inferred',Tlik),rep('projected',Tproj))
+days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj))
 
 #################################################################
 # Rt posterior
@@ -269,17 +302,17 @@ Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%",
 #s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
 #Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
 
-times = rep(1:M, N)
-places = rep(1:N, each=M)
+times = rep(c(1:M,rep(M,Mproj)), N)
+places = rep(1:N, each=M+Mproj)
 indicies = places + (N)*(times-1)
 Rt = Rt[indicies,]
 
-Rt <- Rt[sapply(1:(N*M),function(i)rep(i,Tstep)),]
+Rt <- Rt[sapply(1:(N*(M+Mproj)),function(i)rep(i,Tstep)),]
 print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas, 
-    #dates[Tcond+1],
-    days_likelihood,
+    days_all,
+    provenance,
     format(round(Rt,2),nsmall=2),
     #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
     c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
@@ -303,11 +336,13 @@ for (k in 1:M) {
     }
   }
 }
-Pexceedance <- Pexceedance[sapply(1:M,function(k)rep(k,Tstep)),,]
-dim(Pexceedance) <- c(Tstep*M*N,numthresholds)
+Pexceedance = Pexceedance[c(1:M,rep(M,Mproj)),,]
+Pexceedance <- Pexceedance[sapply(1:(M+Mproj),function(k)rep(k,Tstep)),,]
+dim(Pexceedance) <- c(Tstep*(M+Mproj)*N,numthresholds)
 df <- area_date_dataframe(
     quoted_areas, 
-    days_likelihood,
+    days_all,
+    provenance,
     format(round(Pexceedance,2),nsmall=2),
     c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
 )
@@ -326,6 +361,7 @@ print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"
 df <- area_date_dataframe(
     quoted_areas,
     seq(dates[Tcond]+1,by=1,length.out=M*Tstep),
+    rep('inferred',Tlik),
     format(round(Cpred,1),nsmall=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
@@ -337,14 +373,26 @@ write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,M)
 Cweekly <- apply(Cweekly,c(1,3),sum)
-Cweekly <- cbind(Cweekly,apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum))
+
+ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum)
+Cweekly <- cbind(Cweekly,ignoredweek)
+
+s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
+projectedweeks <- as.matrix(s[,"50%"])
+dim(projectedweeks) <- c(Tstep,Mproj,N)
+projectedweeks <- projectedweeks[,2:Mproj,,drop=FALSE]
+projectedweeks <- apply(projectedweeks,c(2,3),sum)
+projectedweeks <- t(projectedweeks)
+Cweekly <- cbind(Cweekly,projectedweeks)
+
 Cweekly <- t(Cweekly)
-Cweekly <- Cweekly[sapply(1:(M+1),function(k)rep(k,Tstep)),]
-dim(Cweekly) <- c(N*(Tlik+Tstep))
+Cweekly <- Cweekly[sapply(1:(M+Mproj),function(k)rep(k,Tstep)),]
+dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
 df <- area_date_dataframe(
     quoted_areas,
-    c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tstep)),
-    format(Cweekly,digits=3),
+    days_all,
+    provenance,
+    format(round(Cweekly,1),digits=6),
     c("C_weekly")
 )
 write.csv(df, paste('fits/', runname, '_Cweekly.csv', sep=''),
@@ -360,7 +408,8 @@ print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"
 df <- area_date_dataframe(
     quoted_areas,
     seq(dates[Tcur]+1,by=1,length.out=Tproj),
-    format(round(Cproj,1),digits=1),
+    rep('projected',Tproj),
+    format(round(Cproj,1),digits=5),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
 )
@@ -376,7 +425,7 @@ logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
 print(sprintf("mean log predictives = %f",mean(logpred)))
-df <- data.frame(area = quoted_areas, logpred = logpred)
+df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred',Tlik))
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
@@ -425,5 +474,6 @@ if (opt$daily_update) {
   file.copy(paste('fits/', runname, '_logpred.csv', sep=''), 'fits/latest_updates', overwrite = TRUE)
   file.rename(paste('fits/latest_updates/', runname, '_logpred.csv', sep=''), paste('fits/latest_updates/', runname2, '_logpred.csv', sep=''))
 
+}
 
 print(runname)

@@ -179,18 +179,21 @@ h3 small {
     stroke-dasharray: 3,3;
 }
 
-#areaSearch {
-    width: 75%;
-}
-
-.search-container {
-    padding-left: 2em;
+.area-search-container {
+    width: 340px;
+    position: relative;
 }
 
 .current-date-line {
     stroke: #777;
     stroke-width: 1px;
     stroke-dasharray: 3,3;
+}
+
+.search-icon {
+    top: 7px;
+    position: absolute;
+    right: 5px;
 }
 
 /* From https://github.com/Pixabay/JavaScript-autoComplete */

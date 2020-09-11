@@ -56,6 +56,11 @@ if (opt$observation == 'cleaned_sample') {
   # placeholder if not using cleaned data
 }
 
+if (!(Tall == length(Clean_sample))){
+  print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
+}
+Tall <- min(Tall, length(Clean_sample))
+
 M <- opt$time_steps        # Testing with 1 time period
 Tignore <- 5  # counts in most recent 7 days may not be reliable?
 Tpred <- 2    # number of days held out for predictive probs eval
@@ -242,7 +247,7 @@ fit <- stan(file = stan_file_name,
 
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
 if (opt$daily_update) {
-  saveRDS(fit, paste('fits/latest_updates', runname_latest, '_stanfit', '.rds', sep=''))
+  saveRDS(fit, paste('fits/latest_updates/', runname_latest, '_stanfit', '.rds', sep=''))
 }
 
 # fit = readRDS(paste('fits/', runname, '_stanfit', '.rds', sep=''))
@@ -278,6 +283,10 @@ save_samples = function(pars,areafirst=FALSE) {
     samples = samples[,,,drop=T]
   }
   write.csv(samples,paste('fits/',runname,'_',pars,'_samples.csv',sep=''))
+  if (opt$daily_update) {
+    write.csv(samples, paste('fits/latest_updates/', runname_latest,'_',pars,'_samples.csv', sep=''),
+      row.names=FALSE,quote=FALSE)
+  }
 }
 save_samples("Rt")
 save_samples("Cpred",areafirst=TRUE)
@@ -332,7 +341,7 @@ write.csv(df, paste('fits/', runname, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
   
 if (opt$daily_update) {
-  write.csv(df, paste('fits/latest_updates', runname, '_Rt.csv', sep=''),
+  write.csv(df, paste('fits/latest_updates/', runname_latest, '_Rt.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 }
 
@@ -365,7 +374,7 @@ write.csv(df, paste('fits/', runname, '_Pexceed.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
 if (opt$daily_update) {
-  write.csv(df, paste('fits/latest_update', runname_latest, '_Pexceed.csv', sep=''),
+  write.csv(df, paste('fits/latest_updates/', runname_latest, '_Pexceed.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 }
 
@@ -390,7 +399,7 @@ write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
 if (opt$daily_update) {
-  write.csv(df, paste('fits/latest_update', runname_latest, '_Cpred.csv', sep=''),
+  write.csv(df, paste('fits/latest_updates/', runname_latest, '_Cpred.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 }
 
@@ -424,7 +433,7 @@ write.csv(df, paste('fits/', runname, '_Cweekly.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
 if (opt$daily_update) {
-  write.csv(df, paste('fits/latest_update', runname_latest, '_Cweekly.csv', sep=''),
+  write.csv(df, paste('fits/latest_updates/', runname_latest, '_Cweekly.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 }
 
@@ -445,7 +454,7 @@ df <- area_date_dataframe(
 write.csv(df, paste('fits/', runname, '_Cproj.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 
-if (opt$daily_update) {write.csv(df, paste('fits/latest_update', runname_latest, '_Cproj.csv', sep=''),
+if (opt$daily_update) {write.csv(df, paste('fits/latest_updates/', runname_latest, '_Cproj.csv', sep=''),
     row.names=FALSE,quote=FALSE)
 }
 
@@ -457,14 +466,17 @@ logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
 print(sprintf("mean log predictives = %f",mean(logpred)))
-df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred',Tlik))
+print(quoted_areas)
+print(logpred)
+print(rep('inferred',Tlik))
+df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', legnth(quoted_areas)))
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
     row.names=FALSE)
 
 if (opt$daily_update) {
-  write.csv(df, paste('fits/latest_update', runname_latest, '_logpred', '.csv', sep=''),
+  write.csv(df, paste('fits/latest_updates/', runname_latest, '_logpred', '.csv', sep=''),
     row.names=FALSE)
 
 }

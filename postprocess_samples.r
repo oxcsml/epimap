@@ -10,7 +10,7 @@ option_list = list(
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
   make_option(c("-o", "--observation"),   type="character", default="cleaned_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
   make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
-  make_option(c("-c", "--chains"),        type="integer",   default=4,                      help="number of MCMC chains [4]"),
+  make_option(c("-c", "--chains"),        type="integer",   default=1,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
   make_option(c("-n", "--time_steps"),    type="integer",   default=15,                      help="Number of periods to fit Rt in"),
   make_option(c("-d", "--daily_update"),  action="store_true",                              help="If True, will overide the lastest daily update of this model on compleation"),
@@ -149,7 +149,10 @@ runs = c(
   'Rmap-time-vary-reduce-cleaned-20200910230223-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910224547-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910231253-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910211954-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
+  'Rmap-time-vary-reduce-cleaned-20200910211954-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
+  'Rmap-time-vary-reduce-cleaned-20200910212148-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
+  'Rmap-time-vary-reduce-cleaned-20200910205938-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
+  'Rmap-time-vary-reduce-cleaned-20200910212111-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
 )
 numruns = length(runs)
 

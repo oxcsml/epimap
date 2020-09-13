@@ -9,7 +9,7 @@ rstan_options(auto_write = TRUE)
 
 source('read_data.r')
 # counts in most recent 5 days may not be reliable
-Tignore <- 5  # don't ignore for now? can ignore last 5 days of cleaned data instead?
+Tignore <- 0  # don't ignore for now? can ignore last 5 days of cleaned data instead?
 Tall <- Tall-Tignore
 Count <- Count[,1:Tall]
 
@@ -29,8 +29,9 @@ testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Ttdp-1)])
 
 # Case only reported a few days after testing, 
 # no result delay truncation
-Trdp <- 1
-resultdelayprofile <- array(1)
+Trdp <- 5
+resultdelaydecay = .5
+resultdelaystrength = 5
 # Geometric(.5) delay distribution.
 # Trdp <- 5
 # resultdelayprofile <- .5^seq(1,by=1,length.out=Trdp)
@@ -48,13 +49,13 @@ Tcond <- Tall-Tlik
 
 shortlist <- c(
   'Oldham',
-  'Herefordshire, County of',
+  'Orkney',
   'Birmingham',
   'Manchester',
-  'Orkney',
+  'Herefordshire, County of',
+  'Torridge', 
   'Northampton',
   'Slough',
-  'Torridge', 
   'Teignbridge',
   'Highland'
 )
@@ -95,7 +96,8 @@ Rmap_clean_data <- list(
   Ttdp = Ttdp,
   testdelayprofile = testdelayprofile,
   Trdp = Trdp,
-  resultdelayprofile = resultdelayprofile,
+  resultdelaydecay = resultdelaydecay,
+  resultdelaystength = resultdelaystrength,
   mu_scale = 0.5,
   sigma_scale = 0.5,
   alpha_scale = 0.1,
@@ -103,8 +105,8 @@ Rmap_clean_data <- list(
   phi_observed_scale = 5.0,
   outlier_prob_threshold = .95,
   outlier_count_threshold = 2,
-  exogeneous_infections = 1e-2,
-  reconstruct_infections = FALSE
+  xi_scale = 0.1,
+  reconstruct_infections = TRUE
 )
 
 init = list()
@@ -114,6 +116,7 @@ init[[1]] = list(
   alpha1 = .95,
   phi_latent = 1.0,
   phi_observed = 5.0,
+  xi = .01,
   'Reta[1]' = 0.0,
   'Reta[2]' = 0.0,
   'Reta[3]' = 0.0,
@@ -151,7 +154,7 @@ saveRDS(fit, paste('local-cleaned/stanfit-',area,'.rds',sep=''))
 # Summary of fit
 print(
     summary(fit, 
-        pars=c("mu","sigma","alpha","phi_latent","phi_observed","Noutliers","Rt"),
+        pars=c("mu","sigma","alpha","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
         probs=c(0.5)
     )$summary
 )
@@ -213,7 +216,7 @@ for (i in 1:Nsample) {
   for (j in 1:3) {
     lines(ind,CreconCI[ind,j])
   }
-  points(ind,Crecon_sample[area_index,ind,i],col='red',pch=20)
+  points(ind,Crecon_sample[area_index,ind,i],col='red',pch='x')
 }
 dev.off()
 

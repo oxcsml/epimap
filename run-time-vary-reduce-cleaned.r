@@ -7,7 +7,7 @@ option_list = list(
   make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
-  make_option(c("-o", "--observation"),   type="character", default="cleaned_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_sample/cleaned_mean)"),
+  make_option(c("-o", "--observation"),   type="character", default="cleaned_recon_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_latent_sample/cleaned_latent_mean/cleaned_recon_sample)"),
   make_option(c("-x", "--cleaned_sample_id"),   type="integer", default="1",  help="id of cleaned sample to use"),
   make_option(c("-c", "--chains"),        type="integer",   default=1,                      help="number of MCMC chains [4]"),
   make_option(c("-i", "--iterations"),    type="integer",   default=6000,                   help="Length of MCMC chains [6000]"),
@@ -46,21 +46,27 @@ rstan_options(auto_write = TRUE)
 source('read_data.r')
 source('read_radiation_fluxes.r')
 #source('read_clean_data.r')
-if (opt$observation == 'cleaned_sample') {
+if (opt$observation == 'cleaned_latent_sample' ||
+    opt$observation == 'cleaned_recon_sample') {
   sample_id = opt$cleaned_sample_id
-  Clean_sample <- read.csv(paste('data/Clatent_sample',sample_id,'.csv',sep=''))
+  Clean_latent <- read.csv(paste('data/Clatent_sample',sample_id,'.csv',sep=''))
+  Clean_recon <- read.csv(paste('data/Crecon_sample',sample_id,'.csv',sep=''))
   print(paste('Using samples from data/Clatent_sample',sample_id,'.csv',sep=''))
+} else if (opt$observation == 'cleaned_recon_sample') {
+  sample_id = opt$cleaned_sample_id
+  print(paste('Using samples from data/Crecon_sample',sample_id,'.csv',sep=''))
 } else {
   sample_id = 'mean'
-  Clean_sample <- read.csv('data/Clatent_mean.csv')
+  Clean_latent <- read.csv('data/Clatent_mean.csv')
+  Clean_recon <- read.csv('data/Crecon_median.csv')
   # placeholder if not using cleaned data
 }
 
-M <- opt$time_steps        # Testing with 1 time period
+Mstep <- opt$time_steps        # Testing with 1 time period
 Tignore <- 5  # counts in most recent 7 days may not be reliable?
 Tpred <- 2    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
-Tlik <- M*Tstep     # number of days for likelihood to infer Rt
+Tlik <- Mstep*Tstep     # number of days for likelihood to infer Rt
 Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
 Tcur <- Tall-Tpred       # number of days we condition on
 Tcond <- Tcur-Tlik       # number of days we condition on
@@ -70,9 +76,10 @@ Mproj = Tproj/Tstep
 
 AllCount <- Count
 Count <- Count[,1:Tall] # get rid of ignored last days
-Clean <- Clean_sample[,1:Tall] # get rid of ignored last days
+Clean_latent <- Clean_latent[,1:Tall] # get rid of ignored last days
+Clean_recon <- Clean_recon[,1:Tall] # get rid of ignored last days
 
-days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*M)
+days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*Mstep)
 days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
 
 print("Days used for likelihood fitting")
@@ -84,8 +91,9 @@ OBSERVATIONMODELS = list(
   'poisson' = 1,
   'neg_binomial_2' = 2,
   'neg_binomial_3' = 3,
-  'cleaned_mean' = 4,
-  'cleaned_sample' = 4
+  'cleaned_latent_mean' = 4,
+  'cleaned_latent_sample' = 4,
+  'cleaned_recon_sample' = 5
 )
 OBSERVATIONMODEL = OBSERVATIONMODELS[[opt$observation]]
 if (is.null(OBSERVATIONMODEL)) {
@@ -129,10 +137,10 @@ if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {
 }
 
 # time steps
-times = 1:M
-timedist = matrix(0, M, M)
-for (i in 1:M) {
-  for (j in 1:M) {
+times = 1:Mstep
+timedist = matrix(0, Mstep, Mstep)
+for (i in 1:Mstep) {
+  for (j in 1:Mstep) {
     timedist[i, j] = abs(times[i] - times[j]) * Tstep
   }
 }
@@ -143,9 +151,9 @@ days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tstep)]
 days_lik_start = vapply(days_lik_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
 day_pre_lockdown = vapply(days_lik_start, (function (day) day < lockdown_day), logical(1))
 
-time_corellation_cutoff = matrix(0,M,M)
-for (i in 1:M) {
-  for (j in 1:M) {
+time_corellation_cutoff = matrix(0,Mstep,Mstep)
+for (i in 1:Mstep) {
+  for (j in 1:Mstep) {
     time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
   }
 }
@@ -156,7 +164,7 @@ for (i in 1:M) {
 
 Rmap_data <- list(
   N = N, 
-  M = M,
+  Mstep = Mstep,
   Tall = Tall,
   Tcond = Tcond,
   Tlik = Tlik,
@@ -164,7 +172,8 @@ Rmap_data <- list(
   Tstep=Tstep,
 
   Count = Count,
-  Clean = Clean,
+  Clean_latent = Clean_latent,
+  Clean_recon = Clean_recon,
   # geoloc = geoloc,
   geodist = geodist,
   timedist = timedist,
@@ -194,15 +203,16 @@ for (i in 1:numchains) {
     )
 }
 
-runname = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s-%s',  
-  as.character(Sys.time(),format='%Y%m%d%H%M%S'), 
-  opt$spatialkernel,  
-  opt$localkernel,  
-  opt$globalkernel,  
-  opt$metapop,  
-  opt$observation, 
-  opt$time_steps, 
-  sample_id
+runname = paste('Rmap-time-vary-reduce-cleaned',
+  # '-',as.character(Sys.time(),format='%Y%m%d%H%M%S'), 
+  '-',opt$spatialkernel,  
+  '-',opt$localkernel,  
+  '-',opt$globalkernel,  
+  '-',opt$metapop,  
+  '-',opt$observation, 
+  '_',sample_id,
+  '-steps_',opt$time_steps, 
+  sep=''
 )
 print(runname)
 
@@ -254,7 +264,7 @@ print(summary(fit,
 # save raw samples
 save_samples = function(pars,areafirst=FALSE) {
   samples = extract(fit,pars=pars,permuted=FALSE)
-  samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=F]
+  samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=FALSE]
   ns = numiters/2
   np = dim(samples)[3]/N
   parnames = dimnames(samples)[[3]]
@@ -262,9 +272,9 @@ save_samples = function(pars,areafirst=FALSE) {
   colnames(samples) = parnames
   if (areafirst) {
     ind = N*(rep(1:np,N)-1) + rep(1:N,each=np) 
-    samples = samples[,ind,drop=F]
+    samples = samples[,ind,drop=FALSE]
   } else {
-    samples = samples[,,drop=F]
+    samples = samples[,,drop=FALSE]
   }
   samples = round(samples,2)
   write.csv(samples,paste('fits/',runname,'_',pars,'_samples.csv',sep=''))
@@ -302,12 +312,12 @@ Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%",
 #s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
 #Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
 
-times = rep(c(1:M,rep(M,Mproj)), N)
-places = rep(1:N, each=M+Mproj)
+times = rep(c(1:Mstep,rep(Mstep,Mproj)), N)
+places = rep(1:N, each=Mstep+Mproj)
 indicies = places + (N)*(times-1)
 Rt = Rt[indicies,]
 
-Rt <- Rt[sapply(1:(N*(M+Mproj)),function(i)rep(i,Tstep)),]
+Rt <- Rt[sapply(1:(N*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
 print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas, 
@@ -327,18 +337,18 @@ thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
 numsamples = numchains*numiters/2
 Rt <- as.matrix(fit, pars="Rt")
-dim(Rt) <- c(numsamples,M,N)
-Pexceedance = array(0.0,dim=c(M,N,numthresholds))
-for (k in 1:M) {
+dim(Rt) <- c(numsamples,Mstep,N)
+Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
+for (k in 1:Mstep) {
   for (i in 1:N) {
     for (x in 1:numthresholds) {
       Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
     }
   }
 }
-Pexceedance = Pexceedance[c(1:M,rep(M,Mproj)),,]
-Pexceedance <- Pexceedance[sapply(1:(M+Mproj),function(k)rep(k,Tstep)),,]
-dim(Pexceedance) <- c(Tstep*(M+Mproj)*N,numthresholds)
+Pexceedance = Pexceedance[c(1:Mstep,rep(Mstep,Mproj)),,]
+Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
+dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
 df <- area_date_dataframe(
     quoted_areas, 
     days_all,
@@ -360,7 +370,7 @@ Cpred <- t(t(Cpred))
 print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
 df <- area_date_dataframe(
     quoted_areas,
-    seq(dates[Tcond]+1,by=1,length.out=M*Tstep),
+    seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
     rep('inferred',Tlik),
     format(round(Cpred,1),nsmall=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
@@ -371,7 +381,7 @@ write.csv(df, paste('fits/', runname, '_Cpred.csv', sep=''),
 
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
-dim(Cweekly) <- c(N,Tstep,M)
+dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
 ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum)
@@ -386,7 +396,7 @@ projectedweeks <- t(projectedweeks)
 Cweekly <- cbind(Cweekly,projectedweeks)
 
 Cweekly <- t(Cweekly)
-Cweekly <- Cweekly[sapply(1:(M+Mproj),function(k)rep(k,Tstep)),]
+Cweekly <- Cweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
 dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
 df <- area_date_dataframe(
     quoted_areas,

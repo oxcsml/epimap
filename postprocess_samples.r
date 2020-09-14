@@ -49,7 +49,7 @@ source('read_radiation_fluxes.r')
 Clean_sample <- read.csv('data/Clatent_mean.csv')
 
 M <- opt$time_steps        # Testing with 1 time period
-Tignore <- 5  # counts in most recent 7 days may not be reliable?
+Tignore <- 6  # counts in most recent 7 days may not be reliable?
 Tpred <- 2    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
 Tlik <- M*Tstep     # number of days for likelihood to infer Rt
@@ -143,7 +143,7 @@ for (i in 1:M) {
 }
 
 
-runs = c(
+runs_latent = c(
   'Rmap-time-vary-reduce-cleaned-20200910225318-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910225535-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910230223-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
@@ -154,6 +154,19 @@ runs = c(
   'Rmap-time-vary-reduce-cleaned-20200910205938-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
   'Rmap-time-vary-reduce-cleaned-20200910212111-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
 )
+runs_recon = c(
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_1-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_2-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_3-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_4-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_5-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_6-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_7-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_8-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_9-steps_15',
+  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_10-steps_15'
+)
+runs = runs_recon
 numruns = length(runs)
 
 allrunname = 'Rmap-time-vary-reduce-cleaned-allsamples-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'

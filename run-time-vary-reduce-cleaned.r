@@ -63,7 +63,7 @@ if (opt$observation == 'cleaned_latent_sample' ||
 }
 
 Mstep <- opt$time_steps        # Testing with 1 time period
-Tignore <- 5  # counts in most recent 7 days may not be reliable?
+Tignore <- 6  # counts in most recent 7 days may not be reliable?
 Tpred <- 2    # number of days held out for predictive probs eval
 Tstep <- 7 # number of days to step for each time step of Rt prediction
 Tlik <- Mstep*Tstep     # number of days for likelihood to infer Rt
@@ -435,11 +435,11 @@ logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
 print(sprintf("mean log predictives = %f",mean(logpred)))
-df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred',Tlik))
+df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred',N))
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),
-    row.names=FALSE)
+    row.names=FALSE,quote=FALSE)
 
 ####################################################################
 # pairs plot

@@ -1,29 +1,29 @@
 library(rstan)
 
-source('read_data.r')
+source("read_data.r")
 
-numiters = 3000 # NOTE: this should match the value used in clean_areas.r. TODO: Should we put this variable in a common file from which to import?
+numiters <- 3000 # NOTE: this should match the value used in clean_areas.r. TODO: Should we put this variable in a common file from which to import?
 
 # counts in most recent 5 days may not be reliable
-Tignore <- 5  # don't ignore for now? can ignore last 5 days of cleaned data instead?
-Tall <- Tall-Tignore
-Count <- Count[,1:Tall]
+Tignore <- 5 # don't ignore for now? can ignore last 5 days of cleaned data instead?
+Tall <- Tall - Tignore
+Count <- Count[, 1:Tall]
 
 Nsample <- 10
 
 Tip <- 30
 infprofile <- infprofile[1:Tip]
-infprofile <- infprofile/sum(infprofile)
+infprofile <- infprofile / sum(infprofile)
 
 # Gamma(5,1) days between infection and getting tested
 Ttdp <- 14
 Adp <- 5.0
 Bdp <- 1.0
-testdelayprofile <- pgamma(1:Ttdp,shape=Adp,rate=Bdp)
-testdelayprofile <- testdelayprofile/testdelayprofile[Ttdp]
-testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Ttdp-1)])
+testdelayprofile <- pgamma(1:Ttdp, shape = Adp, rate = Bdp)
+testdelayprofile <- testdelayprofile / testdelayprofile[Ttdp]
+testdelayprofile <- testdelayprofile - c(0.0, testdelayprofile[1:(Ttdp - 1)])
 
-# Case only reported a few days after testing, 
+# Case only reported a few days after testing,
 # no result delay truncation
 Trdp <- 1
 resultdelayprofile <- array(1)
@@ -34,21 +34,21 @@ resultdelayprofile <- array(1)
 
 
 Tstep <- 7
-#Nstep <- floor((Tall-max(Tip,Ttdp)) / Tstep)
+# Nstep <- floor((Tall-max(Tip,Ttdp)) / Tstep)
 Nstep <- 18 # about 4 months
-Tlik <- Nstep*Tstep
-Tcond <- Tall-Tlik
+Tlik <- Nstep * Tstep
+Tcond <- Tall - Tlik
 
 
 # Initialize arrays
-Clatent_sample <- array(0,c(N,Tall,Nsample))
-Clatent_mean <- array(0,c(N,Tall))
-Crecon_sample <- array(0,c(N,Tall,Nsample))
-Crecon_median <- array(0,c(N,Tall))
-Clatent_mean[,1:Tcond] = as.matrix(Count[,1:Tcond])
+Clatent_sample <- array(0, c(N, Tall, Nsample))
+Clatent_mean <- array(0, c(N, Tall))
+Crecon_sample <- array(0, c(N, Tall, Nsample))
+Crecon_median <- array(0, c(N, Tall))
+Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
 for (i in 1:Nsample) {
-  Clatent_sample[,1:Tcond,i] = as.matrix(Count[,1:Tcond])
-  Crecon_sample[,1:Tcond,i] = as.matrix(Count[,1:Tcond])
+  Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
+  Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
 }
 
 # Loop over areas, loading area RDS files and filling the arrays
@@ -56,7 +56,7 @@ for (area_index in 1:N) {
   area <- areas[area_index]
   print(area)
 
-  fit <- readRDS(paste('local-cleaned/stanfit-',area,'.rds',sep=''))
+  fit <- readRDS(paste("local-cleaned/stanfit-", area, ".rds", sep = ""))
 
   skip <- numiters / 2 / Nsample
   ####################################################################
@@ -115,7 +115,7 @@ for (area_index in 1:N) {
     for (j in 1:3) {
       lines(ind, CreconCI[ind, j])
     }
-    points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = 20)
+    points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
   }
   dev.off()
 }
@@ -137,5 +137,3 @@ for (i in 1:Nsample) {
   colnames(cc) <- days
   write.csv(cc, paste("data/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
 }
-
-

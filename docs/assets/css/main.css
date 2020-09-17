@@ -110,6 +110,22 @@ div.tooltip span.header {
     opacity: 0.2;
 }
 
+.rt-projected-line {
+    fill: none;
+    stroke: rgb(139, 0, 0);
+    stroke-width: 1.5;
+}
+
+.rt-projected-inner-area {
+    fill: rgb(139, 0, 0);
+    opacity: 0.4;
+}
+
+.rt-projected-outer-area {
+    fill: rgb(139, 0, 0);
+    opacity: 0.2;
+}
+
 .rt-horizontal-line {
     stroke-width: 2;
     stroke: #333;

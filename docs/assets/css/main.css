@@ -136,6 +136,21 @@ div.tooltip span.header {
     margin-top:2em;
 }
 
+.slider-button {
+    width: 20px;
+    height: 20px;
+    fill: #eee;
+    rx: 5px;
+    stroke: #aaa;
+    cursor: pointer;
+}
+
+.slider-button-path {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    stroke: #777;
+}
 
 h1, h2, h3, h4, h5, h6, p, span {
     font-family: sans-serif;

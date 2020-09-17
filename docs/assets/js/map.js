@@ -35,30 +35,37 @@ sliderSvg.append("text")
     .style("font-size", "13px")
     .text("Date");
 const sliderValueLabel = sliderSvg.append("text")
-    .attr("x", sliderLeft + sliderWidth + 70)
+    .attr("x", sliderLeft + sliderWidth + 85)
     .attr("y", 15)
     .attr("text-anchor", "middle")
     .style("font-size", "13px");
 
-const dateToggleG = sliderSvg.append("g")
+const sliderLeftG = sliderSvg.append("g")
     .attr('transform', `translate(${sliderLeft-35},0)`)
     .attr("fill", "none")
     .attr("stroke", "currentColor");
 
-const sliderLeftPath = dateToggleG.append("path")
-    .attr("d", "M15 19l-7-7 7-7")
-    .attr("stroke-linecap", "round")
-    .attr("stroke-linejoin", "round")
-    .attr("stroke-width", "2")
-    .style("cursor", "pointer");
+const sliderRightG = sliderSvg.append("g")
+    .attr('transform', `translate(${sliderLeft + sliderWidth + 17},0)`)
+    .attr("fill", "none")
+    .attr("stroke", "currentColor");
 
-const sliderRightPath = dateToggleG.append("path")
+const sliderLeftRect = sliderLeftG.append("rect")
+    .attr("class", "slider-button");
+
+const sliderLeftPath = sliderLeftG.append("path")
+    .attr("transform", "translate(-2, -2)")
+    .attr("d", "M15 19l-7-7 7-7")
+    .attr("class", "slider-button-path");
+
+const sliderRightRect = sliderRightG.append("rect")
+    .attr("class", "slider-button");
+
+const sliderRightPath = sliderRightG.append("path")
     .attr("d", "M9 5l7 7-7 7")
-    .attr('transform', `translate(${sliderWidth+45},0)`)
-    .attr("stroke-linecap", "round")
-    .attr("stroke-linejoin", "round")
-    .attr("stroke-width", "2")
-    .style("cursor", "pointer");
+    .attr('transform', `translate(-2, -2)`)
+    .attr("class", "slider-button-path");
+    
 
 // Set up dimensions for chart
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
@@ -889,7 +896,7 @@ function ready(data) {
 
     changeSlider(rtSliderChangeFn);
 
-    sliderLeftPath.on("click", () => {
+    sliderLeftG.on("click", () => {
         let updatedDate = new Date();
         updatedDate.setTime(selectedDate.getTime() - sevenDays);
         if (updatedDate < d3.min(availableDates)) {
@@ -899,7 +906,7 @@ function ready(data) {
         currentSliderChangeFn(updatedDate);
     });
 
-    sliderRightPath.on("click", () => {
+    sliderRightG.on("click", () => {
         let updatedDate = new Date();
         updatedDate.setTime(selectedDate.getTime() + sevenDays);
         if (updatedDate > d3.max(availableDates)) {

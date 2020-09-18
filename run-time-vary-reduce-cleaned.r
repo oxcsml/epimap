@@ -20,7 +20,7 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 
-opt$cleaned_sample_id <- cleaned_sample_id
+cleaned_sample_id <- opt$cleaned_sample_id
 numchains = opt$chains
 numiters = opt$iterations
 
@@ -64,9 +64,9 @@ if (opt$observation == 'cleaned_latent_sample' ||
 
 Mstep <- opt$time_steps        # Testing with 1 time period
 Tignore <- 6  # counts in most recent 7 days may not be reliable?
-if (!(Tall == length(Clean_sample))){
-  print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
-}
+# if (!(Tall == length(Clean_sample))){
+#   print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
+# }
 #Tall <- min(Tall, length(Clean_sample))
 
 Tpred <- 2    # number of days held out for predictive probs eval
@@ -175,6 +175,7 @@ Rmap_data <- list(
   Tlik = Tlik,
   Tproj = Tproj,
   Tstep=Tstep,
+  Mproj=Mproj,
 
   Count = Count,
   Clean_latent = Clean_latent,
@@ -481,7 +482,7 @@ logpred <- log(Ppred)
 dim(logpred) <- c(Tpred,N)
 logpred <- t(logpred)
 print(sprintf("mean log predictives = %f",mean(logpred)))
-df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', legnth(quoted_areas)))
+df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', length(quoted_areas)))
 for (i in 1:Tpred)
   colnames(df)[i+1] <- sprintf('logpred_day%d',i)
 write.csv(df, paste('fits/', runname, '_logpred', '.csv', sep=''),

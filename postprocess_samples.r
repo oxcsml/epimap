@@ -143,30 +143,18 @@ for (i in 1:M) {
 }
 
 
-runs_latent = c(
-  'Rmap-time-vary-reduce-cleaned-20200910225318-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910225535-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910230223-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910224547-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910231253-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910211954-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910212148-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910205938-matern12-local-global-radiation2,uniform,in-cleaned_sample-15',
-  'Rmap-time-vary-reduce-cleaned-20200910212111-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'
+runs = c(
+  # 'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_1-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_2-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_3-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_4-steps_15',
+  # 'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_5-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_6-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_7-steps_15',
+  # 'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_8-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_9-steps_15',
+  'Rmap-time-vary-reduce-cleaned-20200917-matern12-none-global-radiation2,uniform,in-cleaned_recon_sample_10-steps_15'
 )
-runs_recon = c(
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_1-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_2-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_3-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_4-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_5-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_6-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_7-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_8-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_9-steps_15',
-  'Rmap-time-vary-reduce-cleaned-matern12-local-global-radiation2,uniform,in-cleaned_recon_sample_10-steps_15'
-)
-runs = runs_recon
 numruns = length(runs)
 
 allrunname = 'Rmap-time-vary-reduce-cleaned-allsamples-matern12-local-global-radiation2,uniform,in-cleaned_sample-15'

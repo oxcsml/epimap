@@ -71,7 +71,7 @@ Rmap_clean_data <- list(
   testdelayprofile = testdelayprofile,
   Trdp = Trdp,
   resultdelaydecay = resultdelaydecay,
-  resultdelaystength = resultdelaystrength,
+  resultdelaystrength = resultdelaystrength,
   mu_scale = 0.5,
   sigma_scale = 0.5,
   alpha_scale = 0.1,

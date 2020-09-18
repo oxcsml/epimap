@@ -90,6 +90,7 @@ init[[1]] = list(
   alpha1 = .95,
   phi_latent = 1.0,
   phi_observed = 5.0,
+  xi = .01,
   'Reta[1]' = 0.0,
   'Reta[2]' = 0.0,
   'Reta[3]' = 0.0,

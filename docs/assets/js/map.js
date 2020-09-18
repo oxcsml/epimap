@@ -35,30 +35,37 @@ sliderSvg.append("text")
     .style("font-size", "13px")
     .text("Date");
 const sliderValueLabel = sliderSvg.append("text")
-    .attr("x", sliderLeft + sliderWidth + 70)
+    .attr("x", sliderLeft + sliderWidth + 85)
     .attr("y", 15)
     .attr("text-anchor", "middle")
     .style("font-size", "13px");
 
-const dateToggleG = sliderSvg.append("g")
+const sliderLeftG = sliderSvg.append("g")
     .attr('transform', `translate(${sliderLeft-35},0)`)
     .attr("fill", "none")
     .attr("stroke", "currentColor");
 
-const sliderLeftPath = dateToggleG.append("path")
-    .attr("d", "M15 19l-7-7 7-7")
-    .attr("stroke-linecap", "round")
-    .attr("stroke-linejoin", "round")
-    .attr("stroke-width", "2")
-    .style("cursor", "pointer");
+const sliderRightG = sliderSvg.append("g")
+    .attr('transform', `translate(${sliderLeft + sliderWidth + 17},0)`)
+    .attr("fill", "none")
+    .attr("stroke", "currentColor");
 
-const sliderRightPath = dateToggleG.append("path")
+const sliderLeftRect = sliderLeftG.append("rect")
+    .attr("class", "slider-button");
+
+const sliderLeftPath = sliderLeftG.append("path")
+    .attr("transform", "translate(-2, -2)")
+    .attr("d", "M15 19l-7-7 7-7")
+    .attr("class", "slider-button-path");
+
+const sliderRightRect = sliderRightG.append("rect")
+    .attr("class", "slider-button");
+
+const sliderRightPath = sliderRightG.append("path")
     .attr("d", "M9 5l7 7-7 7")
-    .attr('transform', `translate(${sliderWidth+45},0)`)
-    .attr("stroke-linecap", "round")
-    .attr("stroke-linejoin", "round")
-    .attr("stroke-width", "2")
-    .style("cursor", "pointer");
+    .attr('transform', `translate(-2, -2)`)
+    .attr("class", "slider-button-path");
+    
 
 // Set up dimensions for chart
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
@@ -105,6 +112,15 @@ const rtChartInnerArea = rtChartSvg.append("path")
 
 const rtChartOuterArea = rtChartSvg.append("path")
     .attr("class", "rt-outer-area");
+
+const rtProjectedMedianLine = rtChartSvg.append("path")
+    .attr("class", "rt-projected-line");
+
+const rtProjectedInnerArea = rtChartSvg.append("path")
+    .attr("class", "rt-projected-inner-area");
+
+const rtProjectedOuterArea = rtChartSvg.append("path")
+    .attr("class", "rt-projected-outer-area");
 
 const rtHorizontalLine = rtChartSvg.append("g")
     .attr("class", "rt-horizontal-line");
@@ -586,7 +602,7 @@ function ready(data) {
     maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
     const logScale = d3.scaleLog().domain([minCases, maxCases]);
     const caseLogScale = d3.scaleLog().domain([minCases, maxColorCases]).range([margin.left, margin.left + barWidth]);
-    const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v)));
+    const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v+1)));
 
     const rtAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
@@ -784,8 +800,7 @@ function ready(data) {
     
     showRt.on("click", () => {
         if (showCases.classed("active") || showPExceed.classed("active")) {
-            map.attr("fill", rtFillFn(d3.max(availableDates)));
-            selectDate(d3.max(availableDates));
+            map.attr("fill", rtFillFn(selectedDate));
             legend.style("fill", "url(#rt-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -806,9 +821,7 @@ function ready(data) {
 
     showCases.on("click", () => {
         if (showRt.classed("active") || showPExceed.classed("active")) {
-            // TODO: UPDATE AVAILABLEDATES TO LARGER DATE RANGE THAT INCLUDES CASE PROJECTIONS
-            map.attr("fill", caseFillFn(d3.max(availableDates)));
-            selectDate(d3.max(availableDates));
+            map.attr("fill", caseFillFn(selectedDate));
             legend.style("fill", "url(#case-gradient)");
             legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
             axisBottom.call(caseAxisFn)
@@ -817,7 +830,6 @@ function ready(data) {
             legendText.text("Cases");
 
             changeSlider(caseSliderChangeFn);
-            
         }
         showRt.attr("class", "");
         showCases.attr("class", "active");
@@ -826,8 +838,7 @@ function ready(data) {
 
     showPExceed.on("click", () => {
         if (showRt.classed("active") || showCases.classed("active")) {
-            map.attr("fill", pExceedFillFn(d3.max(availableDates)));
-            selectDate(d3.max(availableDates));
+            map.attr("fill", pExceedFillFn(selectedDate));
             legend.style("fill", "url(#pexceed-gradient)");
             legendBar.call(d3.axisLeft(
                 d3.scaleLinear()
@@ -878,15 +889,14 @@ function ready(data) {
     changeSlider = (changeFn) => {
         timeSlider
             .on('onchange', _.debounce(changeFn, 100))
-            .value(d3.max(availableDates));
+            .value(selectedDate);
             
-        sliderValueLabel.text(dateFormat(d3.max(availableDates)));
         currentSliderChangeFn = changeFn;
     }
 
     changeSlider(rtSliderChangeFn);
 
-    sliderLeftPath.on("click", () => {
+    sliderLeftG.on("click", () => {
         let updatedDate = new Date();
         updatedDate.setTime(selectedDate.getTime() - sevenDays);
         if (updatedDate < d3.min(availableDates)) {
@@ -896,7 +906,7 @@ function ready(data) {
         currentSliderChangeFn(updatedDate);
     });
 
-    sliderRightPath.on("click", () => {
+    sliderRightG.on("click", () => {
         let updatedDate = new Date();
         updatedDate.setTime(selectedDate.getTime() + sevenDays);
         if (updatedDate > d3.max(availableDates)) {
@@ -1070,14 +1080,13 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
 
 function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
     const xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    //const xDomain = d3.extent(rtData.map(c => c.Date));
     const yDomain = [0, 3.1];
 
     rtX.domain(xDomain);
 
-    // const x = d3.scaleTime()
-    //     .domain(xDomain)
-    //     .range([chartMargin.left, chartMargin.left + chartWidth]);
+    const rtInferredData = rtData.filter(r=>r.provenance === "inferred");
+    const rtProjectedData = rtData.filter(r=>r.provenance === "projected");
+
     const y = d3.scaleLinear()
         .domain(yDomain)
         .range([chartHeight, 0]);
@@ -1098,19 +1107,37 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
         .y1(function (d) { return y(d.Rt975); });
 
     rtChartMedianLine
-        .datum(rtData)
+        .datum(rtInferredData)
         .transition()
         .duration(500)
         .attr("d", rtMedianLine);
 
     rtChartInnerArea
-        .datum(rtData)
+        .datum(rtInferredData)
         .transition()
         .duration(500)
         .attr("d", rtInnerArea);
 
     rtChartOuterArea
-        .datum(rtData)
+        .datum(rtInferredData)
+        .transition()
+        .duration(500)
+        .attr("d", rtOuterArea);
+
+    rtProjectedMedianLine
+        .datum(rtProjectedData)
+        .transition()
+        .duration(500)
+        .attr("d", rtMedianLine);
+
+    rtProjectedInnerArea
+        .datum(rtProjectedData)
+        .transition()
+        .duration(500)
+        .attr("d", rtInnerArea);
+
+    rtProjectedOuterArea
+        .datum(rtProjectedData)
         .transition()
         .duration(500)
         .attr("d", rtOuterArea);

@@ -4,7 +4,7 @@ library(optparse)
 
 option_list = list(
   make_option(c("-s", "--spatialkernel"), type="character", default="matern12",             help="Use spatial kernel ([matern12]/matern32/matern52/exp_quad/none)"),
-  make_option(c("-l", "--localkernel"),   type="character", default="local",                help="Use local kernel ([local]/none)"),
+  make_option(c("-l", "--localkernel"),   type="character", default="none",                help="Use local kernel ([local]/none)"),
   make_option(c("-g", "--globalkernel"),  type="character", default="global",               help="Use global kernel ([global]/none)"),
   make_option(c("-m", "--metapop"),       type="character", default="radiation2,uniform,in",help="metapopulation model for inter-region cross infections (none, or comma separated list containing radiation{1,2,3},uniform,in,in_out (default is radiation2,uniform,in"),
   make_option(c("-o", "--observation"),   type="character", default="cleaned_recon_sample",  help="observation model ([neg_binomial_{2[3]}]/poisson/cleaned_latent_sample/cleaned_latent_mean/cleaned_recon_sample)"),
@@ -64,7 +64,7 @@ if (opt$observation == 'cleaned_latent_sample' ||
 
 Mstep <- opt$time_steps        # Testing with 1 time period
 Tignore <- 6  # counts in most recent 7 days may not be reliable?
-if (!(Tall == length(Clean_sample))){
+if (!(Tall == length(Clean_latent) && Tall == length(Clean_recon))){
   print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
 }
 #Tall <- min(Tall, length(Clean_sample))
@@ -209,7 +209,7 @@ for (i in 1:numchains) {
 }
 
 runname = paste('Rmap-time-vary-reduce-cleaned',
-  # '-',as.character(Sys.time(),format='%Y%m%d%H%M%S'), 
+  '-',as.character(Sys.time(),format='%Y%m%d'), 
   '-',opt$spatialkernel,  
   '-',opt$localkernel,  
   '-',opt$globalkernel,  
@@ -221,7 +221,7 @@ runname = paste('Rmap-time-vary-reduce-cleaned',
 )
 print(runname)
 
-if (opt$daily_update) {
+if (!is.null(opt$daily_update) && opt$daily_update) {
   runname_latest = sprintf('Rmap-time-vary-reduce-cleaned-%s-%s-%s-%s-%s-%s-%s', 
     'latest',
     opt$spatialkernel, 
@@ -256,7 +256,7 @@ fit <- stan(file = stan_file_name,
 #############################################################################################
 
 saveRDS(fit, paste('fits/', runname, '_stanfit', '.rds', sep=''))
-if (opt$daily_update) {
+if (!is.null(opt$daily_update) && opt$daily_update) {
   saveRDS(fit, paste('fits/latest_updates/', runname_latest, '_stanfit', '.rds', sep=''))
 }
 
@@ -298,7 +298,7 @@ save_samples = function(pars,areafirst=FALSE) {
   }
   samples = round(samples,2)
   write.csv(samples,paste('fits/',runname,'_',pars,'_samples.csv',sep=''))
-  if (opt$daily_update) {
+  if (!is.null(opt$daily_update) && opt$daily_update) {
     write.csv(samples, paste('fits/latest_updates/', runname_latest,'_',pars,'_samples.csv', sep=''),
       row.names=FALSE,quote=FALSE)
   }

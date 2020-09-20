@@ -24,6 +24,24 @@ functions {
     return diag_matrix(rep_vector(0.000000001, cols(dist))); // very small diagonal to allow cholesky factorisation
   }
 
+  matrix kernel(int KERNEL, matrix dist, real gp_sigma, real gp_length_scale,
+      int NONE_KERNEL, int EXP_QUAD_KERNEL,  
+      int MATERN12_KERNEL, int MATERN32_KERNEL, int MATERN52_KERNEL) {
+    if (KERNEL == EXP_QUAD_KERNEL) {
+      return exp_quad_kernel(dist, gp_sigma, gp_length_scale);
+    } else if (KERNEL == MATERN12_KERNEL) {
+      return matern12_kernel(dist, gp_sigma, gp_length_scale);
+    } else if (KERNEL == MATERN32_KERNEL) {
+      return matern32_kernel(dist, gp_sigma, gp_length_scale);
+    } else if (KERNEL == MATERN52_KERNEL) {
+      return matern52_kernel(dist, gp_sigma, gp_length_scale);
+    } else if (KERNEL == NONE_KERNEL) {
+      return none_kernel(dist, gp_sigma, gp_length_scale);
+    }
+    reject("Unknown kernel");
+    return none_kernel(dist, gp_sigma, gp_length_scale);
+  }
+
   real local_var(real local_sigma2) {
     return local_sigma2;
   }
@@ -35,6 +53,7 @@ functions {
   real none_var(real param) {
     return 0.000000001; // a small but positive number for numerical stability
   }
+
 
   // Meta-population infection rate model choices
 
@@ -184,6 +203,10 @@ data {
   matrix[Mstep,Mstep] timedist;     // distance between time samples
   matrix[Mstep,Mstep] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
 
+  int<lower=1,upper=5> SPATIAL_KERNEL;
+  int<lower=1,upper=5> TEMPORAL_KERNEL;
+  int<lower=0,upper=1> LOCAL_KERNEL;
+  int<lower=0,upper=1> GLOBAL_KERNEL;
   int<lower=0,upper=1> DO_METAPOP;
   int<lower=0,upper=1> DO_IN_OUT;
   int<lower=1,upper=5> OBSERVATIONMODEL;
@@ -216,6 +239,12 @@ transformed data {
   int Count_lik_reduced[Mstep,N];
   int Clean_recon_lik_reduced[Mstep,N];
   matrix[Mstep,N] Clean_latent_lik_reduced;
+
+  int NONE_KERNEL = 1;
+  int EXP_QUAD_KERNEL = 2;
+  int MATERN12_KERNEL = 3;
+  int MATERN32_KERNEL = 4;
+  int MATERN52_KERNEL = 5;
 
   int POISSON = 1;
   int NEG_BINOMIAL_2 = 2;
@@ -335,28 +364,51 @@ transformed parameters {
     real global_sigma2 = square(global_sigma);
 
     // GP space kernel
-    K_space = SPATIAL_kernel(geodist, gp_space_sigma, gp_space_length_scale); // space kernel
-    K_space = K_space + GLOBAL_var(global_sigma2); // Add global noise
+    K_space = kernel(SPATIAL_KERNEL,geodist, gp_space_sigma, gp_space_length_scale,
+        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+    if (GLOBAL_KERNEL) 
+      K_space = K_space + global_sigma2; // Add global noise
+
+//print("K_space");
+//print(K_space);
 
     // GP time kernel
-    K_time  = TEMPORAL_kernel(timedist, 1.0, gp_time_length_scale);
+    K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, gp_time_length_scale,
+        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
     K_time  = K_time .* timecorcut;  // Zero out uncorrelated time entries
+
+//print("K_time");
+//print(K_time);
 
     L_space = cholesky_decompose(K_space);
     L_time = cholesky_decompose(K_time);
 
     // Noise kernel (reshaped from (N*Mstep, N*Mstep) to (N,Mstep) since diagonal)
-    for (m in 1:Mstep) {
-      for (n in 1:N) {
-        local_sigma[n, m] = sqrt(LOCAL_var(local_exp[n, m] * (2 * square(local_scale))));
+    if (LOCAL_KERNEL) {
+      for (m in 1:Mstep) {
+        for (n in 1:N) {
+          local_sigma[n, m] = sqrt((2 * square(local_scale)) * local_exp[n, m]);
+        }
       }
+    } else {
+      local_sigma = rep_matrix(0.0,N,Mstep);
     }
     
-    // Compute (K_time (*) K_space) * eta via efficient kronecker trick. Don't reshape back to vector for convinience.
+//print("local_sigma");
+//print(local_sigma);
+
+    // Compute (K_time (*) K_space) * eta via efficient kronecker trick. 
+    // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
-    Rin = exp((L_space * to_matrix(eta_in, N, Mstep) * L_time') + (local_sigma .* to_matrix(epsilon_in, N, Mstep)));
+    Rin = exp(
+        (L_space * to_matrix(eta_in, N, Mstep) * L_time') + 
+        (local_sigma .* to_matrix(epsilon_in, N, Mstep))
+    );
     if (DO_METAPOP && DO_IN_OUT) {
-      Rout = exp((L_space * to_matrix(eta_out, N, Mstep) * L_time') + (local_sigma .* to_matrix(epsilon_out, N, Mstep)));
+      Rout = exp(
+          (L_space * to_matrix(eta_out, N, Mstep) * L_time') + 
+          (local_sigma .* to_matrix(epsilon_out, N, Mstep))
+      );
     } else {
       Rout = rep_matrix(1.0,N,Mstep);
     }

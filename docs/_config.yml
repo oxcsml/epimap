@@ -1,12 +1,12 @@
 ---
-title: UK COVID Map
+title: UK Local Covid Map
 author:
-  name: UK COVID Map
+  name: UK Local Covid Map
   github: rs-delve
 publisher: The Royal Society
 github_username: rs-delve
 description: > # this means to ignore newlines until "show_excerpts:"
-  Regional nowcasting of SARS-CoV-2 in UK
+  Local nowcasting of SARS-CoV-2 in UK
 
 plugins:
 - jekyll-feed
@@ -35,7 +35,8 @@ logo: logo.png
 
 header_pages:
   - data-methods.md
-  - about.md
+  - limitations.md
   - people.md
+  - about.md
 
 delve_url: https://rs-delve.github.io/

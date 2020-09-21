@@ -6,7 +6,7 @@ source /homes/mhutchin/.bash_profile
 git pull
 
 # Update the case data repo
-cd /data/ziz/mhutchin/Rmap/covid19_datasets && git pull && cd -
+cd /data/ziz/mhutchin/Rmap/covid19_datasets && git pull && cd - daily
 
 # Activate the correct environment
 conda activate Rmap

@@ -844,6 +844,12 @@ if (!interactive()) {
       help="If specified, store outputs in directory, otherwise use a unique directory"
     ),
     make_option(
+      c("-r", "--clean_directory"),
+      type="character",
+      default=Rmap_opt$clean_directory,
+      help="If specified, store outputs in directory, otherwise use a unique directory"
+    ),
+    make_option(
       c("-t", "--task_id"),
       type="integer",
       default=0,

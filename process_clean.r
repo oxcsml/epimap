@@ -48,6 +48,7 @@ Tcond <- Tall-Tlik
 #############################################################################################
 
 shortlist <- c(
+  'Powys',
   'Oldham',
   'Orkney',
   'Birmingham',
@@ -59,7 +60,7 @@ shortlist <- c(
   'Teignbridge',
   'Highland'
 )
-do_shortlist = FALSE
+do_shortlist = TRUE
 if (do_shortlist) {
   quoted_areas <- shortlist
   areas <- shortlist

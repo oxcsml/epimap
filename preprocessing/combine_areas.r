@@ -5,7 +5,7 @@ source("read_data.r")
 numiters <- 3000 # NOTE: this should match the value used in clean_areas.r. TODO: Should we put this variable in a common file from which to import?
 
 # counts in most recent 5 days may not be reliable
-Tignore <- 5 # don't ignore for now? can ignore last 5 days of cleaned data instead?
+Tignore <- 0 # don't ignore for now? can ignore last 5 days of cleaned data instead?
 Tall <- Tall - Tignore
 Count <- Count[, 1:Tall]
 

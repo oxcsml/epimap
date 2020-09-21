@@ -13,7 +13,7 @@ numchains = 1
 numiters = 3000
 
 options(mc.cores = min(numchains,parallel::detectCores()))
-rstan_options(auto_write = TRUE)
+# rstan_options(auto_write = TRUE)
 
 source('read_data.r')
 # counts in most recent 5 days may not be reliable

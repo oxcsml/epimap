@@ -5,7 +5,7 @@ library(optparse)
 Rmap_options = function(
   spatialkernel        = "matern12",
   temporalkernel       = "matern12",
-  localkernel          = "none",
+  localkernel          = "local",
   globalkernel         = "global",
   metapop              = "radiation2,uniform,in",
   observation          = "cleaned_recon_sample",
@@ -109,12 +109,12 @@ Rmap_setup = function(opt = Rmap_options()) {
     if (opt$observation == 'cleaned_latent_sample' ||
         opt$observation == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
+      if (sample_id == 0) {
+        stop("cleaned_sample_id not specified.")
+      }
       Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''))
       Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''))
-      print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else if (opt$observation == 'cleaned_recon_sample') {
-      sample_id = opt$cleaned_sample_id
-      print(paste('Using samples from Crecon_sample',sample_id,'.csv',sep=''))
+      print(paste('Using cleaned sample ',sample_id,'.csv',sep=''))
     } else {
       sample_id = 'mean'
       Clean_latent <- readclean('Clatent_mean')

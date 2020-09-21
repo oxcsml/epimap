@@ -6,7 +6,7 @@ source /homes/mhutchin/.bash_profile
 git pull
 
 # Update the case data repo
-cd /data/ziz/mhutchin/Rmap/covid19_datasets && git pull && cd -
+cd /data/ziz/mhutchin/Rmap/covid19_datasets && git pull && cd - daily
 
 # Activate the correct environment
 conda activate Rmap
@@ -26,10 +26,12 @@ wait
 python3 reinflate.py \
     fits/latest_updates/${output_file}-${time_steps}_Rt.csv \
     fits/latest_updates/${output_file}-${time_steps}_Pexceed.csv \
+    fits/latest_updates/${output_file}-${time_steps}_Cweekly.csv \
     fits/latest_updates/${output_file}-${time_steps}_Cpred.csv \
     fits/latest_updates/${output_file}-${time_steps}_Cproj.csv \
     docs/assets/data/generated/Rt.csv \
     docs/assets/data/generated/Pexceed.csv \
+    docs/assets/data/generated/Cweekly.csv \
     docs/assets/data/generated/Cpred.csv \
     docs/assets/data/generated/Cproj.csv
 

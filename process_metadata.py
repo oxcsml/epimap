@@ -3,7 +3,7 @@ from urllib.request import urlopen
 import json
 
 _POPULATION_PATH = 'data/uk_lad_population_estimates.xls'
-_TOPO_JSON_URL = 'website/uk_lad_boundaries.json'
+_TOPO_JSON_URL = 'docs/assets/data/uk_lad_boundaries.json'
 
 population_df = pd.read_excel(_POPULATION_PATH, sheet_name='MYE 5', skiprows=4)
 lad_population_df = population_df[['Code', 'Name', 'Estimated Population mid-2019', '2019 people per sq. km', 'Area (sq km)']].rename(columns={

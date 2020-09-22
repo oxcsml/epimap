@@ -123,17 +123,17 @@ for (area_index in 1:N) {
 days <- colnames(Count)
 rownames(Clatent_mean) <- quoted_areas
 colnames(Clatent_mean) <- days
-write.csv(Clatent_mean, "data/Clatent_mean.csv", quote = FALSE)
+write.csv(Clatent_mean, "data/cleaned_samples/Clatent_mean.csv", quote = FALSE)
 rownames(Crecon_median) <- quoted_areas
 colnames(Crecon_median) <- days
-write.csv(Crecon_median, "data/Crecon_median.csv", quote = FALSE)
+write.csv(Crecon_median, "data/cleaned_samples/Crecon_median.csv", quote = FALSE)
 for (i in 1:Nsample) {
   cc <- Clatent_sample[, , i]
   rownames(cc) <- quoted_areas
   colnames(cc) <- days
-  write.csv(cc, paste("data/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
+  write.csv(cc, paste("data/cleaned_samples/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
   cc <- Crecon_sample[, , i]
   rownames(cc) <- quoted_areas
   colnames(cc) <- days
-  write.csv(cc, paste("data/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+  write.csv(cc, paste("data/cleaned_samples/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
 }

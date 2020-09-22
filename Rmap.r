@@ -18,7 +18,7 @@ Rmap_options = function(
   days_predicted       = 2,
   num_steps_forecasted = 3,
   data_directory       = "data/",
-  clean_directory      = "results/default",
+  clean_directory      = "data/cleaned_samples",
   results_directory    = NULL
 ) {
      
@@ -109,16 +109,16 @@ Rmap_setup = function(opt = Rmap_options()) {
     if (opt$observation == 'cleaned_latent_sample' ||
         opt$observation == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
-      Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''))
-      Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''))
+      Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
+      Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
       print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
     } else if (opt$observation == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
       print(paste('Using samples from Crecon_sample',sample_id,'.csv',sep=''))
     } else {
       sample_id = 'mean'
-      Clean_latent <- readclean('Clatent_mean')
-      Clean_recon <- readclean('data/Crecon_median')
+      Clean_latent <- readclean('Clatent_mean', row.names=1)
+      Clean_recon <- readclean('data/Crecon_median', row.names=1)
       # placeholder if not using cleaned data
     }
 

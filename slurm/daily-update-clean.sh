@@ -13,7 +13,7 @@ conda activate Rmap
 
 # Do all the data preprocessing
 make preprocess-data
-cp -u website/site_data.csv docs/assets/data
+# cp -u website/site_data.csv docs/assets/data
 
 # Submit each region to clean and smooth
 sbatch --wait \
@@ -54,7 +54,7 @@ wait
 results_directory="fits/Rmap-cleaned-$(date +'%Y-%m-%d')"
 
 Rscript postprocess_samples.r --time_steps=15 \
-    --iterations 100 \
+    --iterations 8000 \
     --chains 1 \
     --results_directory $results_directory \
 

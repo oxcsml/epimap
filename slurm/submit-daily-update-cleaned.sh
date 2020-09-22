@@ -3,7 +3,7 @@
 #SBATCH --mail-user=michael.hutchinson@stats.ox.ac.uk
 #SBATCH --mail-type=ALL
 #
-#SBATCH --job-name=Rmap-daily-update
+#SBATCH --job-name=Rmap-daily-update-clean
 #SBATCH --output=slurm/output/Rmap_daily-update-cleaned_%A_%a.txt
 #SBATCH --partition=ziz-large
 #
@@ -18,7 +18,7 @@ set -e
 results_directory="fits/Rmap-cleaned-$(date +'%Y-%m-%d')"
 
 Rscript run.r --time_steps=15 \
-    --iterations 100 \
+    --iterations 8000 \
     --chains 1 \
     --cleaned_sample_id ${SLURM_ARRAY_TASK_ID} \
     --results_directory $results_directory \

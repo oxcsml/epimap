@@ -13,7 +13,6 @@ conda activate Rmap
 
 # Do all the data preprocessing
 make preprocess-data
-cp -u website/site_data.csv docs/assets/data
 
 # Submit each region to clean and smooth
 sbatch --wait \

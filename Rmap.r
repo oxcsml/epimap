@@ -27,9 +27,7 @@ Rmap_options = function(
 
 ##########################################################################
 ##########################################################################
-Rmap_setup = function(opt = Rmap_options()) { 
-  env = new.env(parent=globalenv())
-  env$opt = opt
+Rmap_read_data = function(env) { 
   with(env,{
 
     readdata = function(filename,...) {
@@ -38,13 +36,6 @@ Rmap_setup = function(opt = Rmap_options()) {
     readclean = function(filename,...) {
       read.csv(sprintf('%s/%s.csv',opt$clean_directory,filename),...)
     }
-
-    numchains = opt$chains
-    numiters = opt$iterations
-
-    options(mc.cores = min(numchains,parallel::detectCores()))
-    rstan_options(auto_write = TRUE)
-
 
     #########################################################
     infprofile <- readdata("serial_interval")$fit
@@ -56,9 +47,9 @@ Rmap_setup = function(opt = Rmap_options()) {
     Tdp <- 14
     Adp <- 5.0
     Bdp <- 1.0
-    delayprofile <- pgamma(1:Tdp,shape=Adp,rate=Bdp)
-    delayprofile <- delayprofile/delayprofile[Tdp]
-    delayprofile <- delayprofile - c(0.0,delayprofile[1:(Tdp-1)])
+    testdelayprofile <- pgamma(1:Tdp,shape=Adp,rate=Bdp)
+    testdelayprofile <- testdelayprofile/testdelayprofile[Tdp]
+    testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdp-1)])
 
 
     df <- readdata("areas",row.names=1)
@@ -77,11 +68,11 @@ Rmap_setup = function(opt = Rmap_options()) {
         !(s %in% c('Outside Wales','Unknown','...17','...18'))
     )
     uk_cases <- uk_cases[ind,]
-    Count <- uk_cases[,3:ncol(uk_cases)]
-    Tall <- ncol(Count)
-    dates <- as.Date(colnames(Count), format='X%Y.%m.%d')
-    colnames(Count) <- dates
-    rownames(Count) <- areas
+    AllCount <- uk_cases[,3:ncol(uk_cases)]
+    Tall <- ncol(AllCount)
+    dates <- as.Date(colnames(AllCount), format='X%Y.%m.%d')
+    colnames(AllCount) <- dates
+    rownames(AllCount) <- areas
 
     #########################################################
     radiation_length_scales <- c(.1,.2,.5)
@@ -104,6 +95,29 @@ Rmap_setup = function(opt = Rmap_options()) {
     traffic_flux[,,3] <- df
     colnames(traffic_flux) <- areas
     rownames(traffic_flux) <- areas
+
+  })
+  env
+}# Rmap_read_data
+##########################################################################
+##########################################################################
+
+
+##########################################################################
+##########################################################################
+Rmap_setup = function(opt = Rmap_options()) { 
+  env = new.env(parent=globalenv())
+  env$opt = opt
+  Rmap_read_data(env)
+  with(env,{
+
+    #########################################################
+    numchains = opt$chains
+    numiters = opt$iterations
+
+    options(mc.cores = min(numchains,parallel::detectCores()))
+    rstan_options(auto_write = TRUE)
+
 
     #########################################################
     if (opt$observation == 'cleaned_latent_sample' ||
@@ -140,7 +154,7 @@ Rmap_setup = function(opt = Rmap_options()) {
     Tproj <- Tstep*Mproj           # number of days to project forward
 
 
-    AllCount <- Count
+    Count <- AllCount
     Count <- Count[,1:Tall] # get rid of ignored last days
     Clean_latent <- Clean_latent[,1:Tall] # get rid of ignored last days
     Clean_recon <- Clean_recon[,1:Tall] # get rid of ignored last days
@@ -329,7 +343,7 @@ Rmap_run = function(env) {
       Tip = Tip, 
       infprofile = infprofile,
       Tdp = Tdp,
-      delayprofile = delayprofile,
+      delayprofile = testdelayprofile,
       F = F,
       flux = flux
     )

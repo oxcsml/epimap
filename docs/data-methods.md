@@ -18,9 +18,9 @@ We use publicly available Pillar 1+2 case count time series:
 At its core, our model uses a renewal equation formulation of epidemic dynamics within each local authority, building on the method of [Cori et al (2013)](https://doi.org/10.1093/aje/kwt133).
 
 
-In addition,
-*   Correlations in effective reproduction numbers across neighbouring local authorities and across neighbouring points in time are modelled using a spatio-temporal Gaussian process.
+Specific extensions that we have employed to adapt the renewal equation approach to our local-level model:
+*   Correlations in effective $R_t$ across neighbouring local authorities and across neighbouring points in time are modelled using a spatio-temporal Gaussian process.
 *   Potential infections that cross local authority boundaries are accounted for using a cross-coupled metapopulation approach. In order to do so, we incorporate both real commuter data as well as a well-known [human mobility model](https://arxiv.org/abs/1111.0586).
 *   Problems associated uncertainties in case report, outliers in case counts and delays in the testing procedure are alleviated via an autoregressive latent process that preprocesses observed case counts.
-*   We use the [No-U-Turn Sampler](https://arxiv.org/abs/1111.4246) within the [Stan](https://mc-stan.org/) probabilistic programming language for posterior inference for both our model and preprocessing
+*   We use the [No-U-Turn Sampler](https://arxiv.org/abs/1111.4246) within the [Stan](https://mc-stan.org/) probabilistic programming language for posterior inference for both our model and preprocessing.
 

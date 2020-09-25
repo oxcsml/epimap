@@ -49,11 +49,7 @@ This text is before the map
 </iframe>
 </div>
 </p>
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
+*   **Rt** denotes the instantaneous reproduction number: how many secondary cases a single primary case will result in on average. If Rt is larger than 1 then size of the Covid-19 pandemic is increasing exponentially. 
+*   **Case Projections (Per 100k)** denotes the predicted number of new infections over the next week in a local authority normalised by population size, as inferred from our model.
+*   **P(Rt>1)** denotes the probability that Rt is larger than 1 given the observed case counts, as inferred from our model. 
 This text is after the map

@@ -38,10 +38,10 @@ layout: home
 Welcome to the UK Local Covid Map. 
 This interactive map visualises the historical 
 and predicted future developments of the Covid-19 epidemic
-across local authorities in Great Britain.
+across local authorities in the UK.
 We hope it may be of use in informing policy makers, 
 health protection teams and the public, 
-with regards to the state of the epidemic.
+with regards to the current and future states of the epidemic.
 
 
 <p>

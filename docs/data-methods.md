@@ -11,7 +11,7 @@ We aim to reliably estimate the instantaneous reproduction number $R_t$ across l
 We use publicly available Pillar 1+2 daily counts of positive PCR swab tests, 
 for:
 *   312 lower-tier local authorities (LTLA) in England,
-*   14 NHS Health Board level in Scotland, and
+*   14 NHS Health Board level in Scotland (each covering multiple local authorities), and
 *   22 Unitary local authorities in Wales
 
 ## Methods

@@ -5,7 +5,8 @@ weight: 1
 ---
 
 There are a number of limitations to our current approach, mostly due to limitations in the fidelity and detail of the publicly available data.
-* We have not found ready access to daily case count data from local authorities in Northern Ireland.
+* We have not found ready access to daily case count data from local authorities in Northern Ireland. Likewise, we do not have data at the level
+of individual local authorities in Scotland.
 * The major limitation is that our method is based upon analysis of counts of positive 
 tests, as opposed to true infections. 
 There is an unclear relationship between true incidences and 

@@ -789,7 +789,7 @@ function ready(data) {
         .attr("y", margin.top + 30)
         .style("font-size", "16px")
         .style("cursor", "pointer")
-        .text("Case Projections (Per 100k)");
+        .text("Cases (per 100k)");
 
     const showPExceed = map_svg.append("text")
         .attr("x", margin.left)

@@ -9,7 +9,7 @@ layout: home
 ---
 
 
-### Map
+
 <style>
 .map-container {
     position: relative;
@@ -33,27 +33,15 @@ layout: home
     border: 0;
 }
 </style>
-
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
-This text is before the map
+## Map
+Definitions for terms in the map below: 
+*   **Rt** denotes the reproduction number: how many secondary cases a single primary case will result in on average. **Rt** greater than 1 implies the size of the pandemic is increasing exponentially. 
+*   **Case Projections (Per 100k)** denotes the predicted number of new infections over the next week in a local authority normalised by population size.
+*   **P(Rt>1)** denotes the probability that Rt is larger than 1 given the observed case counts.
 <p>
 <div class="map-container">
 <iframe class="map-frame" src="{{ 'map.html' | prepend: site.baseurl}}" allow="fullscreen">
 </iframe>
 </div>
 </p>
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
-This text is after the map
+<!-- This text is after the map. -->

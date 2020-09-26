@@ -14,36 +14,8 @@ conda activate Rmap
 # Do all the data preprocessing
 make preprocess-data
 
-# Submit each region to clean and smooth
-sbatch --wait \
-    --mail-user=michael.hutchinson@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=clean_ts \
-    --output=slurm/output/cleaning/clean_timeseries_%A_%a.out \
-    --partition=ziz-medium \
-    --ntasks=1 \
-    --time=18:00:00 \
-    --mem-per-cpu=5G \
-    --cpus-per-task=1 \
-    --array=1-348 \
-    --wrap \
-    'Rscript preprocessing/clean_area.r --task_id $SLURM_ARRAY_TASK_ID'
-wait
-
-# Recombine samples from regions into country samples
-sbatch --wait \
-    --mail-user=michael.hutchinson@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=combine_areas \
-    --output=slurm/output/cleaning/combine_areas_%A_%a.out \
-    --partition=ziz-medium \
-    --ntasks=1 \
-    --time=18:00:00 \
-    --mem-per-cpu=10G \
-    --cpus-per-task=1 \
-    --wrap \
-    'Rscript preprocessing/combine_areas.r'
-wait
+# Submit each region to clean 
+slurm/submit-clean.sh
 
 # Submit the job and wait for completion
 sbatch --wait slurm/submit-daily-update-cleaned.sh 

@@ -1,0 +1,27 @@
+---
+layout: home
+title: Data & Methods
+weight: 1
+---
+
+We aim to reliably estimate the instantaneous reproduction number $R_t$ across local authorities in the UK with appropriately quantified uncertainties.
+
+## Data
+
+We use publicly available Pillar 1+2 daily counts of positive PCR swab tests, 
+for:
+*   312 lower-tier local authorities (LTLA) in England,
+*   14 NHS Health Board level in Scotland, and
+*   22 Unitary local authorities in Wales
+
+## Methods
+
+At its core, our Bayesian method uses a renewal equation formulation of epidemic dynamics within each local authority, building on the method of [Cori et al (2013)](https://doi.org/10.1093/aje/kwt133).
+
+Specific extensions that we have employed to adapt the renewal equation approach to our local-level model:
+*   Correlations in effective $R_t$ across neighbouring local authorities and across neighbouring points in time are modelled using a spatio-temporal Gaussian process. This allows for sharing of statistical strengths.
+*   Potential infections that cross local authority boundaries are accounted for using a cross-coupled metapopulation approach. In order to do so, we incorporate both real commuter data as well as a well-known [human mobility model](https://arxiv.org/abs/1111.0586).
+*   Problems associated with noise in the case reporting process, outliers in case counts and delays in the testing and reporting system are alleviated via an initial preprocessing phase.
+*   We use the [No-U-Turn Sampler](https://arxiv.org/abs/1111.4246) inplemented in the [Stan](https://mc-stan.org/) probabilistic programming system for posterior inference for both the preprocessing and modelling.
+
+

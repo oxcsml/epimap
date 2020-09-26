@@ -1,2 +1,42 @@
-baseurl: /Rmap
-url: http://USERNAME.github.io
+---
+title: UK Local Covid Map
+author:
+  name: UK Local Covid Map
+  github: rs-delve
+publisher: The Royal Society
+github_username: rs-delve
+description: > # this means to ignore newlines until "show_excerpts:"
+  Local nowcasting of Covid-19 in UK
+
+plugins:
+- jekyll-feed
+- jekyll-seo-tag
+#- jekyll-remote-theme
+
+#remote_theme: lawrennd/proceedings
+
+baseurl: ''
+#url: http://rs-delve.github.io
+
+timezone: UTC
+encoding: utf-8
+markdown: kramdown
+display:
+  copy_button:
+    bibtex: false
+    endnote: false
+    apa: false
+    ris: false
+  comments: false
+ghub:
+  edit: false
+future: true
+logo: logo.png
+
+header_pages:
+  - data-methods.md
+  - limitations.md
+  - people.md
+  - about.md
+
+delve_url: https://rs-delve.github.io/

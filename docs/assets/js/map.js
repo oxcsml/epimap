@@ -789,7 +789,7 @@ function ready(data) {
         .attr("y", margin.top + 30)
         .style("font-size", "16px")
         .style("cursor", "pointer")
-        .text("Case Projections (Per 100k)");
+        .text("Cases (per 100k)");
 
     const showPExceed = map_svg.append("text")
         .attr("x", margin.left)
@@ -1018,7 +1018,7 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
 
     caseChartXAxis.call(d3.axisBottom(caseX));
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
-    caseChartTitle.text(`COVID-19 Cases for ${area}`);
+    caseChartTitle.text(`Covid-19 Cases for ${area}`);
 
     const predictionDate = d3.min(predictionData.map(c => c.Date));
     const projectionDate = d3.max(chartData.map(c => c.Date));

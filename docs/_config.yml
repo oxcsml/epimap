@@ -6,7 +6,7 @@ author:
 publisher: The Royal Society
 github_username: rs-delve
 description: > # this means to ignore newlines until "show_excerpts:"
-  Local nowcasting of SARS-CoV-2 in UK
+  Local nowcasting of Covid-19 in UK
 
 plugins:
 - jekyll-feed

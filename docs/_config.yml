@@ -15,7 +15,7 @@ plugins:
 
 #remote_theme: lawrennd/proceedings
 
-baseurl: ''
+baseurl: 'http://rs-delve.github.io/Rmap'
 #url: http://rs-delve.github.io
 
 timezone: UTC

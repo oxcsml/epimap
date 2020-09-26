@@ -5,7 +5,7 @@ source("read_data.r")
 numiters <- 3000 # NOTE: this should match the value used in clean_areas.r. TODO: Should we put this variable in a common file from which to import?
 
 # counts in most recent 5 days may not be reliable
-Tignore <- 5 # don't ignore for now? can ignore last 5 days of cleaned data instead?
+Tignore <- 0 # don't ignore for now? can ignore last 5 days of cleaned data instead?
 Tall <- Tall - Tignore
 Count <- Count[, 1:Tall]
 
@@ -123,17 +123,17 @@ for (area_index in 1:N) {
 days <- colnames(Count)
 rownames(Clatent_mean) <- quoted_areas
 colnames(Clatent_mean) <- days
-write.csv(Clatent_mean, "data/Clatent_mean.csv", quote = FALSE)
+write.csv(Clatent_mean, "data/cleaned_samples/Clatent_mean.csv", quote = FALSE)
 rownames(Crecon_median) <- quoted_areas
 colnames(Crecon_median) <- days
-write.csv(Crecon_median, "data/Crecon_median.csv", quote = FALSE)
+write.csv(Crecon_median, "data/cleaned_samples/Crecon_median.csv", quote = FALSE)
 for (i in 1:Nsample) {
   cc <- Clatent_sample[, , i]
   rownames(cc) <- quoted_areas
   colnames(cc) <- days
-  write.csv(cc, paste("data/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
+  write.csv(cc, paste("data/cleaned_samples/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
   cc <- Crecon_sample[, , i]
   rownames(cc) <- quoted_areas
   colnames(cc) <- days
-  write.csv(cc, paste("data/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+  write.csv(cc, paste("data/cleaned_samples/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
 }

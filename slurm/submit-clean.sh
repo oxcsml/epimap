@@ -10,7 +10,7 @@ areas=$(sbatch --mail-user=sheheryar.zaidi@stats.ox.ac.uk \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \
-    --mem-per-cpu=1G \
+    --mem-per-cpu=2G \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \

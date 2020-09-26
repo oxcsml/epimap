@@ -46,7 +46,7 @@ with regards to the current and future states of the epidemic.
 
 <p>
 <div class="map-container">
-<iframe class="map-frame" src="{{ 'map.html' | prepend: site.baseurl}}" allow="fullscreen">
+<iframe class="map-frame" src="{{ '/map.html' | prepend: site.baseurl}}" allow="fullscreen">
 </iframe>
 </div>
 </p>

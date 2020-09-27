@@ -30,5 +30,5 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    'Rscript cleaning/clean_combine.r'
+    'Rscript cleaning/combine_areas.r'
 wait

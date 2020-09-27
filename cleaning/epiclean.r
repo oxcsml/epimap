@@ -2,7 +2,7 @@ library(rstan)
 library(optparse)
 source("Rmap.r")
 
-covidmap_clean_options = function(
+epiclean_options = function(
   num_samples     = 10,
   iterations      = 3000,
   num_steps       = 18,
@@ -14,7 +14,7 @@ covidmap_clean_options = function(
   as.list(environment())
 }
 
-covidmap_clean = function(area_index = 0, opt = covidmap_clean_options()) {
+epiclean = function(area_index = 0, opt = epiclean_options()) {
   env = new.env(parent=globalenv())
   env$area_index = area_index
   env$opt = opt
@@ -124,7 +124,7 @@ covidmap_clean = function(area_index = 0, opt = covidmap_clean_options()) {
   env
 }
 
-covidmap_clean_combine = function(opt = covidmap_clean_options()) {
+epiclean_combine = function(opt = epiclean_options()) {
   env = new.env(parent=globalenv())
   env$opt = opt
   Rmap_read_data(env)

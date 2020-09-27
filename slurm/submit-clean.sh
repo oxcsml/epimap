@@ -12,7 +12,7 @@ sbatch --wait \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \
-    'Rscript preprocessing/clean_area.r --task_id $SLURM_ARRAY_TASK_ID'
+    'Rscript cleaning/clean_area.r --task_id $SLURM_ARRAY_TASK_ID'
 wait
 
 echo Combining results...
@@ -20,7 +20,7 @@ echo Combining results...
 
 
 sbatch --wait \
-    --mail-user=sheheryar.zaidi@stats.ox.ac.uk \
+    --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=combine_areas \
     --output=slurm/output/cleaning/clean_combine_%A_%a.out \
@@ -30,5 +30,5 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    'Rscript preprocessing/clean_combine.r'
+    'Rscript cleaning/clean_combine.r'
 wait

@@ -5,8 +5,6 @@ weight: 1
 ---
 
 There are a number of limitations to our current approach, mostly due to limitations in the fidelity and detail of the publicly available data.
-* We have not found ready access to daily case count data from local authorities in Northern Ireland. Likewise, we do not have data at the level
-of individual local authorities in Scotland.
 * The major limitation is that our method is based upon analysis of counts of positive 
 tests, as opposed to true infections. 
 There is an unclear relationship between true incidences and 
@@ -30,3 +28,11 @@ from the perspective of understanding rates of transmissions from case counts,
 can introduce biases and noise.
 *   Uncertainties in $R_t$ in local authorities are high and sensitive to random local events.
 
+Making the following data publicly accessible will help the epidemic monitoring research we and others are carrying out:
+* Daily case count data from local authorities in Northern Ireland. 
+* Likewise, data at the level of individual local authorities in Scotland.
+* Separating out Pillars 1 and 2 data.
+* Number of tests carried out per local authority.
+* Number of individuals tested and whether they are tested regularly.
+* Some information about circumstances under which tests were taken, e.g. whether these are part of outbreak investigations, whether the individual has symptoms.
+* Daily data segregated by age and/or at MSOA spatial resolution.

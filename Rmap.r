@@ -5,7 +5,7 @@ library(optparse)
 Rmap_options = function(
   spatialkernel        = "matern12",
   temporalkernel       = "matern12",
-  localkernel          = "none",
+  localkernel          = "local",
   globalkernel         = "global",
   metapop              = "radiation2,uniform,in",
   observation          = "cleaned_recon_sample",

@@ -1,7 +1,9 @@
 #!/bin/bash
 
-jobname = $(date +'%Y-%m-%d')
-results_directory="fits/Rmap-cleaned-$jobname"
+jobname=$(date +'%Y-%m-%d')
+results_directory="fits/Rmap-$jobname"
+echo results_directory = $results_directory
+
 options="\
     --time_steps 25 \
     --iterations 6000 \
@@ -15,8 +17,8 @@ sbatch --wait \
     --output=slurm/output/run_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
-    --time=23:59:00 \
-    --mem-per-cpu=20G \
+    --time=40:00:00 \
+    --mem-per-cpu=30G \
     --cpus-per-task=1 \
     --array=1-10 \
     --wrap \
@@ -26,6 +28,8 @@ wait
 echo Combining results
 
 Rscript postprocess_samples.r $options
+
+mkdir -p docs/assets/data/${jobname}
 
 python3 reinflate.py \
     ${results_directory}/merged_Rt.csv \

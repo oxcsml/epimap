@@ -28,7 +28,9 @@ tmux select-layout tiled
 
 for i in {1..10}; do
   tmux select-pane -t $i && tmux send-keys \
-    "tail -f slurm/output/run_${jobid}_$i.out && tmux kill-window" C-m
+    "tail -f slurm/output/run_${jobid}_$i.out" C-m
 done
-tmux select-pane -t 11 && tmux send-keys "swatch && tmux kill-window" C-m
+tmux select-pane -t 11 && tmux send-keys "swatch" C-m
+
+# && tmux kill-window
 

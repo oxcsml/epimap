@@ -28,7 +28,7 @@ tmux select-layout tiled
 
 for i in {1..10}; do
   tmux select-pane -t $i && tmux send-keys \
-    "tail -f slurm/output/run_${jobid}_$i.out" C-m
+    "tail -n 1000 -f slurm/output/run_${jobid}_$i.out" C-m
 done
 tmux select-pane -t 11 && tmux send-keys "swatch" C-m
 

@@ -13,7 +13,11 @@ conda activate Rmap
 
 # Do all the data preprocessing
 make preprocess-data
-# cp -u website/site_data.csv docs/assets/data
+# cp -u website/site_data.csv docs/assets/data\
+
+results_directory="fits/Rmap-cleaned-$(date +'%Y-%m-%d')"
+mkdir $results_directory
+git rev-parse HEAD > ${results_directory}/git-hash.txt
 
 # Submit each region to clean and smooth
 sbatch --wait \
@@ -51,7 +55,6 @@ sbatch --wait slurm/submit-daily-update-cleaned.sh
 wait
 
 # Recombine samples
-results_directory="fits/Rmap-cleaned-$(date +'%Y-%m-%d')"
 
 Rscript postprocess_samples.r --time_steps=15 \
     --iterations 8000 \
@@ -72,7 +75,9 @@ python3 reinflate.py \
     docs/assets/data/default/Cproj.csv
 
 # Update the git repo
+git pull
 git add docs/assets/data/default/*
+git add docs/assets/data/*
 git add data/*
 git commit -m "daily update"
 git push

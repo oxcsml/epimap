@@ -25,8 +25,8 @@ sbatch --wait \
     --output=slurm/output/run_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
-    --mem-per-cpu=30G \
     --cpus-per-task=1 \
+    --mem-per-cpu=30G \
     --array=1-10 \
     --wrap \
     "Rscript run.r $options --cleaned_sample_id \$SLURM_ARRAY_TASK_ID"
@@ -34,7 +34,18 @@ wait
 
 echo Combining results
 
-Rscript postprocess_samples.r $options
+sbatch --wait \
+    --mail-user=$USER@stats.ox.ac.uk \
+    --mail-type=ALL \
+    --job-name=Rmap_merge \
+    --output=slurm/output/merge_%A_%a.out \
+    --partition=ziz-large \
+    --ntasks=1 \
+    --cpus-per-task=1 \
+    --mem-per-cpu=30G \
+    --wrap \
+    "Rscript postprocess_samples.r $options"
+wait
 
 mkdir -p docs/assets/data/${jobname}
 

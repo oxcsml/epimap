@@ -23,7 +23,7 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap_run \
     --output=slurm/output/run_%A_%a.out \
-    --partition=ziz-medium \
+    --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \

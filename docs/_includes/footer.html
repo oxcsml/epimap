@@ -1,0 +1,30 @@
+
+<style>
+.footer-left, .footer-right{
+    width: 40%;
+}
+
+.footer-left{
+    float: left;
+}
+.footer-right{
+    float: right;
+    text-align: right;
+}
+</style>
+
+{% include layout.html include="footer.html" %}
+{% if default_include %}
+<footer class="site-footer">
+<div class="wrapper">
+  <div class="footer-left" >
+      Prepared on behalf of the <a href="{{ site.delve_url }}">Royal Society DELVE Initiative</a>
+  </div>
+
+  <div class="footer-right" >
+        Last updated at {{ site.time | date: "%T on %a %b %-d %Y" }}
+  </div>
+
+</div>
+</footer>
+{% endif %}

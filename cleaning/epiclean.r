@@ -1,6 +1,6 @@
 library(rstan)
 library(optparse)
-source("Rmap.r")
+source("data/scripts/read_data.r")
 
 epiclean_options = function(
   num_samples     = 10,
@@ -100,7 +100,7 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     
     start_time <- Sys.time()
     
-    fit <- stan(file = 'stan_files/Rmap-clean.stan',
+    fit <- stan(file = 'cleaning/stan_files/Rmap-clean.stan',
                 data = Rmap_clean_data, 
                 init = init,
                 iter = numiters, 
@@ -112,7 +112,7 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     print("Time to run")
     print(end_time - start_time)
     
-    saveRDS(fit, paste('local-cleaned/stanfit-',area,'.rds',sep=''))
+    saveRDS(fit, paste('cleaning/local-cleaned/stanfit-',area,'.rds',sep=''))
     
     #################################################################
     # Summary of fit
@@ -160,7 +160,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       area <- areas[area_index]
       print(area)
     
-      fit <- readRDS(paste("local-cleaned/stanfit-", area, ".rds", sep = ""))
+      fit <- readRDS(paste("cleaning/local-cleaned/stanfit-", area, ".rds", sep = ""))
     
       skip <- numiters / 2 / Nsample
       ####################################################################
@@ -187,11 +187,11 @@ epiclean_combine = function(opt = epiclean_options()) {
 
       ####################################################################
       # pairs plot
-      pdf(paste("local-cleaned/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste("cleaning/local-cleaned/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
       pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
       dev.off()
     
-      pdf(paste("local-cleaned/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste("cleaning/local-cleaned/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
       par(mfrow = c(5, 2))
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
@@ -207,7 +207,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       }
       dev.off()
     
-      pdf(paste("local-cleaned/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste("cleaning/local-cleaned/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
       par(mfrow = c(5, 2))
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))

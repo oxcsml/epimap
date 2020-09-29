@@ -14,16 +14,6 @@ quoted_areas <- sapply(areas,function(s) paste('"',s,'"',sep=''))
 
 ###############################################################################
 
-Count <- uk_cases[,3:ncol(uk_cases)]
-dates <- as.Date(colnames(uk_cases)[3:ncol(uk_cases)], format='X%Y.%m.%d')
-
-rownames(Count) <- quoted_areas
-colnames(Count) <- dates
-
-write.csv(Count,'data/counts.csv',quote=FALSE)
-
-###############################################################################
-
 # Assumes that metadata contains all areas in uk_cases and area names match perfectly
 metadata <- read.csv("data/metadata.csv")
 ind <- sapply(metadata[,1], function(s)

@@ -2,7 +2,7 @@
 # compute fluxes for radiation model.
 # relax radiation model by adding noise to distance with sd 10km, and bootstrapping
 
-source('read_data.r')
+source('data/scripts/read_data.r')
 
 numrep <- 100000
 

@@ -15,24 +15,25 @@ conda activate Rmap
 make preprocess-data
 # cp -u website/site_data.csv docs/assets/data\
 
-results_directory="fits/Rmap-cleaned-$(date +'%Y-%m-%d')"
+today=$(date +'%Y-%m-%d')
+results_directory="fits/Rmap-cleaned-${today}"
 mkdir $results_directory
 git rev-parse HEAD > ${results_directory}/git-hash.txt
-
-jobname=$(date +'%Y-%m-%d')
 
 # clean 
 slurm/submit-clean.sh
 
-slurm/submit-run.sh $jobname
+slurm/submit-run.sh $results_directory
+
+slurm/reinflate.sh $results_directory $today
 
 # soft link to latest results
 rm docs/assets/data/default
-ln -s docs/assets/data/$jobname docs/assets/data/default
+ln -s docs/assets/data/$today docs/assets/data/default
 
 # Update the git repo
-git add docs/assets/data/$jobname/*
+git add docs/assets/data/$today/*
 git add docs/assets/data/default
 git add data/*
-git commit -m "daily update $jobname"
+git commit -m "daily update $today"
 git push

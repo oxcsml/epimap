@@ -1,2 +1,0 @@
-Rscript run-time-vary-reduce-traffic.r --metapop traffic3_uniform_in --localkernel none
-

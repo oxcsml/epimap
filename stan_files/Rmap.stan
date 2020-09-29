@@ -516,8 +516,9 @@ generated quantities {
         Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
 
 
-    if (OBSERVATIONMODEL != CLEANED_LATENT &&
-        OBSERVATIONMODEL != CLEANED_RECON) {
+    if (1) {
+        // OBSERVATIONMODEL != CLEANED_LATENT &&
+        // OBSERVATIONMODEL != CLEANED_RECON) {
       { // posterior predictive expected counts
         for (k in 1:Mstep) 
           Cpred[,(1+(k-1)*Tstep):(k*Tstep)] = convlikout[k];
@@ -550,7 +551,17 @@ generated quantities {
                   convpredout[1,j,i],
                   convpredout[1,j,i] / dispersion
               ));
-            } 
+            } else if (OBSERVATIONMODEL == CLEANED_LATENT) {
+              Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
+                  convpredout[1,j,i],
+                  sqrt((1.0+dispersion)*convpredout[1,j,i])
+              ));
+            } else if (OBSERVATIONMODEL == CLEANED_RECON) {
+              Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                  convpredout[1,j,i],
+                  convpredout[1,j,i] / dispersion
+              ));
+            }
           }
         }
       }
@@ -575,8 +586,9 @@ generated quantities {
               forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
         }
       }
-    } else if (OBSERVATIONMODEL == CLEANED_LATENT ||
-               OBSERVATIONMODEL == CLEANED_RECON) {
+    } else if (0) { 
+        // OBSERVATIONMODEL == CLEANED_LATENT ||
+        // OBSERVATIONMODEL == CLEANED_RECON) {
       int Tidp = max(Tip,Tdp);
       matrix[N,Tcur+Tforw] Clatent;
       row_vector[F1] forw_fluxproportions[1];

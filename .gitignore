@@ -46,6 +46,7 @@ choropleth.html
 *.html
 !/docs/**/*.html
 !/docs/**/*.csv
+*.pdf
 
 # PyCharm files
 .idea*

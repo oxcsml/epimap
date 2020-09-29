@@ -575,7 +575,7 @@ Rmap_postprocess = function(env) {
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
       c("C_025","C_25","C_50","C_75","C_975")
     )
-    writeresults(df, 'Cproj.csv', row.names=FALSE, quote=FALSE)
+    writeresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
 
 
     #################################################################
@@ -921,7 +921,7 @@ df <- area_date_dataframe(
     quoted_areas,
     seq(dates[Tcur]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
-    format(round(Cproj,1),digits=1),
+    format(round(Cproj,1),nsmall=1),
     #c("C_2_5","C_25","C_50","C_75","C_97_5")
     c("C_025","C_25","C_50","C_75","C_975")
 )

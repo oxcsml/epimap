@@ -42,5 +42,5 @@ sbatch --wait \
     --cpus-per-task=1 \
     --mem-per-cpu=30G \
     --wrap \
-    "Rscript mapping/postprocess_samples.r $options"
+    "Rscript mapping/merge_results.r $options"
 wait

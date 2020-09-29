@@ -33,4 +33,16 @@ wait
 
 echo Combining results
 
-Rscript mapping/postprocess_samples.r $options
+sbatch --wait \
+    --mail-user=$USER@stats.ox.ac.uk \
+    --mail-type=ALL \
+    --job-name=Rmap_merge \
+    --output=slurm/output/merge_%A_%a.out \
+    --partition=ziz-large \
+    --ntasks=1 \
+    --cpus-per-task=1 \
+    --mem-per-cpu=30G \
+    --wrap \
+    "Rscript mapping/merge_results.r $options"
+wait
+

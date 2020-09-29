@@ -1,0 +1,31 @@
+<h2>Volume {{ site.volume }}</h2>
+
+{% if site.ghub.edit %}
+{% capture url %}https://github.com/{{ site.github_username }}/{% if site.ghub.repository %}{{ site.ghub.repository }}{% else %}{{ site.baseurl }}{% endif %}/edit/{% if site.ghub.repository contains 'github.io' %}master{% else %}gh-pages{% endif %}/_config.yml{% endcapture %}
+<p style="text-align:right">[<a href="{{ url }}" target="_blank" onclick="ga('send', 'event', 'Edit Page', 'Edit', '{{ url }}', 13);">edit</a>]</p>
+{% endif %}
+
+  <p>[<a href="./assets/bib/bibliography.bib" target="_blank" onclick="ga('send', 'event', 'Download File', 'Download', '{{ site.url }}{{site.baseurl}}/assets/bib/bibliography.bib', 14);">bib</a>][<a href="./assets/bib/citeproc.yaml"  target="_blank" onclick="ga('send', 'event', 'Download File', 'Download', '{{ site.url }}{{site.baseurl}}/assets/bib/citeproc.yaml', 14);">citeproc</a>]</p>
+<div id="sectionnav">
+  <p>
+  <label for="search-authors">Filter Authors:</label>
+  <input type="search" name="filter-authors" id="search-authors" value />
+  <label for="search-titles">Filter Titles:</label>
+  <input type="search" name="filter-titles" id="search-titles" value />
+  </p>
+</div>
+
+{{ content }}
+
+{% assign sorted = site.posts | sort: 'order' %}
+{% if site.sections %}{% for section in site.sections %}
+<h3 id="{{ section.name }}">{{ section.title }}</h3>
+{% for post in sorted %}{% if section.name == post.section %}{% include listpaper.html %}{% endif %}{% endfor %}{% endfor %}{% endif %}
+
+{% for post in sorted %}{% unless post.section %}{% include listpaper.html %}{% endunless %}{% endfor %}
+
+<p class="rss-subscribe">subscribe <a href="{{ "/assets/rss/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
+
+<!-- Search Widget -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="{{site.url}}{{site.baseurl}}/assets/js/search.js"></script>

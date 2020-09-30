@@ -16,16 +16,17 @@ make preprocess-data
 # cp -u website/site_data.csv docs/assets/data\
 
 today=$(date +'%Y-%m-%d')
-results_directory="fits/Rmap-cleaned-${today}"
+clean_directory="fits/clean-${today}"
+results_directory="fits/map-${today}"
 mkdir $results_directory
 git rev-parse HEAD > ${results_directory}/git-hash.txt
 
 # clean 
-slurm/submit-clean.sh
+slurm/submit-clean.sh $clean_directory
 
-slurm/submit-run.sh $results_directory
+slurm/submit-run.sh $results_directory $clean_directory
 
-slurm/reinflate.sh $results_directory $today
+dataprocessing/reinflate.sh $results_directory $today
 
 # soft link to latest results
 rm docs/assets/data/default

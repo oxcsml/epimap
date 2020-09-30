@@ -2,19 +2,21 @@
 
 set -e
 
-if [ $# -ne 1 ]; then
-  echo Usage: submit-run results_directory
+if [ $# -ne 2 ]; then
+  echo Usage: submit-run results_directory clean_directory
   exit 1
 fi
 
 results_directory=$1
 echo results_directory = $results_directory
+echo clean_directory = $clean_directory
 
 options="\
     --time_steps 15 \
-    --iterations 8000 \
+    --iterations 6000 \
     --observation cleaned_recon_sample \
-    --results_directory $results_directory"
+    --results_directory $results_directory \
+    --clean_directory $clean_directory"
 
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \

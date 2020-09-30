@@ -8,9 +8,9 @@ environment:
 	source $(CONDAROOT)/bin/activate && conda activate Rmap && pip install -e covid19_datasets
 		
 preprocess-data:
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && python preprocessing/process_uk_cases.py
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && python preprocessing/process_mobility.py
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && python preprocessing/process_metadata.py
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && python preprocessing/process_site_data.py
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript preprocessing/process_data.r
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_uk_cases.py
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_mobility.py
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_metadata.py
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_site_data.py
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript dataprocessing/process_data.r
 	# source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript process_radiation_fluxes.r

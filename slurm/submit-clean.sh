@@ -1,5 +1,21 @@
 #!/bin/bash
 
+set -e
+
+if [ $# -ne 1 ]; then
+  echo Usage: submit-run clean_directory
+  exit 1
+fi
+
+clean_directory=$1
+echo "clean_directory = $clean_directory"
+
+options="--clean_directory $clean_directory"
+
+mkdir $clean_directory
+mkdir $clean_directory/pdfs
+mkdir $clean_directory/stanfits
+
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
@@ -12,11 +28,10 @@ sbatch --wait \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \
-    'Rscript cleaning/clean_area.r --task_id $SLURM_ARRAY_TASK_ID'
+    "Rscript cleaning/clean_area.r --task_id \$SLURM_ARRAY_TASK_ID $options"
 wait
 
 echo Combining results...
-
 
 
 sbatch --wait \
@@ -30,5 +45,5 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    'Rscript cleaning/combine_areas.r'
+    "Rscript cleaning/combine_areas.r $options"
 wait

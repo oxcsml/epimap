@@ -1,6 +1,6 @@
 library(rstan)
 library(optparse)
-source("data/scripts/read_data.r")
+source("dataprocessing/read_data.r")
 
 epiclean_options = function(
   num_samples     = 10,
@@ -112,7 +112,7 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     print("Time to run")
     print(end_time - start_time)
     
-    saveRDS(fit, paste('cleaning/local-cleaned/stanfit-',area,'.rds',sep=''))
+    saveRDS(fit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
     
     #################################################################
     # Summary of fit
@@ -160,7 +160,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       area <- areas[area_index]
       print(area)
     
-      fit <- readRDS(paste("cleaning/local-cleaned/stanfit-", area, ".rds", sep = ""))
+      fit <- readRDS(paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
     
       skip <- numiters / 2 / Nsample
       ####################################################################
@@ -187,11 +187,11 @@ epiclean_combine = function(opt = epiclean_options()) {
 
       ####################################################################
       # pairs plot
-      pdf(paste("cleaning/local-cleaned/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
       pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
       dev.off()
     
-      pdf(paste("cleaning/local-cleaned/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
       par(mfrow = c(5, 2))
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
@@ -207,7 +207,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       }
       dev.off()
     
-      pdf(paste("cleaning/local-cleaned/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
       par(mfrow = c(5, 2))
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
@@ -227,19 +227,19 @@ epiclean_combine = function(opt = epiclean_options()) {
     days <- colnames(Count)
     rownames(Clatent_mean) <- quoted_areas
     colnames(Clatent_mean) <- days
-    write.csv(Clatent_mean, "results/default/Clatent_mean.csv", quote = FALSE)
+    write.csv(Clatent_mean, paste(opt$clean_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
     rownames(Crecon_median) <- quoted_areas
     colnames(Crecon_median) <- days
-    write.csv(Crecon_median, "results/default/Crecon_median.csv", quote = FALSE)
+    write.csv(Crecon_median, paste(opt$clean_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
     for (i in 1:Nsample) {
       cc <- Clatent_sample[, , i]
       rownames(cc) <- quoted_areas
       colnames(cc) <- days
-      write.csv(cc, paste("results/default/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
+      write.csv(cc, paste(opt$clean_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
       cc <- Crecon_sample[, , i]
       rownames(cc) <- quoted_areas
       colnames(cc) <- days
-      write.csv(cc, paste("results/default/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+      write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
     }
   })
   env

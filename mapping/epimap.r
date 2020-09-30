@@ -180,9 +180,8 @@ Rmap_run = function(env) {
       'radiation1' = radiation_flux[,,1], # smoothed radiation model with length scale = .1 (10km)
       'radiation2' = radiation_flux[,,2], # smoothed radiation model with length scale = .2 (20km)
       'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
-      'traffic1' = traffic_flux[,,1], # traffic flux (all row sums = 1)
-      'traffic2' = traffic_flux[,,2], # traffic flux (max row sum = 1)
-      'traffic3' = traffic_flux[,,3], # traffic flux transpose (all row sums = 1) 
+      'traffic_forward' = traffic_flux[,,1], # infected commuters taking infection from home to work
+      'traffic_reverse' = traffic_flux[,,2], # commuters getting infected at work and bringing back home
       'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
     )
     if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {

@@ -44,7 +44,7 @@ if (!interactive()) {
       default=Rmap_opt$metapop,
       help=paste(
           "metapopulation model for inter-region cross infections",
-          "(none, or comma separated list containing radiation{1,2,3},traffic{1,2,3},uniform,in,in_out);",
+          "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
           "default = ", Rmap_opt$metapop
       )
     ),

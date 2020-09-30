@@ -5,7 +5,7 @@ source("data/scripts/read_data.r")
 epiclean_options = function(
   num_samples     = 10,
   iterations      = 3000,
-  num_steps       = 18,
+  num_steps       = NULL,
   days_per_step   = 7,
   days_ignored    = 0,
   data_directory  = "data/",
@@ -29,8 +29,13 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     # counts in most recent 5 days may not be reliable
     Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
     Tstep <- opt$days_per_step
-    Nstep <- opt$num_steps
     Tall <- Tall-Tignore
+    if (is.null(opt$num_steps)) {
+      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
+      print(paste("Nstep = ",Nstep))
+    } else {
+      Nstep <- opt$num_steps
+    }
     Tlik <- Nstep*Tstep
     Tcond <- Tall-Tlik
 
@@ -134,8 +139,13 @@ epiclean_combine = function(opt = epiclean_options()) {
 
     Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
     Tstep <- opt$days_per_step
-    Nstep <- opt$num_steps
     Tall <- Tall-Tignore
+    if (is.null(opt$num_steps)) {
+      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
+      print(paste("Nstep = ",Nstep))
+    } else {
+      Nstep <- opt$num_steps
+    }
     Tlik <- Nstep*Tstep
     Tcond <- Tall-Tlik
 

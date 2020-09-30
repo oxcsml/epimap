@@ -1,5 +1,25 @@
 #!/bin/bash
 
+set -e
+
+trap 'echo submit-clean: Failed before finishing with exit code $? && exit $?' ERR
+
+echo submit-clean: Cleaning areas
+
+if [ $# -ne 1 ]; then
+  echo Usage: submit-run clean_directory
+  exit 1
+fi
+
+clean_directory=$1
+echo "clean_directory = $clean_directory"
+
+options="--clean_directory $clean_directory"
+
+mkdir $clean_directory
+mkdir $clean_directory/pdfs
+mkdir $clean_directory/stanfits
+
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
@@ -12,23 +32,23 @@ sbatch --wait \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \
-    'Rscript cleaning/clean_area.r --task_id $SLURM_ARRAY_TASK_ID'
+    "Rscript cleaning/clean_area.r --task_id \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
 wait
 
-echo Combining results...
-
-
+echo submit-clean: Combining areas
 
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=combine_areas \
-    --output=slurm/output/cleaning/clean_combine_%A_%a.out \
+    --output=slurm/output/cleaning/combine_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    'Rscript cleaning/combine_areas.r'
+    "Rscript cleaning/combine_areas.r $options && echo combine_areas: DONE"
 wait
+
+echo submit-clean: DONE

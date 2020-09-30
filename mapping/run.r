@@ -2,7 +2,7 @@
 ##########################################################################
 # If run from shell script, process command line arguments and run
 if (!interactive()) {
-  source("data/scripts/read_data.r")
+  source("dataprocessing/read_data.r")
   source("mapping/epimap.r")
   
   Rmap_opt = Rmap_options()

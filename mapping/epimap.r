@@ -11,14 +11,14 @@ Rmap_options = function(
   observation          = "cleaned_recon_sample",
   cleaned_sample_id    = 0,
   chains               = 1,
-  iterations           = 6000,
+  iterations           = 8000,
   time_steps           = 15,
   days_per_step        = 7,
   days_ignored         = 6,
   days_predicted       = 2,
   num_steps_forecasted = 3,
   data_directory       = "data/",
-  clean_directory      = "data/cleaned_samples",
+  clean_directory      = "results/default",
   results_directory    = NULL
 ) {
      

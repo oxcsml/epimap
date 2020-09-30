@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+
 # %%
 
 traffic = pd.read_csv("traffic/traffic.csv", index_col=0)
@@ -46,7 +47,3 @@ traffic_T_prop.to_csv("data/traffic_flux_transpose_row-normed.csv")
 # %%
 # Unnormalized version
 
-traffic_prop_unnorm = traffic.divide(populations, axis="index")
-traffic_prop_unnorm /= traffic_prop_unnorm.sum(axis=1).max()
-
-traffic_prop_unnorm.to_csv("data/traffic_flux_max-normed.csv")

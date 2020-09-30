@@ -2,6 +2,8 @@
 # Activate the right bash environment
 source /homes/mhutchin/.bash_profile
 
+trap 'echo daily-update-clean: Failed before finishing with exit code $? && exit $?' ERR
+
 # Update this repo
 git pull
 

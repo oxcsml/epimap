@@ -24,4 +24,4 @@ python3 data/scripts/reinflate.py \
     docs/assets/data/${website_folder}/Cpred.csv \
     docs/assets/data/${website_folder}/Cproj.csv
 
-echo Done
+echo reinflate: DONE

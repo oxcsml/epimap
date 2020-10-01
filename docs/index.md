@@ -57,7 +57,6 @@ Definitions for terms in the map:
 under either Pillar 1 or Pillar 2 of the UK's testing strategy.
 *   **Rt** denotes the reproduction number: how many secondary cases a single primary case will result in on average. 
 **Rt** greater than 1 implies the size of the epidemic is increasing exponentially, and less than 1 means it is shrinking. 
-*   **Cases (Per 100k)** denotes either the historical weekly reported number of cases under Pillars 1+2, normalised by population size,
-the predicted number in the future weeks.
+*   **Cases (Per 100k)** denotes either the historical weekly reported number of cases under Pillars 1+2, normalised by population size, or the predicted number in the future weeks.
 *   **P(Rt>1)** denotes the probability that Rt is larger than 1 given the observed case counts.
 

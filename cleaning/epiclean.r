@@ -9,7 +9,7 @@ epiclean_options = function(
   days_per_step   = 7,
   days_ignored    = 0,
   data_directory  = "data/",
-  clean_directory = "results/default"
+  clean_directory = "fits/clean"
 ) {
   as.list(environment())
 }

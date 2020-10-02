@@ -16,15 +16,16 @@ echo "clean_directory = $clean_directory"
 
 options="--clean_directory $clean_directory"
 
-mkdir $clean_directory
-mkdir $clean_directory/pdfs
-mkdir $clean_directory/stanfits
+mkdir -p $clean_directory
+mkdir -p $clean_directory/pdfs
+mkdir -p $clean_directory/stanfits
+mkdir -p $clean_directory/output
 
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=clean_ts \
-    --output=slurm/output/cleaning/clean_%A_%a.out \
+    --output=$clean_directory/output/clean_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \
@@ -41,7 +42,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=combine_areas \
-    --output=slurm/output/cleaning/combine_%A_%a.out \
+    --output=$clean_directory/output/combine_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \

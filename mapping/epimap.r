@@ -3,23 +3,24 @@ library(geosphere)
 library(optparse)
 
 Rmap_options = function(
-  spatialkernel        = "matern12",
-  temporalkernel       = "matern12",
-  localkernel          = "local",
-  globalkernel         = "global",
-  metapop              = "radiation2,uniform,in",
-  observation          = "cleaned_recon_sample",
-  cleaned_sample_id    = 0,
-  chains               = 1,
-  iterations           = 8000,
-  time_steps           = 15,
-  days_per_step        = 7,
-  days_ignored         = 6,
-  days_predicted       = 2,
-  num_steps_forecasted = 3,
-  data_directory       = "data/",
-  clean_directory      = "results/default",
-  results_directory    = NULL
+  spatialkernel          = "matern12",
+  temporalkernel         = "matern12",
+  localkernel            = "local",
+  globalkernel           = "global",
+  metapop                = "radiation2,uniform,in",
+  observation_values     = "cleaned_recon_sample",
+  observation_likelihood = "negative_binomial_3",
+  cleaned_sample_id      = 0,
+  chains                 = 1,
+  iterations             = 8000,
+  time_steps             = 15,
+  days_per_step          = 7,
+  days_ignored           = 6,
+  days_predicted         = 2,
+  num_steps_forecasted   = 3,
+  data_directory         = "data/",
+  clean_directory        = "results/default",
+  results_directory      = NULL
 ) {
      
   as.list(environment())
@@ -42,13 +43,14 @@ Rmap_setup = function(opt = Rmap_options()) {
 
 
     #########################################################
-    if (opt$observation == 'cleaned_latent_sample' ||
-        opt$observation == 'cleaned_recon_sample') {
+    # TODO: Second block is redundant here?
+    if (opt$observation_values == 'cleaned_latent_sample' ||
+        opt$observation_values == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
       Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
       Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
       print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else if (opt$observation == 'cleaned_recon_sample') {
+    } else if (opt$observation_values == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
       print(paste('Using samples from Crecon_sample',sample_id,'.csv',sep=''))
     } else {
@@ -160,17 +162,25 @@ Rmap_run = function(env) {
 
 
     #########################################################
-    OBSERVATIONMODELS = list(
-      'poisson' = 1,
-      'neg_binomial_2' = 2,
-      'neg_binomial_3' = 3,
-      'cleaned_latent_mean' = 4,
-      'cleaned_latent_sample' = 4,
-      'cleaned_recon_sample' = 5
+    OBSERVATIONMODEL_VALUES = list(
+      'count' = 1,
+      'cleaned_latent_mean' = 2,
+      'cleaned_latent_sample' = 2,
+      'cleaned_recon_sample' = 3
     )
-    OBSERVATIONMODEL = OBSERVATIONMODELS[[opt$observation]]
-    if (is.null(OBSERVATIONMODEL)) {
-      stop(c('Unrecognised observation option ',opt$observation));
+    OBSERVATIONMODEL_LIKELIHOODS = list(
+      'poisson' = 1,
+      'negative_binomial_2' = 2,
+      'negative_binomial_3' = 3,
+      'gaussian' = 4
+    )
+    OBSERVATIONMODEL_VALUES = OBSERVATIONMODEL_VALUES[[opt$observation_values]]
+    if (is.null(OBSERVATIONMODEL_VALUES)) {
+      stop(c('Unrecognised observation option ',opt$observation_values));
+    }
+    OBSERVATIONMODEL_LIKELIHOOD = OBSERVATIONMODEL_LIKELIHOODS[[opt$observation_likelihood]]
+    if (is.null(OBSERVATIONMODEL_LIKELIHOODS)) {
+      stop(c('Unrecognised observation option ',opt$observation_likelihood));
     }
 
     #########################################################
@@ -259,7 +269,8 @@ Rmap_run = function(env) {
       GLOBAL_KERNEL = GLOBAL_KERNEL,
       DO_METAPOP = DO_METAPOP,
       DO_IN_OUT = DO_IN_OUT,
-      OBSERVATIONMODEL = OBSERVATIONMODEL,
+      OBSERVATIONMODEL_VALUES = OBSERVATIONMODEL_VALUES,
+      OBSERVATIONMODEL_LIKELIHOOD = OBSERVATIONMODEL_LIKELIHOOD,
 
       Tip = Tip, 
       infprofile = infprofile,

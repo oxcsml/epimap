@@ -20,7 +20,12 @@ options="\
     --time_steps 15 \
     --iterations 6000 \
     --observation_values cleaned_recon_sample \
-    --observation_likelihood negative_binomial_3 \
+    --observation_likelihood poisson \
+    --spatialkernel none \
+    --temporalkernel none \
+    --localkernel local \
+    --globalkernel none \
+    --metapop none \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
 

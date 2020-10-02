@@ -48,13 +48,23 @@ if (!interactive()) {
       )
     ),
     make_option(
-      c("-o", "--observation"),
+      c("-v", "--observation_values"),
       type="character",
-      default=Rmap_opt$observation,
+      default=Rmap_opt$observation_values,
+      help=paste(
+          "observation values to use in the model",
+          "(counts/clatent_mean/clatent_sample/clatent_recon);",
+          "default =", Rmap_opt$observation_values
+      )
+    ),
+    make_option(
+      c("-o", "--observation_likelihood"),
+      type="character",
+      default=Rmap_opt$observation_likelihood,
       help=paste(
           "observation model",
-          "(neg_binomial_{2,3}/poisson/cleaned_latent_sample/cleaned_latent_mean/cleaned_recon_sample);",
-          "default =", Rmap_opt$observation
+          "(poisson/neg_binomial_{2,3}/gaussian);",
+          "default =", Rmap_opt$observation_likelihood
       )
     ),
     make_option(

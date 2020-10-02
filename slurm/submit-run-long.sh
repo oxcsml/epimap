@@ -14,12 +14,13 @@ clean_directory=$2
 echo results_directory = $results_directory
 echo clean_directory = $clean_directory
 
-mkdir -p results_directory/output
+mkdir -p $results_directory/output
 
 options="\
     --time_steps 28 \
     --iterations 6000 \
-    --observation cleaned_recon_sample \
+    --observation_values cleaned_recon_sample \
+    --observation_likelihood negative_binomial_3 \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
 

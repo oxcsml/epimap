@@ -91,7 +91,7 @@ Rmap_setup = function(opt = Rmap_options()) {
 
     if (is.null(opt$results_directory)) {
       opt$results_directory = paste(
-        'results/',
+        'fits/',
         as.character(Sys.time(),format='%Y%m%d'), 
         '-',as.character(days_likelihood[length(days_likelihood)],format='%Y%m%d'), 
         '-',opt$spatialkernel,  

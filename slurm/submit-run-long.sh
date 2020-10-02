@@ -10,12 +10,15 @@ fi
 echo submit-run: Inferring for each cleaned sample
 
 results_directory=$1
+clean_directory=$2
 echo results_directory = $results_directory
 echo clean_directory = $clean_directory
 
+mkdir -p results_directory/output
+
 options="\
     --time_steps 28 \
-    --iterations 8000 \
+    --iterations 6000 \
     --observation cleaned_recon_sample \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
@@ -24,7 +27,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap_run \
-    --output=slurm/output/run_%A_%a.out \
+    --output=$results_directory/output/run_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
@@ -41,7 +44,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap_merge \
-    --output=slurm/output/merge_%A_%a.out \
+    --output=$results_directory/output/merge_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \

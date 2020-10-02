@@ -15,12 +15,11 @@ conda activate Rmap
 
 # Do all the data preprocessing
 make preprocess-data
-# cp -u website/site_data.csv docs/assets/data\
 
 today=$(date +'%Y-%m-%d')
 clean_directory="fits/clean-${today}"
 results_directory="fits/map-${today}"
-mkdir $results_directory
+mkdir -p $results_directory
 git rev-parse HEAD > ${results_directory}/git-hash.txt
 
 # clean 

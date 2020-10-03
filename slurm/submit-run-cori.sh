@@ -14,7 +14,7 @@ clean_directory=$2
 echo results_directory = $results_directory
 echo clean_directory = $clean_directory
 
-# mkdir -p $results_directory/output
+mkdir -p $results_directory/output
 
 options="\
     --time_steps 15 \

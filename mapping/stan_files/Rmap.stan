@@ -209,7 +209,8 @@ data {
   int<lower=0,upper=1> GLOBAL_KERNEL;
   int<lower=0,upper=1> DO_METAPOP;
   int<lower=0,upper=1> DO_IN_OUT;
-  int<lower=1,upper=5> OBSERVATIONMODEL;
+  int<lower=1,upper=3> OBSERVATION_DATA;
+  int<lower=1,upper=4> OBSERVATION_MODEL;
 }
 
 transformed data {
@@ -249,8 +250,11 @@ transformed data {
   int POISSON = 1;
   int NEG_BINOMIAL_2 = 2;
   int NEG_BINOMIAL_3 = 3;
-  int CLEANED_LATENT = 4;
-  int CLEANED_RECON = 5;
+  int GAUSSIAN = 4;
+
+  int COUNTS = 1;
+  int CLEANED_LATENT = 2;
+  int CLEANED_RECON = 3;
 
   { // infection and delay profiles
     real s = 0.0;
@@ -286,9 +290,9 @@ transformed data {
     }
   }
 
-  if (OBSERVATIONMODEL==CLEANED_LATENT) {
+  if (OBSERVATION_DATA==CLEANED_LATENT) {
     Creal = Clean_latent;
-  } else if (OBSERVATIONMODEL==CLEANED_RECON) {
+  } else if (OBSERVATION_DATA==CLEANED_RECON) {
     for (j in 1:N) 
       for (i in 1:Tall)
         Creal[j,i] = Clean_recon[j,i];
@@ -460,30 +464,57 @@ model {
   // compute likelihoods
   for (k in 1:Mstep) {
     for (j in 1:N) {
-      if (OBSERVATIONMODEL == POISSON) {
-        Count_lik_reduced[k,j] ~ poisson(
-            convlikout_reduced[k,j,1] 
-        );
-      } else if (OBSERVATIONMODEL == NEG_BINOMIAL_2) {
-         Count_lik_reduced[k,j] ~ neg_binomial_2(
-            convlikout_reduced[k,j,1],
-            1.0 / dispersion
-        );
-      } else if (OBSERVATIONMODEL == NEG_BINOMIAL_3) {
-        Count_lik_reduced[k,j] ~ neg_binomial_2(
-            convlikout_reduced[k,j,1],
-            convlikout_reduced[k,j,1] / dispersion
-        );
-      } else if (OBSERVATIONMODEL == CLEANED_LATENT) {
-        Clean_latent_lik_reduced[k,j] ~ normal(
-            convlikout_reduced[k,j,1], 
-            sqrt((1.0+dispersion)*convlikout_reduced[k,j,1])
-        );
-      } else if (OBSERVATIONMODEL == CLEANED_RECON) {
-        Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
-            convlikout_reduced[k,j,1],
-            convlikout_reduced[k,j,1] / dispersion
-        );
+      if (OBSERVATION_DATA == COUNTS) {
+
+        if (OBSERVATION_MODEL == POISSON) {
+          Count_lik_reduced[k,j] ~ poisson(
+              convlikout_reduced[k,j,1] 
+          );
+        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+          Count_lik_reduced[k,j] ~ neg_binomial_2(
+              convlikout_reduced[k,j,1],
+              1.0 / dispersion
+          );
+        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+          Count_lik_reduced[k,j] ~ neg_binomial_2(
+              convlikout_reduced[k,j,1],
+              convlikout_reduced[k,j,1] / dispersion
+          );
+        } else {
+          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+        }
+
+      } else if (OBSERVATION_DATA == CLEANED_LATENT) {
+
+        if (OBSERVATION_MODEL == GAUSSIAN) {
+          Clean_latent_lik_reduced[k,j] ~ normal(
+              convlikout_reduced[k,j,1], 
+              sqrt((1.0+dispersion)*convlikout_reduced[k,j,1])
+          );
+        } else {
+          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+        }
+
+      } else if (OBSERVATION_DATA == CLEANED_RECON) {
+
+        if (OBSERVATION_MODEL == POISSON) {
+          Clean_recon_lik_reduced[k,j] ~ poisson(
+              convlikout_reduced[k,j,1] 
+          );
+        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+          Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
+              convlikout_reduced[k,j,1],
+              1.0 / dispersion
+          );
+        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+          Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
+              convlikout_reduced[k,j,1],
+              convlikout_reduced[k,j,1] / dispersion
+          );
+        } else {
+          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+        }
+
       }
     }
   }
@@ -537,30 +568,57 @@ generated quantities {
 
         for (i in 1:Tpred) {
           for (j in 1:N) {
-            if (OBSERVATIONMODEL == POISSON) {
-              Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
-                  convpredout[1,j,i]
-              ));
-            } else if (OBSERVATIONMODEL == NEG_BINOMIAL_2) {
-              Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                  convpredout[1,j,i],
-                  1.0 / dispersion
-              ));
-            } else if (OBSERVATIONMODEL == NEG_BINOMIAL_3) {
-              Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                  convpredout[1,j,i],
-                  convpredout[1,j,i] / dispersion
-              ));
-            } else if (OBSERVATIONMODEL == CLEANED_LATENT) {
-              Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
-                  convpredout[1,j,i],
-                  sqrt((1.0+dispersion)*convpredout[1,j,i])
-              ));
-            } else if (OBSERVATIONMODEL == CLEANED_RECON) {
-              Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
-                  convpredout[1,j,i],
-                  convpredout[1,j,i] / dispersion
-              ));
+            if (OBSERVATION_DATA == COUNTS) {
+
+              if (OBSERVATION_MODEL == POISSON) {
+                Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
+                    convpredout[1,j,i]
+                ));
+              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                    convpredout[1,j,i],
+                    1.0 / dispersion
+                ));
+              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                    convpredout[1,j,i],
+                    convpredout[1,j,i] / dispersion
+                ));
+              } else {
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+              }
+
+            } else if (OBSERVATION_DATA == CLEANED_LATENT) {
+
+              if (OBSERVATION_MODEL == GAUSSIAN) {
+                Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
+                    convpredout[1,j,i],
+                    sqrt((1.0+dispersion)*convpredout[1,j,i])
+                ));
+              } else {
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+              }
+
+            } else if (OBSERVATION_DATA == CLEANED_RECON) {
+
+              if (OBSERVATION_MODEL == POISSON) {
+                Ppred[j,i] = exp(poisson_lpmf(Clean_recon[j,Tcur+i] |
+                    convpredout[1,j,i]
+                ));
+              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                    convpredout[1,j,i],
+                    1.0 / dispersion
+                ));
+              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                    convpredout[1,j,i],
+                    convpredout[1,j,i] / dispersion
+                ));
+              } else {
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+              }
+              
             }
           }
         }

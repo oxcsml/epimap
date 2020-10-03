@@ -18,6 +18,7 @@ Rmap_options = function(
   days_ignored         = 6,
   days_predicted       = 2,
   num_steps_forecasted = 3,
+  thinning             = 10,
   data_directory       = "data/",
   clean_directory      = "fits/clean",
   results_directory    = NULL
@@ -342,7 +343,7 @@ Rmap_postprocess = function(env) {
     # save raw samples
     save_samples = function(pars,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
-      samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=FALSE]
+      samples = samples[seq(numchains,by=numchains*opt$thinning,to=numiters/2),,,drop=FALSE]
       ns = numiters/2
       np = dim(samples)[3]/N
       parnames = dimnames(samples)[[3]]
@@ -460,7 +461,7 @@ Rmap_postprocess = function(env) {
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
-    ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum)
+    ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
     Cweekly <- cbind(Cweekly,ignoredweek)
 
     s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
@@ -552,9 +553,6 @@ load_samples = function(pars) {
   samples[,2:ncol(samples)]
 }
 
-Rt_samples = load_samples('Rt')
-Cpred_samples = load_samples('Cpred')
-Cproj_samples = load_samples('Cproj')
 
 #################################################################
 
@@ -580,6 +578,7 @@ days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj)
 
 #################################################################
 # Rt posterior
+Rt_samples = load_samples('Rt')
 Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
@@ -595,6 +594,7 @@ df <- area_date_dataframe(
       "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
 )
 writemergedresults(df, 'Rt', row.names=FALSE, quote=FALSE)
+print('done Rt')
 
 #################################################################
 # Rt exceedance probabilities
@@ -622,11 +622,13 @@ df <- area_date_dataframe(
     c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
 )
 writemergedresults(df, 'Pexceed', row.names=FALSE, quote=FALSE)
+print('done Pexceedance')
 
-
+rm(Rt_samples)
 
 #################################################################
 # posterior predictives and projections
+Cpred_samples = load_samples('Cpred')
 Cpred = t(apply(Cpred_samples,2,quantile,
     probs=c(0.025, 0.25, .5, 0.75, .975)
 ))
@@ -640,14 +642,18 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
+print('done Cpred')
+
+rm(Cpred_samples)
 
 ####################################################################################
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
+Cproj_samples = load_samples('Cproj')
 Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
-ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tpred+Tignore)],c(1),sum)
+ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
 Cweekly <- cbind(Cweekly,ignoredweek)
 
 projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
@@ -670,6 +676,7 @@ df <- area_date_dataframe(
     c("C_weekly")
 )
 writemergedresults(df, 'Cweekly', row.names=FALSE, quote=FALSE)
+print('done Cweekly')
 
 
 
@@ -685,6 +692,7 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
+print('done Cproj')
 
 })
 }

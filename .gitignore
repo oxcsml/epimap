@@ -70,3 +70,10 @@ sandbox/*
 
 jax_env/
 .vscode
+
+
+cleaning/local-cleaned/*.pdf
+cleaning/local_cleaned/*.stanfit
+local-cleaned/*.pdf
+local-cleaned/*.stanfit
+simulation/doc/model.pdf

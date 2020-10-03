@@ -19,8 +19,8 @@ echo clean_directory = $clean_directory
 options="\
     --time_steps 15 \
     --iterations 6000 \
-    --observation_values cleaned_recon_sample \
-    --observation_likelihood poisson \
+    --observation_data cleaned_recon_sample \
+    --observation_model poisson \
     --spatialkernel none \
     --temporalkernel none \
     --localkernel local \

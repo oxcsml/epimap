@@ -19,8 +19,8 @@ mkdir -p $results_directory/output
 options="\
     --time_steps 15 \
     --iterations 6000 \
-    --observation_values cleaned_recon_sample \
-    --observation_likelihood negative_binomial_3 \
+    --observation_data cleaned_recon_sample \
+    --observation_model negative_binomial_3 \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
 

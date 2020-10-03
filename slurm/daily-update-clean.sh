@@ -29,9 +29,9 @@ slurm/submit-run.sh $results_directory $clean_directory
 
 dataprocessing/reinflate.sh $results_directory $today
 
-# soft link to latest results
-rm docs/assets/data/default
-ln -s docs/assets/data/$today docs/assets/data/default
+# softlink to defaults
+unlink docs/assets/data/default
+cd docs/assets/data/ && ln -s $today/ default && cd -
 
 # Update the git repo
 git add docs/assets/data/$today/*

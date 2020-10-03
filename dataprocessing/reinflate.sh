@@ -12,7 +12,7 @@ website_folder=$2
 
 mkdir -p docs/assets/data/${website_folder}
 
-python3 data/scripts/reinflate.py \
+python3 dataprocessing/reinflate.py \
     ${results_directory}/merged_Rt.csv \
     ${results_directory}/merged_Pexceed.csv \
     ${results_directory}/merged_Cweekly.csv \

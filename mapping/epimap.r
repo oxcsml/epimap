@@ -9,7 +9,8 @@ Rmap_options = function(
   globalkernel         = "global",
   fixed_gp_time_length_scale = -1.0,
   metapop              = "radiation2,uniform,in",
-  observation          = "cleaned_recon_sample",
+  observation_data     = "cleaned_recon_sample",
+  observation_model    = "negative_binomial_3",
   cleaned_sample_id    = 0,
   chains               = 1,
   iterations           = 8000,
@@ -44,13 +45,14 @@ Rmap_setup = function(opt = Rmap_options()) {
 
 
     #########################################################
-    if (opt$observation == 'cleaned_latent_sample' ||
-        opt$observation == 'cleaned_recon_sample') {
+    # TODO: Second block is redundant here?
+    if (opt$observation_data == 'cleaned_latent_sample' ||
+        opt$observation_data == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
       Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
       Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
       print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else if (opt$observation == 'cleaned_recon_sample') {
+    } else if (opt$observation_data == 'cleaned_recon_sample') {
       sample_id = opt$cleaned_sample_id
       print(paste('Using samples from Crecon_sample',sample_id,'.csv',sep=''))
     } else {
@@ -162,17 +164,25 @@ Rmap_run = function(env) {
 
 
     #########################################################
-    OBSERVATIONMODELS = list(
-      'poisson' = 1,
-      'neg_binomial_2' = 2,
-      'neg_binomial_3' = 3,
-      'cleaned_latent_mean' = 4,
-      'cleaned_latent_sample' = 4,
-      'cleaned_recon_sample' = 5
+    OBSERVATION_DATA = list(
+      'count' = 1,
+      'cleaned_latent_mean' = 2,
+      'cleaned_latent_sample' = 2,
+      'cleaned_recon_sample' = 3
     )
-    OBSERVATIONMODEL = OBSERVATIONMODELS[[opt$observation]]
-    if (is.null(OBSERVATIONMODEL)) {
-      stop(c('Unrecognised observation option ',opt$observation));
+    OBSERVATION_MODEL = list(
+      'poisson' = 1,
+      'negative_binomial_2' = 2,
+      'negative_binomial_3' = 3,
+      'gaussian' = 4
+    )
+    OBSERVATION_DATA = OBSERVATION_DATA[[opt$observation_data]]
+    if (is.null(OBSERVATION_DATA)) {
+      stop(c('Unrecognised observation option ',opt$observation_data));
+    }
+    OBSERVATION_MODEL = OBSERVATION_MODEL[[opt$observation_model]]
+    if (is.null(OBSERVATION_MODEL)) {
+      stop(c('Unrecognised observation option ',opt$observation_model));
     }
 
     #########################################################
@@ -262,7 +272,8 @@ Rmap_run = function(env) {
       GLOBAL_KERNEL = GLOBAL_KERNEL,
       DO_METAPOP = DO_METAPOP,
       DO_IN_OUT = DO_IN_OUT,
-      OBSERVATIONMODEL = OBSERVATIONMODEL,
+      OBSERVATION_DATA = OBSERVATION_DATA,
+      OBSERVATION_MODEL = OBSERVATION_MODEL,
 
       Tip = Tip, 
       infprofile = infprofile,

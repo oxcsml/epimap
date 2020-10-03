@@ -14,12 +14,13 @@ clean_directory=$2
 echo results_directory = $results_directory
 echo clean_directory = $clean_directory
 
-mkdir -p results_directory/output
+mkdir -p $results_directory/output
 
 options="\
     --time_steps 15 \
     --iterations 6000 \
-    --observation cleaned_recon_sample \
+    --observation_data cleaned_recon_sample \
+    --observation_model negative_binomial_3 \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
 
@@ -48,7 +49,7 @@ sbatch --wait \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
-    --mem-per-cpu=30G \
+    --mem-per-cpu=100G \
     --wrap \
     "Rscript mapping/merge_results.r $options && echo merge: DONE"
 

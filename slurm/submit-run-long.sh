@@ -20,7 +20,8 @@ options="\
     --time_steps 28 \
     --iterations 6000 \
     --fixed_gp_time_length_scale 49.0 \
-    --observation cleaned_recon_sample \
+    --observation_data cleaned_recon_sample \
+    --observation_model negative_binomial_3 \
     --results_directory $results_directory \
     --clean_directory $clean_directory"
 
@@ -49,7 +50,7 @@ sbatch --wait \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
-    --mem-per-cpu=60G \
+    --mem-per-cpu=150G \
     --wrap \
     "Rscript mapping/merge_results.r $options && echo merge: DONE"
 

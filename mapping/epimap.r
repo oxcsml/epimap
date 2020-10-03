@@ -7,6 +7,7 @@ Rmap_options = function(
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
+  fixed_gp_time_length_scale = -1.0,
   metapop              = "radiation2,uniform,in",
   observation          = "cleaned_recon_sample",
   cleaned_sample_id    = 0,
@@ -253,6 +254,7 @@ Rmap_run = function(env) {
       timedist = timedist,
       timecorcut = time_corellation_cutoff,
 
+      fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
       LOCAL_KERNEL = LOCAL_KERNEL,

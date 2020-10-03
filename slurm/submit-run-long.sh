@@ -19,6 +19,7 @@ mkdir -p $results_directory/output
 options="\
     --time_steps 28 \
     --iterations 6000 \
+    --fixed_gp_time_length_scale 49.0 \
     --observation cleaned_recon_sample \
     --results_directory $results_directory \
     --clean_directory $clean_directory"

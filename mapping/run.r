@@ -26,6 +26,16 @@ if (!interactive()) {
       )
     ),
     make_option(
+      c("-f", "--fixed_gp_time_length_scale"), 
+      type="double", 
+      default=Rmap_opt$fixed_gp_time_length_scale,
+      help=paste(
+          "If given and positive, fix the time length scale to the value;",
+          "default =", Rmap_opt$fixed_gp_time_length_scale
+      )
+    ),
+
+    make_option(
       c("-l", "--localkernel"),
       type="character", 
       default=Rmap_opt$localkernel,

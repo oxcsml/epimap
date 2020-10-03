@@ -199,6 +199,8 @@ data {
   int F;
   matrix[N,N] flux[F];      // fluxes for radiation metapopulation model
 
+  real fixed_gp_time_length_scale; // If positive, use this, otherwise use prior
+
   matrix[N,N] geodist;      // distance between locations
   matrix[Mstep,Mstep] timedist;     // distance between time samples
   matrix[Mstep,Mstep] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
@@ -356,6 +358,7 @@ transformed parameters {
   matrix[N, Mstep] local_sigma;
   row_vector[F1] fluxproportions[Mstep];
   matrix[N,1] convlikout_reduced[Mstep];
+  real used_gp_time_length_scale;
   {
     matrix[N,N] K_space;
     matrix[Mstep,Mstep] K_time;
@@ -373,7 +376,12 @@ transformed parameters {
 //print(K_space);
 
     // GP time kernel
-    K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, gp_time_length_scale,
+    if (fixed_gp_time_length_scale<=0.0) {
+      used_gp_time_length_scale = gp_time_length_scale;
+    } else {
+      used_gp_time_length_scale = fixed_gp_time_length_scale;
+    }
+    K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, used_gp_time_length_scale,
         NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
     K_time  = K_time .* timecorcut;  // Zero out uncorrelated time entries
 

@@ -4,7 +4,7 @@ const SITE_DATA_PATH = "assets/data/site_data.csv";
 const NHS_SCOTLAND_MAP = "assets/data/nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "assets/data/england_meta_areas.csv";
 const METADATA_PATH = "assets/data/metadata.csv";
-const MAP_PATH = 'assets/data/default';
+const MAP_PATH = 'default';
 const RT_PATH = "Rt.csv";
 const CASE_PROJECTION_PATH = "Cproj.csv";
 const CASE_PREDICTION_PATH = "Cpred.csv";
@@ -280,7 +280,7 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const map_path = urlParams.get("map") || MAP_PATH
+const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
 const rt_path = map_path.concat("/", RT_PATH);
 const case_projection_path = map_path.concat("/", CASE_PROJECTION_PATH);
 const case_prediction_path = map_path.concat("/", CASE_PREDICTION_PATH);

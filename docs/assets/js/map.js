@@ -258,6 +258,7 @@ const tooltip_info4 = tooltip_div.append("span")
     .attr("class", "info-row4");
 
 // Load external data
+let projectionDate = null;
 const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
     data.forEach(d => {
         if (!caseTimeseries.has(d.area)) {
@@ -272,12 +273,14 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
     caseTimeseries.each((cases, area) => {
         const casesLast7Day = cases.slice(1).slice(-7).map(c => c.cases_new).reduce((a, b) => a + b);
         const casesTotal = cases.map(c => c.cases_new).reduce((a, b) => a + b);
+        projectionDate = d3.max(cases.slice(-1).map(c => c.Date));
         caseHistory.set(area, {
             casesLast7Day: casesLast7Day,
             casesTotal: casesTotal
         });
     });
 });
+
 
 const urlParams = new URLSearchParams(window.location.search);
 const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
@@ -442,6 +445,20 @@ const casesAndMeta = Promise.all([
     loadNHSScotland,
     loadEnglandMetaAreas
 ]).then(() => {
+    caseProjTimeseries.each((projections, area) => {
+        let caseProjLower = 0, caseProjMedian = 0, caseProjUpper = 0;
+        projections.filter(d=>(d.Date>projectionDate && d.Date<=d3.timeDay.offset(projectionDate,7))).map(d=>{
+            caseProjLower += d.C_lower;
+            caseProjMedian += d.C_median;
+            caseProjUpper += d.C_upper;
+        });
+        nextWeekCaseProj.set(area, {
+            caseProjLower: Math.round(caseProjLower),
+            caseProjMedian: Math.round(caseProjMedian),
+            caseProjUpper: Math.round(caseProjUpper)
+        });
+    });
+}).then(() => {
     nextWeekCaseProj.each((caseProj, area) => {
         const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
@@ -541,9 +558,7 @@ function getCaseWeeklyForArea(area, availableDates) {
         [caseWeekly] = caseWeeklySeries.slice(-1);
     }
 
-    console.log("caseWeekly:", caseWeekly);
     const cases = caseWeekly.C_weekly.toFixed(1);
-    console.log("Cases:", cases);
 
     return `${cases}`;
 }
@@ -694,8 +709,8 @@ function ready(data) {
             startDate.setTime(selectedDate.getTime() - sevenDays);
             tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
-            tooltip_info3.text(`Cases / 100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates)}`);
-            tooltip_info4.text(`P(Rt > 1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info3.text(`Cases/100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info4.text(`P(Rt>1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
 
             tooltip_div
                 .style("left", (d3.event.pageX + 20) + "px")
@@ -1020,8 +1035,8 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
     caseChartTitle.text(`Covid-19 Cases for ${area}`);
 
-    const predictionDate = d3.min(predictionData.map(c => c.Date));
-    const projectionDate = d3.max(chartData.map(c => c.Date));
+    //const predictionDate = d3.max(predictionData.map(c => c.Date));
+    //const projectionDate = d3.max(chartData.map(c => c.Date));
 
     caseCurrentDateLine
         .style("display", null)
@@ -1040,7 +1055,8 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .attr("r", 2);
 
     focus.append("text")
-        .attr("x", 15)
+        .attr("x", -30)
+        .attr("y", -15)
         .attr("dy", ".31em");
 
     caseChartSvg.append("rect")
@@ -1053,7 +1069,7 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .on("mousemove", mousemove);
 
     const bisectDate = d3.bisector(function (d) { return d.Date; }).left;
-    const allData = [...chartData, ...projectionData];
+    const allData = [...chartData, ...projectionData.filter(d => (d.Date > projectionDate))];
 
     function getValue(d) {
         if (d.Date > projectionDate) {
@@ -1072,8 +1088,9 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
             d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
 
         // TODO: Change this to cases actual, smoothed and projections
+        var chartDateFormat = d3.timeFormat("%d %b")
         focus.attr("transform", "translate(" + caseX(d.Date) + "," + y(getValue(d)) + ")");
-        focus.select("text").text(function () { return Math.round(getValue(d)); });
+        focus.select("text").text(function () { return chartDateFormat(d.Date)+": "+getValue(d); });
         focus.select(".x-hover-line").attr("y2", chartHeight - y(getValue(d)));
     }
 }
@@ -1169,7 +1186,8 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
         .attr("r", 2);
 
     focus.append("text")
-        .attr("x", 15)
+        .attr("x", -30)
+        .attr("y", -15)
         .attr("dy", ".31em");
 
     rtChartSvg.append("rect")
@@ -1189,9 +1207,10 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
             d0 = rtData[i - 1],
             d1 = rtData[i],
             d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
-
+        var fr = d3.format(".1f");
+        var chartDateFormat = d3.timeFormat("%d %b")
         focus.attr("transform", "translate(" + rtX(d.Date) + "," + y(d.Rt50) + ")");
-        focus.select("text").text(function () { return Math.round(d.Rt50); });
+        focus.select("text").text(function () { return chartDateFormat(d.Date) +": "+ fr(d.Rt50); });
         focus.select(".x-hover-line").attr("y2", chartHeight - y(d.Rt50));
     }
 }

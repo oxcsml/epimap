@@ -201,7 +201,10 @@ h3 small {
 .focus circle {
     fill: #F1F3F3;
     stroke: #333;
-    stroke-width: 5px;
+    stroke-width: 5px; 
+}
+.focus text {
+    font-size: 12px;
 }
 
 .hover-line {
@@ -211,7 +214,7 @@ h3 small {
 }
 
 .area-search-container {
-    width: 340px;
+    width: 450px;
     position: relative;
 }
 

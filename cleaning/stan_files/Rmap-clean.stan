@@ -79,14 +79,24 @@ transformed parameters {
         int s = (i-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
-        real Einfection = Rt[i] * dot_product(
+        real Einfection = Rt[i] * (xi + dot_product(
             Clatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
+        ));
+        Clatent[t] = fabs(
+          Einfection + 
+          sqrt(Einfection) * Ceta[s]
+          // sqrt((1.0+phi_latent) * Einfection) * Ceta[s]
         );
-        Clatent[t] = xi + fabs(
-            Einfection + 
-            0.0 * sqrt((1.0+phi_latent) * Einfection) * Ceta[s]
-        );
+
+        //approximate poisson with log normal with same mean/variance
+        //real logEinfection = log(Einfection);
+        //real logEinfection1 = log(Einfection+1.0);
+        //Clatent[t] = exp(
+        //    1.5 * logEinfection - .5 * logEinfection1 +
+        //    sqrt(logEinfection1 - logEinfection) * Ceta[s]
+        //);
+
         Ecount[s] = dot_product(
             Clatent[t-Ttdp+1:t], 
             testdelayprofile_rev

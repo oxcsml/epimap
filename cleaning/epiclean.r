@@ -1,13 +1,15 @@
 library(rstan)
 library(optparse)
 source("dataprocessing/read_data.r")
+rstan_options(auto_write = TRUE)
 
 epiclean_options = function(
-  num_samples     = 10,
+  num_samples     = 20,
   iterations      = 3000,
-  num_steps       = NULL,
-  days_per_step   = 7,
-  days_ignored    = 0,
+  day_start_model = "2020-06-01",
+  weeks_modelled  = NULL,
+  days_per_step   = 1,
+  days_ignored    = 14,
   data_directory  = "data/",
   clean_directory = "fits/clean"
 ) {
@@ -17,6 +19,9 @@ epiclean_options = function(
 epiclean = function(area_index = 0, opt = epiclean_options()) {
   env = new.env(parent=globalenv())
   env$area_index = area_index
+  if (area_index==0) {
+    stop("Area index 0.")
+  }
   env$opt = opt
   Rmap_read_data(env)
   with(env,{
@@ -26,30 +31,33 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
 
     options(mc.cores = min(numchains,parallel::detectCores()))
 
-    # counts in most recent 5 days may not be reliable
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
     Tstep <- opt$days_per_step
-    Tall <- Tall-Tignore
-    if (is.null(opt$num_steps)) {
-      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
-      print(paste("Nstep = ",Nstep))
+    Tcond = sum(dates<as.Date(opt$day_start_model))
+    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
+    if (is.null(opt$weeks_modelled)) {
+      days_modelled = floor((Tall-Tignore-Tcond)/7)*7
+      Nstep = days_modelled %/% Tstep
     } else {
-      Nstep <- opt$num_steps
+      days_modelled = opt$weeks_modelled*7
+      Nstep = days_modelled %/% Tstep
     }
     Tlik <- Nstep*Tstep
-    Tcond <- Tall-Tlik
+    Tall = Tcond + Tlik
+    print(paste("Nstep = ",Nstep))
+    print(paste("first day modelled:",dates[Tcond+1]))
+    print(paste("last day modelled:",dates[Tcond+Tlik]))
+
+    area = areas[area_index]
+    Count <- AllCount[area,1:Tall]
+    print(area)
 
     Nsample <- opt$num_samples
 
     # Case only reported a few days after testing, 
     # no result delay truncation
-    Trdp <- 5
+    Trdp <- 1
     resultdelaydecay = .5
-    resultdelaystrength = 5
-
-    area = areas[area_index]
-    Count <- AllCount[area,1:Tall]
-    print(area)
+    resultdelaystrength = Trdp
 
     # ---------------------------------------------------------------------------- #
     #                               Main computation                               #
@@ -69,12 +77,12 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
       resultdelaystrength = resultdelaystrength,
       mu_scale = 0.5,
       sigma_scale = 0.5,
-      alpha_scale = 0.1,
-      phi_latent_scale = 1.0,
+      alpha_scale = 1-exp(-Tstep/14),
+      phi_latent_scale = 1e-6,
       phi_observed_scale = 5.0,
       outlier_prob_threshold = .95,
       outlier_count_threshold = 2,
-      xi_scale = 0.1,
+      xi_scale = 0.01,
       reconstruct_infections = TRUE
     )
     
@@ -85,23 +93,11 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
       alpha1 = .95,
       phi_latent = 1.0,
       phi_observed = 5.0,
-      xi = .01,
-      'Reta[1]' = 0.0,
-      'Reta[2]' = 0.0,
-      'Reta[3]' = 0.0,
-      'Reta[4]' = 0.0,
-      'Reta[5]' = 0.0,
-      'Reta[6]' = 0.0,
-      'Reta[7]' = 0.0,
-      'Reta[8]' = 0.0,
-      'Reta[9]' = 0.0,
-      'Reta[10]' = 0.0,
-      'Reta[11]' = 0.0,
-      'Reta[12]' = 0.0,
-      'Reta[13]' = 0.0,
-      'Reta[14]' = 0.0,
-      'Reta[15]' = 0.0
+      xi = .01
     )
+    for (i in 1:Nstep) {
+      init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
+    }
     
     start_time <- Sys.time()
     
@@ -116,7 +112,8 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     
     print("Time to run")
     print(end_time - start_time)
-    
+   
+    dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
     saveRDS(fit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
     
     #################################################################
@@ -135,24 +132,26 @@ epiclean_combine = function(opt = epiclean_options()) {
   Rmap_read_data(env)
   with(env,{
 
-    numiters <- opt$iterations 
-
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
     Tstep <- opt$days_per_step
-    Tall <- Tall-Tignore
-    if (is.null(opt$num_steps)) {
-      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
-      print(paste("Nstep = ",Nstep))
+    Tcond = sum(dates<as.Date(opt$day_start_model))
+    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
+    if (is.null(opt$weeks_modelled)) {
+      days_modelled = floor((Tall-Tignore-Tcond)/7)*7
+      Nstep = days_modelled %/% Tstep
     } else {
-      Nstep <- opt$num_steps
+      days_modelled = opt$weeks_modelled*7
+      Nstep = days_modelled %/% Tstep
     }
     Tlik <- Nstep*Tstep
-    Tcond <- Tall-Tlik
-
-    Nsample <- opt$num_samples
+    Tall = Tcond + Tlik
+    print(paste("Nstep = ",Nstep))
+    print(paste("first day modelled:",dates[Tcond+1]))
+    print(paste("last day modelled:",dates[Tcond+Tlik]))
 
     Count <- AllCount[, 1:Tall]
 
+    numiters <- opt$iterations 
+    Nsample <- opt$num_samples
 
     # Initialize arrays
     Clatent_sample <- array(0, c(N, Tall, Nsample))
@@ -254,3 +253,69 @@ epiclean_combine = function(opt = epiclean_options()) {
   })
   env
 }
+
+
+epiclean_cmdline_options = function(opt = epiclean_options()) {
+  list(
+    make_option(
+      c("--task_id"),
+      type="integer",
+      default=1,
+      help="Task ID for Slurm usage. Maps to area_index."
+    ),
+    make_option(
+      c("--num_samples"),
+      type="integer",
+      default=opt$num_samples,
+      help="Number of samples to output."
+    ),
+    make_option(
+      c("--iterations"),
+      type="integer",
+      default=opt$iterations,
+      help=paste("Number of MCMC iterations, default",opt$iterations)
+    ),
+    make_option(
+      c("--day_start_model"),
+      type="character",
+      default=opt$day_start_model,
+      help=paste("Date the modelling starts, default",opt$day_start_model)
+    ),
+    make_option(
+      c("--weeks_modelled"),
+      type="integer",
+      default=opt$weeks_modelled,
+      help=paste("Number of weeks modelled, default",opt$weeks_modelled)
+    ),
+    make_option(
+      c("--days_per_step"),
+      type="integer",
+      default=opt$days_per_step,
+      help=paste("Days per modelling step, default",opt$days_per_step)
+    ),
+    make_option(
+      c("--days_ignored"),
+      type="integer",
+      default=opt$days_ignored,
+      help=paste("Number of recent days ignored, default",opt$days_ignored)
+    ),
+    make_option(
+      c("--clean_directory"), 
+      type="character", 
+      default=opt$clean_directory, 
+      help=paste("Directory to put cleaned results in default",opt$clean_directory)
+    )
+  )
+}
+
+epiclean_get_cmdline_options = function(opt=epiclean_options()) {
+  cmdline_opt = epiclean_cmdline_options(opt)
+  opt_parser = OptionParser(option_list=cmdline_opt)
+  parsed_opt = parse_args(opt_parser)
+  for (o in names(parsed_opt)) {
+    opt[o] = parsed_opt[o]
+  }
+  opt
+}
+
+

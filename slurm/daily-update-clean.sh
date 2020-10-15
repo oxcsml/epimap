@@ -31,8 +31,8 @@ slurm/submit-run.sh $results_directory $clean_directory &
 slurm/submit-run-cori.sh $results_directory-cori $clean_directory &
 wait
 
-dataprocessing/reinflate.sh $results_directory $today &
-dataprocessing/reinflate.sh $results_directory-cori $today-cori &
+dataprocessing/reinflate.sh $results_directory/merged_ $today &
+dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
 wait
 
 # softlink to defaults

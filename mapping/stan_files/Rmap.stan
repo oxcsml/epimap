@@ -489,7 +489,7 @@ model {
               convlikout_reduced[k,j,1] / dispersion
           );
         } else {
-          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
         }
 
       } else if (OBSERVATION_DATA == CLEANED_LATENT) {
@@ -500,7 +500,7 @@ model {
               sqrt((1.0+dispersion)*convlikout_reduced[k,j,1])
           );
         } else {
-          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
         }
 
       } else if (OBSERVATION_DATA == CLEANED_RECON) {
@@ -534,6 +534,17 @@ generated quantities {
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Tproj] Cproj; 
+
+  { // print stats
+    if (uniform_rng(0.0,1.0)<1.0) {
+      print(
+        "space ", gp_space_length_scale,
+        "; time ", gp_time_length_scale,
+        "; sigmas ", gp_space_sigma,", ", global_sigma,", ", local_scale,
+        "; dispersion ",dispersion
+      );
+    }
+  }
 
   // Estimated Rt and Rt for each and all areas
   {
@@ -593,7 +604,7 @@ generated quantities {
                     convpredout[1,j,i] / dispersion
                 ));
               } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
 
             } else if (OBSERVATION_DATA == CLEANED_LATENT) {
@@ -604,7 +615,7 @@ generated quantities {
                     sqrt((1.0+dispersion)*convpredout[1,j,i])
                 ));
               } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
 
             } else if (OBSERVATION_DATA == CLEANED_RECON) {
@@ -624,7 +635,7 @@ generated quantities {
                     convpredout[1,j,i] / dispersion
                 ));
               } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL)
+                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
               
             }

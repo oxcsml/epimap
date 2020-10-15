@@ -355,7 +355,7 @@ Rmap_postprocess = function(env) {
     save_samples = function(pars,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
       samples = samples[seq(numchains,by=numchains*opt$thinning,to=numiters/2),,,drop=FALSE]
-      ns = numiters/2
+      ns = numiters/2/opt$thinning
       np = dim(samples)[3]/N
       parnames = dimnames(samples)[[3]]
       dim(samples) = c(ns,np*N)

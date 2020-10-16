@@ -7,13 +7,18 @@ Rmap_options = function(
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
+  gp_space_scale       = 0.2, # 50km
+  gp_space_decay_scale = .1,
+  gp_time_scale        = 21.0, # 4 weeks
+  gp_time_decay_scale  = .1,
+  fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
   metapop              = "radiation2,uniform,in",
   observation_data     = "cleaned_recon_sample",
   observation_model    = "negative_binomial_3",
   cleaned_sample_id    = 0,
   chains               = 1,
-  iterations           = 8000,
+  iterations           = 4000,
   time_steps           = 15,
   days_per_step        = 7,
   days_ignored         = 6,
@@ -46,20 +51,19 @@ Rmap_setup = function(opt = Rmap_options()) {
 
     #########################################################
     # TODO: Second block is redundant here?
-    if (opt$observation_data == 'cleaned_latent_sample' ||
-        opt$observation_data == 'cleaned_recon_sample') {
+    if (opt$cleaned_sample_id>0 && (
+        opt$observation_data == 'cleaned_latent_sample' ||
+        opt$observation_data == 'cleaned_recon_sample' ||
+        opt$observation_data == 'latent_reports')) {
       sample_id = opt$cleaned_sample_id
       Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
       Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
       print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else if (opt$observation_data == 'cleaned_recon_sample') {
-      sample_id = opt$cleaned_sample_id
-      print(paste('Using samples from Crecon_sample',sample_id,'.csv',sep=''))
     } else {
+      # placeholder if not using cleaned data
       sample_id = 'mean'
       Clean_latent <- readclean('Clatent_mean', row.names=1)
       Clean_recon <- readclean('Crecon_median', row.names=1)
-      # placeholder if not using cleaned data
     }
 
     #########################################################
@@ -103,7 +107,8 @@ Rmap_setup = function(opt = Rmap_options()) {
         '-',opt$localkernel,  
         '-',opt$globalkernel,  
         '-',opt$metapop,  
-        '-',opt$observation,
+        '-',opt$observation_data,
+        '-',opt$observation_model,
         sep=''
       )
     }
@@ -168,7 +173,8 @@ Rmap_run = function(env) {
       'count' = 1,
       'cleaned_latent_mean' = 2,
       'cleaned_latent_sample' = 2,
-      'cleaned_recon_sample' = 3
+      'cleaned_recon_sample' = 3,
+      'latent_reports' = 4
     )
     OBSERVATION_MODEL = list(
       'poisson' = 1,
@@ -265,6 +271,11 @@ Rmap_run = function(env) {
       timedist = timedist,
       timecorcut = time_corellation_cutoff,
 
+      gp_space_scale = opt$gp_space_scale,
+      gp_space_decay_scale = opt$gp_space_decay_scale,
+      gp_time_scale = opt$gp_time_scale,
+      gp_time_decay_scale = opt$gp_time_decay_scale,
+      fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
@@ -284,26 +295,59 @@ Rmap_run = function(env) {
     )
 
     #########################################################
-    Rmap_init = list()
-    for (i in 1:numchains) {
-      Rmap_init[[i]] = list(
-        gp_time_length_scale = 100.0,
-        gp_space_length_scale = 2.0,
-        gp_space_sigma = .01,
-        global_sigma = .01,
-        local_scale = .01,
-        dispersion = 5.0
-      )
-    }
-
+    Rmap_init = lapply(1:numchains, function(i) {
+      env = list2env(list(
+        global_sigma = .25,
+        local_scale = .25,
+        gp_sigma = .25,
+        gp_space_decay = opt$gp_space_decay,
+        gp_time_decay = opt$gp_time_decay,
+        dispersion = 1.0
+      ))
+      setval = function(par,val,...) {
+        env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
+      }
+      lapply(1:Mstep, function(k) {
+        lapply(1:N, function(j) {
+          l = j+(k-1)*N;
+          setval('local_exp', 1.0, j, k);
+          lapply(c('eta_in','eta_out','epsilon_in','epsilon_out'), function(par) {
+            setval(par, rnorm(1,0,1) , l)
+          })
+        })
+        setval('coupling_rate',.01, k);
+      })
+      lapply(1:F, function(f) setval('flux_probs', 1/F, f))
+      as.list(env)
+    })
+    # print(Rmap_init[[1]])
+    Rmap_pars = c(
+      "global_sigma",
+      "local_scale",
+      "gp_sigma",
+      "gp_space_length_scale",
+      "gp_time_length_scale",
+      "dispersion",
+      "coupling_rate",
+      "flux_probs",
+      "Rt",
+      "Rt_all",
+      "Ppred",
+      "Cpred",
+      "Cproj"
+    )
+    Rmap_control = list(adapt_delta = .9)
 
     #########################################################
-    fit <- stan(file = 'mapping/stan_files/Rmap.stan',
-                data = Rmap_data, 
-                init = Rmap_init,
-                iter = numiters, 
-                chains = numchains,
-                control = list(adapt_delta = .9))
+    fit <- stan(
+        file = 'mapping/stan_files/Rmap.stan',
+        data = Rmap_data, 
+        init = Rmap_init,
+        pars = Rmap_pars,
+        iter = numiters, 
+        chains = numchains,
+        control = list(adapt_delta = .9)
+    )
 
 
     #########################################################
@@ -312,7 +356,7 @@ Rmap_run = function(env) {
     #########################################################
     # Summary of fit
     print(summary(fit, 
-        pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+        pars=c("gp_space_length_scale","gp_sigma","gp_time_length_scale",
             "global_sigma","local_scale","dispersion",
             "Rt_all","coupling_rate","flux_probs"), 
         probs=0.5)$summary)
@@ -531,7 +575,7 @@ Rmap_postprocess = function(env) {
     # pairs plot
     #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
     #pairs(fit, pars=c(
-    #    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+    #    "gp_space_length_scale","gp_sigma","gp_time_length_scale",
     #    "global_sigma","local_scale","precision")) 
     #dev.off()
 
@@ -611,7 +655,7 @@ print('done Rt')
 # Rt exceedance probabilities
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
-numsamples = numruns * numiters/2
+numsamples = numruns * numiters/2 / opt$thinning
 Rt <- as.matrix(Rt_samples)
 dim(Rt) <- c(numsamples,Mstep,N)
 Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
@@ -710,3 +754,162 @@ print('done Cproj')
 
 ##########################################################################
 ##########################################################################
+
+epimap_cmdline_options = function(opt = Rmap_options()) {
+  list(
+    make_option(
+      c("-s", "--spatialkernel"), 
+      type="character", 
+      default=opt$spatialkernel,
+      help=paste(
+          "Use spatial kernel (matern12/matern32/matern52/exp_quad/none);",
+          "default =", opt$spatialkernel
+      )
+    ),
+    make_option(
+      c("-p", "--temporalkernel"), 
+      type="character", 
+      default=opt$temporalkernel,
+      help=paste(
+          "Use temporal kernel (matern12/matern32/matern52/exp_quad/none);",
+          "default =", opt$temporalkernel
+      )
+    ),
+    make_option(
+      c("--fixed_gp_space_length_scale"), 
+      type="double", 
+      default=opt$fixed_gp_space_length_scale,
+      help=paste(
+          "If given and positive, fix the space length scale to the value;",
+          "default =", opt$fixed_gp_space_length_scale
+      )
+    ),
+
+
+    make_option(
+      c("--fixed_gp_time_length_scale"), 
+      type="double", 
+      default=opt$fixed_gp_time_length_scale,
+      help=paste(
+          "If given and positive, fix the time length scale to the value;",
+          "default =", opt$fixed_gp_time_length_scale
+      )
+    ),
+
+    make_option(
+      c("-l", "--localkernel"),
+      type="character", 
+      default=opt$localkernel,
+      help=paste("Use local kernel (local/none); default =", opt$localkernel)
+    ),
+    make_option(
+      c("-g", "--globalkernel"),  
+      type="character",
+      default=opt$globalkernel,
+      help=paste("Use global kernel (global/none); default =", opt$globalkernel)
+    ),
+    make_option(
+      c("-m", "--metapop"),
+      type="character",
+      default=opt$metapop,
+      help=paste(
+          "metapopulation model for inter-region cross infections",
+          "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
+          "default = ", opt$metapop
+      )
+    ),
+    make_option(
+      c("-v", "--observation_data"),
+      type="character",
+      default=opt$observation_data,
+      help=paste(
+          "observation values to use in the model",
+          "(counts/clatent_mean/clatent_sample/clatent_recon/latent_reports);",
+          "default =", opt$observation_data
+      )
+    ),
+    make_option(
+      c("-o", "--observation_model"),
+      type="character",
+      default=opt$observation_model,
+      help=paste(
+          "observation model",
+          "(poisson/neg_binomial_{2,3}/gaussian);",
+          "default =", opt$observation_model
+      )
+    ),
+    make_option(
+      c("-x", "--cleaned_sample_id"),
+      type="integer",
+      default=opt$cleaned_sample_id,
+      help=paste("id of cleaned sample to use; default =", opt$cleaned_sample_id)
+    ),
+    make_option(
+      c("-c", "--chains"),
+      type="integer",
+      default=opt$chains,
+      help=paste("number of MCMC chains; default =", opt$chains)
+    ),
+    make_option(
+      c("-i", "--iterations"),
+      type="integer",
+      default=opt$iterations,
+      help=paste("Length of MCMC chains; defualt =", opt$iterations)
+    ),
+    make_option(
+      c("-n", "--time_steps"),
+      type="integer",
+      default=opt$time_steps,
+      help=paste("Number of periods to fit Rt in; default =",opt$time_steps)
+    ),
+    make_option(
+      c("--days_ignored"),
+      type="integer",
+      default=opt$days_ignored,
+      help=paste("Days ignored; default =",opt$days_ignored)
+    ),
+    make_option(
+      c("--days_predicted"),
+      type="integer",
+      default=opt$days_predicted,
+      help=paste("Days predicted; default =",opt$days_predicted)
+    ),
+    make_option(
+      c("--num_steps_forecasted"),
+      type="integer",
+      default=opt$num_steps_forecasted,
+      help=paste("Days predicted; default =",opt$num_steps_forecasted)
+    ),
+    make_option(
+      c("-d", "--results_directory"),
+      type="character",
+      default=opt$results_directory,
+      help="If specified, store outputs in directory, otherwise use a unique directory"
+    ),
+    make_option(
+      c("-r", "--clean_directory"),
+      type="character",
+      default=opt$clean_directory,
+      help="If specified, store outputs in directory, otherwise use a unique directory"
+    ),
+    make_option(
+      c("-t", "--task_id"),
+      type="integer",
+      default=0,
+      help="Task ID for Slurm usage. By default, turned off [0]."
+    )
+  ) 
+}
+
+epimap_get_cmdline_options = function(opt=Rmap_options()) {
+  cmdline_opt = epimap_cmdline_options(opt)
+  opt_parser = OptionParser(option_list=cmdline_opt)
+  parsed_opt = parse_args(opt_parser)
+  for (name in names(parsed_opt)){
+    opt[name] = parsed_opt[name]
+  }
+  opt
+}
+
+
+

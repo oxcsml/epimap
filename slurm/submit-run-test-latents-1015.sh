@@ -1,5 +1,5 @@
 #!/bin/bash
-results_directory=fits/test-latents-1015
+results_directory=fits/test-latents-1016
 options=" \
     --days_ignored 0 \
     --days_predicted 1 \

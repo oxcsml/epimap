@@ -1,5 +1,5 @@
 #!/bin/bash
-results_directory=fits/test-reports-1016
+results_directory=fits/test-reports-1017
 options=" \
     --days_ignored 0 \
     --days_predicted 1 \

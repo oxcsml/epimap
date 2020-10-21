@@ -77,3 +77,5 @@ cleaning/local_cleaned/*.stanfit
 local-cleaned/*.pdf
 local-cleaned/*.stanfit
 simulation/doc/model.pdf
+
+*/**/.ipynb_checkpoints

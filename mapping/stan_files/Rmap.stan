@@ -347,15 +347,15 @@ parameters {
   real<lower=0.0,upper=0.632> gp_space_decay;
   real<lower=0.0,upper=0.632> gp_time_decay;
     
-  matrix<lower=0.0>[N,Mstep] local_exp;
+  matrix<lower=0.0>[N,Mstep+Mproj] local_exp;
   real<lower=0.0> local_scale;
   real<lower=0.0> global_sigma;
 
-  vector[N*Mstep] eta_in;
-  vector[N*Mstep] eta_out;
+  vector[N*(Mstep+Mproj)] eta_in;
+  vector[N*(Mstep+Mproj)] eta_out;
 
-  vector[N*Mstep] epsilon_in;
-  vector[N*Mstep] epsilon_out;
+  vector[N*(Mstep+Mproj)] epsilon_in;
+  vector[N*(Mstep+Mproj)] epsilon_out;
 
   real<lower=0.0> dispersion;
   // real<lower=0> Ravg;
@@ -364,9 +364,9 @@ parameters {
 }
 
 transformed parameters {
-  matrix[N, Mstep] Rin;                 // instantaneous reproduction number
-  matrix[N, Mstep] Rout;                 // instantaneous reproduction number
-  matrix[N, Mstep] local_sigma;
+  matrix[N, Mstep+Mproj] Rin;                 // instantaneous reproduction number
+  matrix[N, Mstep+Mproj] Rout;                 // instantaneous reproduction number
+  matrix[N, Mstep+Mproj] local_sigma;
   row_vector[F1] fluxproportions[Mstep];
   matrix[N,1] convlikout_reduced[Mstep];
   matrix[N,Tstep] convlikout[Mstep];
@@ -374,9 +374,9 @@ transformed parameters {
   real gp_time_length_scale;
   {
     matrix[N,N] K_space;
-    matrix[Mstep,Mstep] K_time;
+    matrix[Mstep+Mproj,Mstep+Mproj] K_time;
     matrix[N,N] L_space;
-    matrix[Mstep,Mstep] L_time;
+    matrix[Mstep+Mproj,Mstep+Mproj] L_time;
     real global_sigma2 = square(global_sigma);
 
     if (fixed_gp_space_length_scale<=0.0) {
@@ -457,9 +457,9 @@ transformed parameters {
       
     }
     convlikout_reduced = metapop(DO_METAPOP,DO_IN_OUT,
-        Rin,Rout,convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
+        block(Rin, 1, 1, Mstep, N),block(Rout, 1, 1, Mstep, N),convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
     convlikout= metapop(DO_METAPOP,DO_IN_OUT,
-        Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
+        block(Rin, 1, 1, Mstep, N),block(Rout, 1, 1, Mstep, N),convlik,convlikflux,fluxproportions,fluxt);
   }
 }
 
@@ -480,7 +480,7 @@ model {
   gp_sigma ~ normal(0.0, 0.25);
   global_sigma ~  normal(0.0, 0.25);
   local_scale ~ normal(0.0, 0.1);
-  for (j in 1:Mstep){
+  for (j in 1:(Mstep+Mproj)){
     for (i in 1:N) {
       local_exp[i, j] ~ exponential(1.0);
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
@@ -572,7 +572,9 @@ model {
 
 generated quantities {
   real Rt_all[Mstep];
+  real Rt_all_proj[Mproj];
   vector[N] Rt[Mstep];
+  vector[N] Rt_proj[Mproj];
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Tproj] Cproj; 
@@ -648,17 +650,6 @@ generated quantities {
                 reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
 
-            } else if (OBSERVATION_DATA == CLEANED_LATENT) {
-
-              if (OBSERVATION_MODEL == GAUSSIAN) {
-                Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    sqrt((1.0+dispersion)*convpredout[1,j,i])
-                ));
-              } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-              }
-
             } else if (OBSERVATION_DATA == CLEANED_RECON) {
 
               if (OBSERVATION_MODEL == POISSON) {
@@ -686,22 +677,38 @@ generated quantities {
       { // forecasting expected counts given parameters
         row_vector[F1] forw_fluxproportions[1];
         matrix[F1,N*1] convforwflux[1];
-        matrix[N,1] forw_Rin;
-        matrix[N,1] forw_Rout;
+        matrix[N,Mproj] forw_Rin;
+        matrix[N,Mproj] forw_Rout;
         matrix[N,1] convforwall[1];
 
         forw_fluxproportions[1] = fluxproportions[Mstep];
-        forw_Rin = block(Rin, 1, Mstep, N, 1);
-        forw_Rout = block(Rout, 1, Mstep, N, 1);
+        forw_Rin = block(Rin, 1, Mstep+1, N, Mproj);
+        forw_Rout = block(Rout, 1, Mstep+1, N, Mproj);
 
-        for (i in 1:Tproj) {
-          for (j in 1:N) 
-            convforwall[1,j,1] = convforw[1,j,i] + 
-                dot_product(Cproj[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
-          if (DO_METAPOP && !DO_IN_OUT)
-            convforwflux = in_compute_flux(convforwall,fluxt);
-          Cproj[,i] = metapop(DO_METAPOP,DO_IN_OUT,
-              forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
+        for (m in 1:Mproj) {
+          for (t in 1:Tstep) {
+            i = (m-1)*Tstep + t;
+
+            for (j in 1:N) 
+              convforwall[1,j,1] = convforw[1,j,i] + 
+                  dot_product(Cproj[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+
+            if (DO_METAPOP && !DO_IN_OUT)
+              convforwflux = in_compute_flux(convforwall,fluxt);
+
+            Cproj[,i] = metapop(DO_METAPOP,DO_IN_OUT,
+                forw_Rin[, m],forw_Rout[, m],convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
+
+            if (OBSERVATION_MODEL == POISSON) {
+              Cproj[,i] = poisson_rng(Cproj[,i]);
+            } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+              Cproj[,i] = neg_binomial_2_rng(Cproj[,i], 1 / dispersion);
+            } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+              Cproj[,i] = neg_binomial_2_rng(Cproj[,i], Cproj[,i] / dispersion);
+            } else {
+              reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+            }
+          }
         }
       }
     } else if ( OBSERVATION_DATA == CLEANED_LATENT ||

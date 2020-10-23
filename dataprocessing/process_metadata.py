@@ -70,6 +70,23 @@ england.index.names = ['AREA']
 
 df = df.append(scotland).append(england)
 
+# Our LTLA to NHS Regions mapping is based on 2018 regions.
+# geoportal.statistics.gov.uk has a NUTS-3 to NUTS-2 to NUTS-1 mapping for
+# 2018, but I can't find 2020's mapping. We therefore used codes LAU118NM,
+# and some regions have changed or were renamed since then. The list below
+# sets all the new cases.
+
+df.loc['East Suffolk', 'NHS_Region'] = 'East of England'
+df.loc['West Suffolk', 'NHS_Region'] = 'East of England'
+df.loc['Buckinghamshire', 'NHS_Region'] = 'South East'
+df.loc['Bournemouth, Christchurch and Poole', 'NHS_Region'] = 'South West'
+df.loc['Dorset', 'NHS_Region'] = 'South West'
+df.loc['Somerset West and Taunton', 'NHS_Region'] = 'South West'
+df.loc['Argyll and Bute', 'NHS_Region'] = 'Scotland'
+df.loc['Highland', 'NHS_Region'] = 'Scotland'
+df.loc['Moray', 'NHS_Region'] = 'Scotland'
+df.loc['North Ayrshire', 'NHS_Region'] = 'Scotland'
+
 df.to_csv('data/metadata.csv')
 
 print('Wrote data/metadata.csv')

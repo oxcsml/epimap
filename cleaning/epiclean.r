@@ -1,17 +1,19 @@
 library(rstan)
 library(optparse)
+library(gsubfn)
 source("dataprocessing/read_data.r")
+source("mapping/utils.r")
 rstan_options(auto_write = TRUE)
 
 epiclean_options = function(
-  num_samples     = 20,
-  iterations      = 3000,
-  day_start_model = "2020-06-01",
-  weeks_modelled  = NULL,
-  days_per_step   = 1,
-  days_ignored    = 14,
-  data_directory  = "data/",
-  clean_directory = "fits/clean"
+  num_samples        = 20,
+  iterations         = 3000,
+  first_day_modelled = "2020-06-01",
+  last_day_modelled  = "2020-09-30",
+  weeks_modelled     = NULL,
+  days_per_step      = 1,
+  data_directory     = "data/",
+  clean_directory    = "fits/clean"
 ) {
   as.list(environment())
 }
@@ -31,24 +33,18 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
 
     options(mc.cores = min(numchains,parallel::detectCores()))
 
-    Tstep <- opt$days_per_step
-    Tcond = sum(dates<as.Date(opt$day_start_model))
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
-    if (is.null(opt$weeks_modelled)) {
-      days_modelled = floor((Tall-Tignore-Tcond)/7)*7
-      Nstep = days_modelled %/% Tstep
-    } else {
-      days_modelled = opt$weeks_modelled*7
-      Nstep = days_modelled %/% Tstep
-    }
-    Tlik <- Nstep*Tstep
-    Tall = Tcond + Tlik
-    print(paste("Nstep = ",Nstep))
-    print(paste("first day modelled:",dates[Tcond+1]))
-    print(paste("last day modelled:",dates[Tcond+Tlik]))
+    # work out days to be modelled
+    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates, 
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
 
     area = areas[area_index]
-    Count <- AllCount[area,1:Tall]
+    Count <- AllCount[area,1:Tcur]
     print(area)
 
     Nsample <- opt$num_samples
@@ -59,12 +55,12 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     resultdelaydecay = .5
     resultdelaystrength = Trdp
 
-    # ---------------------------------------------------------------------------- #
-    #                               Main computation                               #
-    # ---------------------------------------------------------------------------- #
+    # ------------------------------------------------------------------------ #
+    #                             Main computation                             #
+    # ------------------------------------------------------------------------ #
 
     Rmap_clean_data <- list(
-      Tall = Tall,
+      Tall = Tcur,
       Tstep = Tstep, 
       Nstep = Nstep,
       Count = Count[area,],
@@ -276,28 +272,34 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
       help=paste("Number of MCMC iterations, default",opt$iterations)
     ),
     make_option(
-      c("--day_start_model"),
-      type="character",
-      default=opt$day_start_model,
-      help=paste("Date the modelling starts, default",opt$day_start_model)
+      c("--first_day_modelled"),
+      type="string",
+      default=opt$first_day_modelled,
+      help=paste("Date of first day to model; default =",opt$first_day_modelled)
     ),
     make_option(
       c("--weeks_modelled"),
       type="integer",
       default=opt$weeks_modelled,
-      help=paste("Number of weeks modelled, default",opt$weeks_modelled)
+      help=paste("Number of weeks to model; default =",opt$weeks_modelled)
     ),
     make_option(
-      c("--days_per_step"),
-      type="integer",
-      default=opt$days_per_step,
-      help=paste("Days per modelling step, default",opt$days_per_step)
+      c("--last_day_modelled"),
+      type="string",
+      default=opt$last_day_modelled,
+      help=paste("Date of last day to model; default =",opt$last_day_modelled)
     ),
     make_option(
       c("--days_ignored"),
       type="integer",
       default=opt$days_ignored,
       help=paste("Number of recent days ignored, default",opt$days_ignored)
+    ),
+    make_option(
+      c("--days_per_step"),
+      type="integer",
+      default=opt$days_per_step,
+      help=paste("Days per modelling step, default",opt$days_per_step)
     ),
     make_option(
       c("--clean_directory"), 

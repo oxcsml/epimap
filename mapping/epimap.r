@@ -1,6 +1,7 @@
 library(rstan)
 library(geosphere)
 library(optparse)
+source('mapping/utils.r')
 
 Rmap_options = function(
   spatialkernel        = "matern12",
@@ -19,9 +20,11 @@ Rmap_options = function(
   cleaned_sample_id    = 0,
   chains               = 1,
   iterations           = 4000,
-  time_steps           = 15,
+  first_day_modelled   = "2020-06-01",
+  weeks_modelled       = NULL,
+  last_day_modelled    = NULL,
+  days_ignored         = 7,
   days_per_step        = 7,
-  days_ignored         = 6,
   days_predicted       = 2,
   num_steps_forecasted = 3,
   thinning             = 10,
@@ -29,7 +32,6 @@ Rmap_options = function(
   clean_directory      = "fits/clean",
   results_directory    = NULL
 ) {
-     
   as.list(environment())
 }
 
@@ -50,15 +52,16 @@ Rmap_setup = function(opt = Rmap_options()) {
 
 
     #########################################################
-    # TODO: Second block is redundant here?
     if (opt$cleaned_sample_id>0 && (
         opt$observation_data == 'cleaned_latent_sample' ||
         opt$observation_data == 'cleaned_recon_sample' ||
         opt$observation_data == 'latent_reports')) {
       sample_id = opt$cleaned_sample_id
-      Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
-      Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
-      print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
+      Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''), 
+        row.names=1)
+      Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
+        row.names=1)
+      message(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
     } else {
       # placeholder if not using cleaned data
       sample_id = 'mean'
@@ -67,35 +70,26 @@ Rmap_setup = function(opt = Rmap_options()) {
     }
 
     #########################################################
-    Mstep <- opt$time_steps        # Testing with 1 time period
-    Tignore <- opt$days_ignored  # counts in most recent 7 days may not be reliable?
-    if (!(Tall == length(Clean_latent) && Tall == length(Clean_recon))){
-      print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
-    }
-    Tall <- min(Tall, length(Clean_latent),length(Clean_recon))
-    
-    Tpred <- opt$days_predicted    # number of days held out for predictive probs eval
-    Tstep <- opt$days_per_step # number of days to step for each time step of Rt prediction
-    Tlik <- Mstep*Tstep     # number of days for likelihood to infer Rt
-    Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
-    Tcur <- Tall-Tpred       # number of days we condition on
-    Tcond <- Tcur-Tlik       # number of days we condition on
-    Mproj <- opt$num_steps_forecasted
-    Tproj <- Tstep*Mproj           # number of days to project forward
+    list[Mstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates,
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
+    Tpred = opt$days_predicted    # number of days for predictive probs eval
+    Mproj = opt$num_steps_forecasted
+    Tproj = Tstep*Mproj           # number of days to project forward
 
+    stopifnot(Tcur == length(Clean_latent))
+    stopifnot(Tcur == length(Clean_recon))
 
-    Count <- AllCount
-    Count <- Count[,1:Tall] # get rid of ignored last days
-    Clean_latent <- Clean_latent[,1:Tall] # get rid of ignored last days
-    Clean_recon <- Clean_recon[,1:Tall] # get rid of ignored last days
-
-    days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*Mstep)
+    days_likelihood = dates[(Tcond+1):Tcur]
     days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
 
-    print("Days used for likelihood fitting")
-    print(days_likelihood)
-    print("Days used for held out likelihood")
-    print(days_pred_held_out)
+    message("Days used for held out likelihood = ",
+      days_pred_held_out[1],"...",days_pred_held_out[Tpred])
 
     if (is.null(opt$results_directory)) {
       opt$results_directory = paste(
@@ -118,7 +112,7 @@ Rmap_setup = function(opt = Rmap_options()) {
     } else {
       runname = paste(opt$results_directory,'/',sep='')
     }
-    print(runname)
+    message("runname = ",runname)
 
     #########################################################
   })
@@ -320,7 +314,7 @@ Rmap_run = function(env) {
       lapply(1:F, function(f) setval('flux_probs', 1/F, f))
       as.list(env)
     })
-    # print(Rmap_init[[1]])
+    # message(Rmap_init[[1]])
     Rmap_pars = c(
       "global_sigma",
       "local_scale",
@@ -364,9 +358,9 @@ Rmap_run = function(env) {
 
     #########################################################
     end_time <- Sys.time()
-    print("Time to run")
-    print(end_time - start_time)
-    print(runname)
+    message("Time to run")
+    message(end_time - start_time)
+    message(runname)
 
     #########################################################
   })
@@ -450,7 +444,7 @@ Rmap_postprocess = function(env) {
     Rt = Rt[indicies,]
 
     Rt <- Rt[sapply(1:(N*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
-    print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
+    message(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas, 
       days_all,
@@ -499,7 +493,7 @@ Rmap_postprocess = function(env) {
     Cpred <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
     #Cpred <- s[,c("2.5%", "50%", "97.5%")]
     Cpred <- t(t(Cpred))
-    print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
+    message(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas,
       seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
@@ -545,7 +539,7 @@ Rmap_postprocess = function(env) {
     Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
     #Cproj <- s[,c("2.5%", "50%", "97.5%")]
     Cproj <- t(t(Cproj))
-    print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
+    message(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas,
       seq(dates[Tcur]+1,by=1,length.out=Tproj),
@@ -564,7 +558,7 @@ Rmap_postprocess = function(env) {
     logpred <- log(Ppred)
     dim(logpred) <- c(Tpred,N)
     logpred <- t(logpred)
-    print(sprintf("mean log predictives = %f",mean(logpred)))
+    message(sprintf("mean log predictives = %f",mean(logpred)))
     df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', length(quoted_areas)))
     for (i in 1:Tpred)
       colnames(df)[i+1] <- sprintf('logpred_day%d',i)
@@ -649,7 +643,7 @@ df <- area_date_dataframe(
       "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
 )
 writemergedresults(df, 'Rt', row.names=FALSE, quote=FALSE)
-print('done Rt')
+message('done Rt')
 
 #################################################################
 # Rt exceedance probabilities
@@ -677,7 +671,7 @@ df <- area_date_dataframe(
     c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
 )
 writemergedresults(df, 'Pexceed', row.names=FALSE, quote=FALSE)
-print('done Pexceedance')
+message('done Pexceedance')
 
 rm(Rt_samples)
 
@@ -697,7 +691,7 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
-print('done Cpred')
+message('done Cpred')
 
 rm(Cpred_samples)
 
@@ -731,7 +725,7 @@ df <- area_date_dataframe(
     c("C_weekly")
 )
 writemergedresults(df, 'Cweekly', row.names=FALSE, quote=FALSE)
-print('done Cweekly')
+message('done Cweekly')
 
 
 
@@ -747,7 +741,7 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
-print('done Cproj')
+message('done Cproj')
 
 })
 }
@@ -857,10 +851,22 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       help=paste("Length of MCMC chains; defualt =", opt$iterations)
     ),
     make_option(
-      c("-n", "--time_steps"),
+      c("--first_day_modelled"),
+      type="string",
+      default=opt$first_day_modelled,
+      help=paste("Date of first day to model; default =",opt$first_day_modelled)
+    ),
+    make_option(
+      c("--weeks_modelled"),
       type="integer",
-      default=opt$time_steps,
-      help=paste("Number of periods to fit Rt in; default =",opt$time_steps)
+      default=opt$weeks_modelled,
+      help=paste("Number of weeks to model; default =",opt$weeks_modelled)
+    ),
+    make_option(
+      c("--last_day_modelled"),
+      type="string",
+      default=opt$last_day_modelled,
+      help=paste("Date of last day to model; default =",opt$last_day_modelled)
     ),
     make_option(
       c("--days_ignored"),

@@ -13,7 +13,7 @@ epiclean_options = function(
   first_day_modelled = "2020-06-01",
   last_day_modelled  = NULL,
   weeks_modelled     = NULL,
-  days_ignored       = 7,
+  days_ignored         = 7,
   days_per_step      = 1,
   num_steps_forecasted = 3*7,
 

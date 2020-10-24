@@ -73,7 +73,8 @@ process_dates_modelled = function(
   }
   days_modelled = as.double(last_day_modelled-first_day_modelled)+1
   Tstep <- days_per_step
-  Tlik = floor(days_modelled/Tstep)*Tstep
+  #Tlik = floor(days_modelled/Tstep)*Tstep
+  Tlik = floor(days_modelled/7)*7 # model in units of weeks
   if (Tlik <= 0) {
     stop(paste(
       "Number of days modelled is <= 0", list_args,

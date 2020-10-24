@@ -1,6 +1,7 @@
 library(rstan)
 library(geosphere)
 library(optparse)
+source('dataprocessing/read_data.r')
 source('mapping/utils.r')
 
 Rmap_options = function(
@@ -10,16 +11,15 @@ Rmap_options = function(
   globalkernel         = "global",
   gp_space_scale       = 0.2, # units of 100km
   gp_space_decay_scale = .1,
-  gp_time_scale        = 28.0, # units of 1 day
+  gp_time_scale        = 14.0, # units of 1 day
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
   metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
-  observation_data     = "cleaned_recon_sample",
-  observation_model    = "negative_binomial_3",
+  observation_data     = "cleaned_latent_sample",
+  observation_model    = "negative_binomial_2",
   cleaned_sample_id    = 0,
-  chains               = 1,
-  iterations           = 4000,
+
   first_day_modelled   = "2020-06-01",
   weeks_modelled       = NULL,
   last_day_modelled    = NULL,
@@ -27,7 +27,11 @@ Rmap_options = function(
   days_per_step        = 7,
   days_predicted       = 2,
   num_steps_forecasted = 3,
+
   thinning             = 10,
+  chains               = 1,
+  iterations           = 4000,
+
   data_directory       = "data/",
   clean_directory      = "fits/clean",
   results_directory    = NULL
@@ -253,12 +257,13 @@ Rmap_run = function(env) {
       N = N, 
       Mstep = Mstep,
       Tall = Tall,
-      Tcond = Tcond,
-      Tlik = Tlik,
+      Tcur = Tcur,
+      Tstep = Tstep,
+      Mproj = Mproj,
       Tproj = Tproj,
-      Tstep=Tstep,
+      Tpred = Tpred,
 
-      Count = Count,
+      Count = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
       geodist = geodist,
@@ -852,7 +857,7 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
     ),
     make_option(
       c("--first_day_modelled"),
-      type="string",
+      type="character",
       default=opt$first_day_modelled,
       help=paste("Date of first day to model; default =",opt$first_day_modelled)
     ),
@@ -864,7 +869,7 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
     ),
     make_option(
       c("--last_day_modelled"),
-      type="string",
+      type="character",
       default=opt$last_day_modelled,
       help=paste("Date of last day to model; default =",opt$last_day_modelled)
     ),

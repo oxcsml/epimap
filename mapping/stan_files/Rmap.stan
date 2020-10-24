@@ -182,14 +182,15 @@ data {
   int<lower=1> N;           // number of regions
   int<lower=1> Mstep;           // number of time steps
   int<lower=1> Tall;        // number of all days in case count time series
-  int<lower=1> Tcond;       // number of days we will condition on
+  int<lower=1> Tcur;       // number of days we will condition on
   int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
   int<lower=0> Mproj;           // number of time steps
   int<lower=0> Tproj;       // number of days to forecast
+  int<lower=0> Tpred;
 
   int Count[N,Tall];           // case counts
-  int Clean_recon[N,Tall];     // case counts
-  matrix[N,Tall] Clean_latent; // cleaned case counts
+  int Clean_recon[N,Tcur];     // case counts
+  matrix[N,Tcur] Clean_latent; // cleaned case counts
 
   // vector[2] geoloc[N];   // geo locations of regions
   int<lower=1> Tip;         // length of infection profile
@@ -222,12 +223,11 @@ data {
 
 transformed data {
   int Tlik = Mstep*Tstep;
-  int Tcur = Tcond+Tlik;    // index of day on which we are estimating Rt
-  int Tpred = Tall-Tcur;    // number of days to calculate predictive probabilities for
+  int Tcond = Tcur-Tlik;    // index of day on which we are estimating Rt
   int F1 = F+1;
   vector[max(1,F)] ones = rep_vector(1.0,max(1,F));
 
-  matrix[N,Tall] Creal;     // real type version of Clean
+  matrix[N,Tcur] Creal;     // real type version of Clean
   vector[Tip] infprofile_rev; // reversed infection profile
   vector[Tdp] delayprofile_rev; // reversed infection profile
   vector[Tdp] delayprofile_cum; // reversed infection profile
@@ -235,14 +235,14 @@ transformed data {
   // precompute convolutions between Counts and infprofile 
   matrix[N,Tstep] convlik[Mstep];      // for use in likelihood computation
   matrix[N,1] convlik_reduced[Mstep];      // for use in likelihood computation
-  matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
+  //matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
   int Tforw = max(Tpred,Tproj);
   matrix[N,Tforw] convforw[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tstep] convlikflux[Mstep];
   matrix[F1,N*1] convlikflux_reduced[Mstep];
-  matrix[F1,N*Tpred] convpredflux[1];
+  //matrix[F1,N*Tpred] convpredflux[1];
 
   int Count_lik_reduced[Mstep,N];
   int Clean_recon_lik_reduced[Mstep,N];
@@ -304,11 +304,11 @@ transformed data {
     Creal = Clean_latent;
   } else if (OBSERVATION_DATA==CLEANED_RECON) {
     for (j in 1:N) 
-      for (i in 1:Tall)
+      for (i in 1:Tcur)
         Creal[j,i] = Clean_recon[j,i];
   } else {
     for (j in 1:N) 
-      for (i in 1:Tall)
+      for (i in 1:Tcur)
         Creal[j,i] = Count[j,i];
   }
 
@@ -325,10 +325,10 @@ transformed data {
       convlik_reduced[k,j,1] = s + 1e-6;
     }
     
-    for (i in 1:Tpred) {
-      int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convpred[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
-    }
+    //for (i in 1:Tpred) {
+    //  int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
+    //  convpred[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
+    //}
     for (i in 1:Tforw) {
       int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
       convforw[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
@@ -338,7 +338,7 @@ transformed data {
   if (DO_METAPOP && !DO_IN_OUT) {
     convlikflux = in_compute_flux(convlik,fluxt);
     convlikflux_reduced = in_compute_flux(convlik_reduced,fluxt);
-    convpredflux = in_compute_flux(convpred,fluxt);
+    //convpredflux = in_compute_flux(convpred,fluxt);
   }
 }
 
@@ -578,7 +578,7 @@ generated quantities {
   matrix[N,Tproj] Cproj; 
 
   { // print stats
-    if (uniform_rng(0.0,1.0)<1.0) {
+    if (uniform_rng(0.0,1.0)<0.05) {
       print(
         "space ", gp_space_length_scale,
         "; time ", gp_time_length_scale,
@@ -618,32 +618,32 @@ generated quantities {
         row_vector[F1] pred_fluxproportions[1];
         matrix[N,1] pred_Rin;
         matrix[N,1] pred_Rout;
-        matrix[N,Tpred] convpredout[1];
+        //matrix[N,Tpred] convpredout[1];
 
         pred_fluxproportions[1] = fluxproportions[Mstep];
         pred_Rin = block(Rin, 1, Mstep, N, 1);
         pred_Rout = block(Rout, 1, Mstep, N, 1);
-        convpredout = metapop(DO_METAPOP,DO_IN_OUT,
-            pred_Rin,pred_Rout,convpred,convpredflux,pred_fluxproportions,fluxt);
+        //convpredout = metapop(DO_METAPOP,DO_IN_OUT,
+        //    pred_Rin,pred_Rout,convpred,convpredflux,pred_fluxproportions,fluxt);
 
         for (i in 1:Tpred) {
           for (j in 1:N) {
             if (OBSERVATION_DATA == COUNTS) {
 
               if (OBSERVATION_MODEL == POISSON) {
-                Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i]
-                ));
+                //Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
+                //    convpredout[1,j,i]
+                //));
               } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    1.0 / dispersion
-                ));
+                //Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                //    convpredout[1,j,i],
+                //    1.0 / dispersion
+                //));
               } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    convpredout[1,j,i] / dispersion
-                ));
+                //Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                //    convpredout[1,j,i],
+                //    convpredout[1,j,i] / dispersion
+                //));
               } else {
                 reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
@@ -651,10 +651,10 @@ generated quantities {
             } else if (OBSERVATION_DATA == CLEANED_LATENT) {
 
               if (OBSERVATION_MODEL == GAUSSIAN) {
-                Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    sqrt((1.0+dispersion)*convpredout[1,j,i])
-                ));
+                //Ppred[j,i] = exp(normal_lpdf(Clean_latent[j,Tcur+i] |
+                //    convpredout[1,j,i],
+                //    sqrt((1.0+dispersion)*convpredout[1,j,i])
+                //));
               } else {
                 reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }
@@ -662,19 +662,19 @@ generated quantities {
             } else if (OBSERVATION_DATA == CLEANED_RECON) {
 
               if (OBSERVATION_MODEL == POISSON) {
-                Ppred[j,i] = exp(poisson_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i]
-                ));
+                //Ppred[j,i] = exp(poisson_lpmf(Clean_recon[j,Tcur+i] |
+                //    convpredout[1,j,i]
+                //));
               } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    1.0 / dispersion
-                ));
+                //Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                //    convpredout[1,j,i],
+                //    1.0 / dispersion
+                //));
               } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    convpredout[1,j,i] / dispersion
-                ));
+                //Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                //    convpredout[1,j,i],
+                //    convpredout[1,j,i] / dispersion
+                //));
               } else {
                 reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
               }

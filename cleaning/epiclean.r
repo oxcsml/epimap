@@ -3,15 +3,23 @@ library(optparse)
 library(gsubfn)
 source("dataprocessing/read_data.r")
 source("mapping/utils.r")
-rstan_options(auto_write = TRUE)
+rstan_options(auto_write = FALSE)
 
 epiclean_options = function(
+  gp_time_scale        = 14.0, # units of 1 day
+  gp_time_decay_scale  = .1,
+  fixed_gp_time_length_scale = -1.0,
+
+  first_day_modelled = "2020-06-01",
+  last_day_modelled  = NULL,
+  weeks_modelled     = NULL,
+  days_ignored         = 18,
+  days_per_step      = 1,
+  num_steps_forecasted = 3*7,
+
   num_samples        = 20,
   iterations         = 3000,
-  first_day_modelled = "2020-06-01",
-  last_day_modelled  = "2020-09-30",
-  weeks_modelled     = NULL,
-  days_per_step      = 1,
+
   data_directory     = "data/",
   clean_directory    = "fits/clean"
 ) {
@@ -44,8 +52,8 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     )
 
     area = areas[area_index]
-    Count <- AllCount[area,1:Tcur]
-    print(area)
+    Count <- AllCount[area,]
+    message("Area = ",area)
 
     Nsample <- opt$num_samples
 
@@ -60,9 +68,11 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     # ------------------------------------------------------------------------ #
 
     Rmap_clean_data <- list(
-      Tall = Tcur,
+      Tall = Tall,
+      Tcond = Tcond,
       Tstep = Tstep, 
       Nstep = Nstep,
+      Nproj = opt$num_steps_forecasted,
       Count = Count[area,],
       Tip = Tip,
       infprofile = infprofile,
@@ -71,9 +81,12 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
       Trdp = Trdp,
       resultdelaydecay = resultdelaydecay,
       resultdelaystrength = resultdelaystrength,
+      gp_time_scale        = opt$gp_time_scale,
+      gp_time_decay_scale  = opt$gp_time_decay_scale,
+      fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       mu_scale = 0.5,
       sigma_scale = 0.5,
-      alpha_scale = 1-exp(-Tstep/14),
+      # alpha_scale = 1-exp(-Tstep/14),
       phi_latent_scale = 1e-6,
       phi_observed_scale = 5.0,
       outlier_prob_threshold = .95,
@@ -115,7 +128,7 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     #################################################################
     # Summary of fit
     print(summary(fit, 
-      pars=c("mu","sigma","alpha","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
+      pars=c("mu","sigma","alpha","gp_time_length_scale","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
       probs=c(0.5)
     )$summary)
   })
@@ -128,32 +141,26 @@ epiclean_combine = function(opt = epiclean_options()) {
   Rmap_read_data(env)
   with(env,{
 
-    Tstep <- opt$days_per_step
-    Tcond = sum(dates<as.Date(opt$day_start_model))
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
-    if (is.null(opt$weeks_modelled)) {
-      days_modelled = floor((Tall-Tignore-Tcond)/7)*7
-      Nstep = days_modelled %/% Tstep
-    } else {
-      days_modelled = opt$weeks_modelled*7
-      Nstep = days_modelled %/% Tstep
-    }
-    Tlik <- Nstep*Tstep
-    Tall = Tcond + Tlik
-    print(paste("Nstep = ",Nstep))
-    print(paste("first day modelled:",dates[Tcond+1]))
-    print(paste("last day modelled:",dates[Tcond+Tlik]))
+    # work out days to be modelled
+    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates, 
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
 
-    Count <- AllCount[, 1:Tall]
+    Count <- AllCount[, 1:Tcur]
 
     numiters <- opt$iterations 
     Nsample <- opt$num_samples
 
     # Initialize arrays
-    Clatent_sample <- array(0, c(N, Tall, Nsample))
-    Clatent_mean <- array(0, c(N, Tall))
-    Crecon_sample <- array(0, c(N, Tall, Nsample))
-    Crecon_median <- array(0, c(N, Tall))
+    Clatent_sample <- array(0, c(N, Tcur, Nsample))
+    Clatent_mean <- array(0, c(N, Tcur))
+    Crecon_sample <- array(0, c(N, Tcur, Nsample))
+    Crecon_median <- array(0, c(N, Tcur))
     Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
     for (i in 1:Nsample) {
       Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
@@ -171,9 +178,9 @@ epiclean_combine = function(opt = epiclean_options()) {
       ####################################################################
       Clatent_s <- extract(fit, pars = "Clatent", permuted = FALSE)
       Clatent_s <- Clatent_s[seq(skip, by = skip, length.out = Nsample), , ]
-      dim(Clatent_s) <- c(Nsample, Tall)
+      dim(Clatent_s) <- c(Nsample, Tcur)
       Clatent_s <- t(Clatent_s)
-      dim(Clatent_s) <- c(1, Tall, Nsample)
+      dim(Clatent_s) <- c(1, Tcur, Nsample)
       Clatent_sample[area_index, , ] <- Clatent_s
       Clatent_m <- summary(fit, pars = "Clatent", probs = c(0.5))$summary
       Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
@@ -183,7 +190,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
       Crecon_s <- Crecon_s[seq(skip, by = skip, length.out = Nsample), , ]
       Crecon_s <- t(Crecon_s)
-      dim(Crecon_s) <- c(1, Tall, Nsample)
+      dim(Crecon_s) <- c(1, Tcur, Nsample)
       Crecon_sample[area_index, , ] <- Crecon_s
       Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
       Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
@@ -201,7 +208,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
       ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcond + 1):Tall
+      ind <- (Tcond + 1):Tcur
       ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
       for (i in 1:Nsample) {
         plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
@@ -217,7 +224,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
       CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tall - Nstep * Tstep + 1):Tall
+      ind <- (Tcur - Nstep * Tstep + 1):Tcur
       CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
       for (i in 1:Nsample) {
         plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
@@ -273,7 +280,7 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
     ),
     make_option(
       c("--first_day_modelled"),
-      type="string",
+      type="character",
       default=opt$first_day_modelled,
       help=paste("Date of first day to model; default =",opt$first_day_modelled)
     ),
@@ -285,7 +292,7 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
     ),
     make_option(
       c("--last_day_modelled"),
-      type="string",
+      type="character",
       default=opt$last_day_modelled,
       help=paste("Date of last day to model; default =",opt$last_day_modelled)
     ),
@@ -301,6 +308,32 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
       default=opt$days_per_step,
       help=paste("Days per modelling step, default",opt$days_per_step)
     ),
+    make_option(
+      c("--num_steps_forecasted"),
+      type="integer",
+      default=opt$num_steps_forecasted,
+      help=paste("Number of steps to forecast, default",opt$num_steps_forecasted)
+    ),
+    make_option(
+      c("--gp_time_scale"),
+      type="double",
+      default=opt$gp_time_scale,
+      help=paste("GP time scale, default",opt$gp_time_scale)
+    ),
+    make_option(
+      c("--gp_time_decay_scale"),
+      type="double",
+      default=opt$gp_time_decay_scale,
+      help=paste("GP time decay scale, default",opt$gp_time_decay_scale)
+    ),
+    make_option(
+      c("--fixed_gp_time_length_scale"),
+      type="double",
+      default=opt$fixed_gp_time_length_scale,
+      help=paste("Fixed GP time length scale, default",
+                 opt$fixed_gp_time_length_scale)
+    ),
+
     make_option(
       c("--clean_directory"), 
       type="character", 

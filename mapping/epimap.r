@@ -1,6 +1,7 @@
 library(rstan)
 library(geosphere)
 library(optparse)
+source('dataprocessing/read_data.r')
 source('mapping/utils.r')
 
 Rmap_options = function(
@@ -18,8 +19,7 @@ Rmap_options = function(
   observation_data     = "cleaned_recon_sample",
   observation_model    = "negative_binomial_3",
   cleaned_sample_id    = 0,
-  chains               = 1,
-  iterations           = 4000,
+
   first_day_modelled   = "2020-06-01",
   weeks_modelled       = NULL,
   last_day_modelled    = NULL,
@@ -27,7 +27,11 @@ Rmap_options = function(
   days_per_step        = 7,
   days_predicted       = 2,
   num_steps_forecasted = 3,
+
   thinning             = 10,
+  chains               = 1,
+  iterations           = 4000,
+
   data_directory       = "data/",
   clean_directory      = "fits/clean",
   results_directory    = NULL

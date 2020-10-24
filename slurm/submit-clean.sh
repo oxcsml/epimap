@@ -4,8 +4,6 @@ set -e
 
 trap 'echo submit-clean: Failed before finishing with exit code $? && exit $?' ERR
 
-echo submit-clean: Cleaning areas
-
 if [ $# -ne 1 ]; then
   echo Usage: submit-run clean_directory
   exit 1
@@ -21,6 +19,10 @@ mkdir -p $clean_directory/pdfs
 mkdir -p $clean_directory/stanfits
 mkdir -p $clean_directory/output
 
+echo submit-clean: compiling
+Rscript cleaning/compile.r
+
+echo submit-clean: cleaning area
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
@@ -36,8 +38,7 @@ sbatch --wait \
     "Rscript cleaning/clean_area.r --task_id \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
 wait
 
-echo submit-clean: Combining areas
-
+echo submit-clean: combining areas
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \

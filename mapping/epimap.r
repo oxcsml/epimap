@@ -9,16 +9,16 @@ Rmap_options = function(
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
-  gp_space_scale       = 0.2, # units of 100km
+  gp_space_scale       = 0.5, # units of 100km
   gp_space_decay_scale = .1,
-  gp_time_scale        = 14.0, # units of 1 day
+  gp_time_scale        = 28.0, # units of 1 day
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
   metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
-  observation_model    = "negative_binomial_2",
-  cleaned_sample_id    = 0,
+  observation_model    = "gaussian",
+  cleaned_sample_id    = 0, 
 
   first_day_modelled   = "2020-06-01",
   weeks_modelled       = NULL,
@@ -30,10 +30,10 @@ Rmap_options = function(
 
   thinning             = 10,
   chains               = 1,
-  iterations           = 4000,
+  iterations           = 4000, 
 
   data_directory       = "data/",
-  clean_directory      = "fits/clean",
+  clean_directory      = "fits/clean", 
   results_directory    = NULL
 ) {
   as.list(environment())
@@ -335,17 +335,20 @@ Rmap_run = function(env) {
       "Cpred",
       "Cproj"
     )
-    Rmap_control = list(adapt_delta = .9)
+    Rmap_control = list(
+      # max_treedepth = 3, # testing only
+      adapt_delta = .9
+    )
 
     #########################################################
     fit <- stan(
-        file = 'mapping/stan_files/Rmap.stan',
-        data = Rmap_data, 
-        init = Rmap_init,
-        pars = Rmap_pars,
-        iter = numiters, 
-        chains = numchains,
-        control = list(adapt_delta = .9)
+      file = 'mapping/stan_files/Rmap.stan',
+      data = Rmap_data, 
+      init = Rmap_init,
+      pars = Rmap_pars,
+      iter = numiters, 
+      chains = numchains,
+      control = list(adapt_delta = .9)
     )
 
 
@@ -398,7 +401,7 @@ Rmap_postprocess = function(env) {
     save_samples = function(pars,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
       samples = samples[seq(numchains,by=numchains*opt$thinning,to=numiters/2),,,drop=FALSE]
-      ns = numiters/2/opt$thinning
+      ns = floor(numiters/2/opt$thinning)
       np = dim(samples)[3]/N
       parnames = dimnames(samples)[[3]]
       dim(samples) = c(ns,np*N)
@@ -511,7 +514,7 @@ Rmap_postprocess = function(env) {
 
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
-    Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
+    Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
@@ -654,7 +657,7 @@ message('done Rt')
 # Rt exceedance probabilities
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
-numsamples = numruns * numiters/2 / opt$thinning
+numsamples = numruns * floor(numiters/2 / opt$thinning)
 Rt <- as.matrix(Rt_samples)
 dim(Rt) <- c(numsamples,Mstep,N)
 Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
@@ -703,7 +706,7 @@ rm(Cpred_samples)
 ####################################################################################
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
 Cproj_samples = load_samples('Cproj')
-Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
+Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 

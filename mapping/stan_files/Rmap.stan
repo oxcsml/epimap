@@ -479,7 +479,7 @@ model {
   gp_space_decay ~ normal(0.0,gp_space_decay_scale);
   gp_time_decay ~ normal(0.0,gp_time_decay_scale);
   gp_sigma ~ normal(0.0, 0.25);
-  global_sigma ~  normal(0.0, 0.25);
+  global_sigma ~ normal(0.0, 0.25);
   local_scale ~ normal(0.0, 0.1);
   for (j in 1:(Mstep+Mforw)){
     for (i in 1:N) {
@@ -487,8 +487,6 @@ model {
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
     }
   }
-
-  print(target())
 
   // compute likelihoods
   if (OBSERVATION_DATA == INFECTION_REPORTS) {
@@ -607,7 +605,7 @@ generated quantities {
   
 
   // Forward simulate model and compute predictive probabilities
-  {
+  if (Mforw > 0) {
     // Rollout stochasitc prediction of epidemic
     {
       row_vector[F1] forw_fluxproportions[1];

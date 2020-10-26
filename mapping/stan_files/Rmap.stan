@@ -209,6 +209,9 @@ data {
   real<lower=0> gp_time_decay_scale;
   real fixed_gp_space_length_scale; // If positive, use this, otherwise use prior
   real fixed_gp_time_length_scale; // If positive, use this, otherwise use prior
+  real<lower=0> coupling_mu_scale;
+  real<lower=0> coupling_sigma_scale;
+  real<lower=0> coupling_alpha_scale;
   int<lower=1,upper=5> SPATIAL_KERNEL;
   int<lower=1,upper=5> TEMPORAL_KERNEL;
   int<lower=0,upper=1> LOCAL_KERNEL;
@@ -360,7 +363,12 @@ parameters {
 
   real<lower=0.0> dispersion;
   // real<lower=0> Ravg;
-  real<lower=0.0,upper=1.0> coupling_rate[Mstep];
+
+  real coupling_mu; // prior mean for sigmoid^-1(coupling_rate) 
+  real<lower=0> coupling_sigma; // prior scale for sigmoid^-1(coupling_rate) 
+  real<lower=0,upper=1> coupling_alpha1; // 1-autocorrelation for sigmoid^-1(coupling_rate) 
+  vector[Mstep+Mforw] coupling_eta; // noise for sigmoid^-1(coupling_rate) 
+
   simplex[max(1,F)] flux_probs;
 }
 
@@ -368,11 +376,21 @@ transformed parameters {
   matrix[N, Mstep+Mforw] Rin;                 // instantaneous reproduction number
   matrix[N, Mstep+Mforw] Rout;                 // instantaneous reproduction number
   matrix[N, Mstep+Mforw] local_sigma;
-  row_vector[F1] fluxproportions[Mstep];
+  real coupling_alpha = 1-coupling_alpha1; // autocorrelation for sigmoid^-1(coupling_rate) 
+  real coupling_rate[Mstep+Mforw];
+  row_vector[F1] fluxproportions[Mstep+Mforw];
   matrix[N,1] convlikout_reduced[Mstep];
   matrix[N,Tstep] convlikout[Mstep];
   real gp_space_length_scale;
   real gp_time_length_scale;
+  { // AR1 process for sigmoid^-1(coupling_rate)
+    vector[Mstep+Mforw] Zt = rep_vector(0.0,Mstep+Mforw);
+    real delta = sqrt(1.0-coupling_alpha);
+    Zt[1] += coupling_eta[1];
+    for (i in 2:(Mstep+Mforw))
+      Zt[i] += coupling_alpha * Zt[i-1] + delta * coupling_eta[i];
+    coupling_rate = to_array_1d(inv_logit(coupling_mu + coupling_sigma * Zt));
+  }
   {
     matrix[N,N] K_space;
     matrix[Mstep+Mforw,Mstep+Mforw] K_time;
@@ -414,13 +432,13 @@ transformed parameters {
 
     // Noise kernel (reshaped from (N*Mstep, N*Mstep) to (N,Mstep) since diagonal)
     if (LOCAL_KERNEL) {
-      for (m in 1:Mstep) {
+      for (m in 1:(Mstep+Mforw)) {
         for (n in 1:N) {
           local_sigma[n, m] = sqrt((2 * square(local_scale)) * local_exp[n, m]);
         }
       }
     } else {
-      local_sigma = rep_matrix(0.0,N,Mstep);
+      local_sigma = rep_matrix(0.0,N,(Mstep+Mforw));
     }
     
 //print("local_sigma");
@@ -444,13 +462,13 @@ transformed parameters {
 
     // metapopulation infection rate model
     if (DO_METAPOP) {
-      for (m in 1:Mstep){
+      for (m in 1:(Mstep+Mforw)){
         fluxproportions[m, 1] = 1.0-coupling_rate[m];
-      for (f in 2:F1)
-        fluxproportions[m, f] = coupling_rate[m]*flux_probs[f-1];
+        for (f in 2:F1)
+          fluxproportions[m, f] = coupling_rate[m]*flux_probs[f-1];
       }
     } else {
-      for (m in 1:Mstep){
+      for (m in 1:(Mstep+Mforw)){
         fluxproportions[m, 1] = 1.0;
         for (f in 2:F1)
           fluxproportions[m, f] = 0.0;
@@ -458,9 +476,9 @@ transformed parameters {
       
     }
     convlikout_reduced = metapop(DO_METAPOP,DO_IN_OUT,
-        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
+        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik_reduced,convlikflux_reduced,fluxproportions[1:Mstep],fluxt);
     convlikout= metapop(DO_METAPOP,DO_IN_OUT,
-        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik,convlikflux,fluxproportions,fluxt);
+        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik,convlikflux,fluxproportions[1:Mstep],fluxt);
   }
 }
 
@@ -487,6 +505,12 @@ model {
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
     }
   }
+
+  
+  coupling_mu ~ normal(0.0, coupling_mu_scale);
+  coupling_sigma ~ normal(0.0, coupling_sigma_scale);
+  coupling_alpha1 ~ normal(0.0, coupling_alpha_scale);
+  coupling_eta ~ std_normal();
 
   // compute likelihoods
   if (OBSERVATION_DATA == INFECTION_REPORTS) {
@@ -608,7 +632,7 @@ generated quantities {
   if (Mforw > 0) {
     // Rollout stochasitc prediction of epidemic
     {
-      row_vector[F1] forw_fluxproportions[1];
+      row_vector[F1] forw_fluxproportions[Mforw];
       matrix[F1,N*1] convforwflux[1];
       matrix[N,Mforw] forw_Rin;
       matrix[N,Mforw] forw_Rout;
@@ -621,7 +645,7 @@ generated quantities {
         Clatent[,Tcond+(k-1)*Tstep+1:Tcond+k*Tstep] = convlikout[k];
 
       // Pick out the posterior samples of the future parameters conditioned on past observations
-      forw_fluxproportions[1] = fluxproportions[Mstep];
+      forw_fluxproportions[1:Mforw] = fluxproportions[Mstep+1:Mstep+Mforw];
       forw_Rin = block(Rin, 1, Mstep+1, N, Mforw);
       forw_Rout = block(Rout, 1, Mstep+1, N, Mforw);
 
@@ -640,7 +664,7 @@ generated quantities {
 
           // Compute metapop effects
           Clatent[,Tcur+i] = metapop(DO_METAPOP,DO_IN_OUT,
-              forw_Rin[,m:m],forw_Rout[,m:m],convforwall[,,i:i],convforwflux,fluxproportions,fluxt)[1,:,1];
+              forw_Rin[,m:m],forw_Rout[,m:m],convforwall[,,i:i],convforwflux,fluxproportions[m:m],fluxt)[1,:,1];
 
           // Draw new latent infections from observation model
           if (OBSERVATION_MODEL == POISSON) {

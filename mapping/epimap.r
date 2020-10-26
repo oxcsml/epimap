@@ -282,6 +282,10 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
+      coupling_mu_scale = 0.5,
+      coupling_sigma_scale = 0.5,
+      coupling_alpha_scale = 1-exp(-Tstep/14),
+      
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
       LOCAL_KERNEL = LOCAL_KERNEL,

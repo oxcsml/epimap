@@ -184,8 +184,7 @@ data {
   int<lower=1> Tall;        // number of all days in case count time series
   int<lower=1> Tcond;       // number of days we will condition on
   int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
-  int<lower=0> Mproj;           // number of time steps
-  int<lower=0> Tproj;       // number of days to forecast
+  int<lower=0> Mproj;           // number of time steps to forecast
 
   int Count[N,Tall];           // case counts
   int Clean_recon[N,Tall];     // case counts
@@ -201,8 +200,8 @@ data {
 
 
   matrix[N,N] geodist;      // distance between locations
-  matrix[Mstep,Mstep] timedist;     // distance between time samples
-  matrix[Mstep,Mstep] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
+  matrix[Mstep+Mproj,Mstep+Mproj] timedist;     // distance between time samples
+  matrix[Mstep+Mproj,Mstep+Mproj] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
 
   real<lower=0> gp_space_scale; // 50km
   real<lower=0> gp_time_scale; // 3 weeks
@@ -221,9 +220,11 @@ data {
 }
 
 transformed data {
-  int Tlik = Mstep*Tstep;
+  int Tlik = Mstep*Tstep;     // Number of days to use for the likelihood computation
+  int Tproj = Mproj*Tstep;    // The number of days to project forward
   int Tcur = Tcond+Tlik;    // index of day on which we are estimating Rt
-  int Tpred = Tall-Tcur;    // number of days to calculate predictive probabilities for
+  int Tpred = Tall - Tcur;    // number of days to calculate predictive probabilities for
+  int Mpred = (Tall - Tcur + Tstep - 1) / Tstep; // Enough Tsteps to cover whole Tpred period. Funky math to deal with Stans deficiencies
   int F1 = F+1;
   vector[max(1,F)] ones = rep_vector(1.0,max(1,F));
 
@@ -235,14 +236,13 @@ transformed data {
   // precompute convolutions between Counts and infprofile 
   matrix[N,Tstep] convlik[Mstep];      // for use in likelihood computation
   matrix[N,1] convlik_reduced[Mstep];      // for use in likelihood computation
-  matrix[N,Tpred] convpred[1];    // for use in predictive probs of future counts
   int Tforw = max(Tpred,Tproj);
+  int Mforw = max(Mpred,Mproj);
   matrix[N,Tforw] convforw[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tstep] convlikflux[Mstep];
   matrix[F1,N*1] convlikflux_reduced[Mstep];
-  matrix[F1,N*Tpred] convpredflux[1];
 
   int Count_lik_reduced[Mstep,N];
   int Clean_recon_lik_reduced[Mstep,N];
@@ -325,10 +325,6 @@ transformed data {
       convlik_reduced[k,j,1] = s + 1e-6;
     }
     
-    for (i in 1:Tpred) {
-      int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convpred[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
-    }
     for (i in 1:Tforw) {
       int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
       convforw[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
@@ -338,8 +334,13 @@ transformed data {
   if (DO_METAPOP && !DO_IN_OUT) {
     convlikflux = in_compute_flux(convlik,fluxt);
     convlikflux_reduced = in_compute_flux(convlik_reduced,fluxt);
-    convpredflux = in_compute_flux(convpred,fluxt);
   }
+
+  // Mpred = 0;
+  // Tpred = 0;
+  // Mforw = 0;
+  // Tforw = 0;
+  // Tproj = 0;
 }
 
 parameters {
@@ -347,15 +348,15 @@ parameters {
   real<lower=0.0,upper=0.632> gp_space_decay;
   real<lower=0.0,upper=0.632> gp_time_decay;
     
-  matrix<lower=0.0>[N,Mstep+Mproj] local_exp;
+  matrix<lower=0.0>[N,Mstep+Mforw] local_exp;
   real<lower=0.0> local_scale;
   real<lower=0.0> global_sigma;
 
-  vector[N*(Mstep+Mproj)] eta_in;
-  vector[N*(Mstep+Mproj)] eta_out;
+  vector[N*(Mstep+Mforw)] eta_in;
+  vector[N*(Mstep+Mforw)] eta_out;
 
-  vector[N*(Mstep+Mproj)] epsilon_in;
-  vector[N*(Mstep+Mproj)] epsilon_out;
+  vector[N*(Mstep+Mforw)] epsilon_in;
+  vector[N*(Mstep+Mforw)] epsilon_out;
 
   real<lower=0.0> dispersion;
   // real<lower=0> Ravg;
@@ -364,9 +365,9 @@ parameters {
 }
 
 transformed parameters {
-  matrix[N, Mstep+Mproj] Rin;                 // instantaneous reproduction number
-  matrix[N, Mstep+Mproj] Rout;                 // instantaneous reproduction number
-  matrix[N, Mstep+Mproj] local_sigma;
+  matrix[N, Mstep+Mforw] Rin;                 // instantaneous reproduction number
+  matrix[N, Mstep+Mforw] Rout;                 // instantaneous reproduction number
+  matrix[N, Mstep+Mforw] local_sigma;
   row_vector[F1] fluxproportions[Mstep];
   matrix[N,1] convlikout_reduced[Mstep];
   matrix[N,Tstep] convlikout[Mstep];
@@ -374,9 +375,9 @@ transformed parameters {
   real gp_time_length_scale;
   {
     matrix[N,N] K_space;
-    matrix[Mstep+Mproj,Mstep+Mproj] K_time;
+    matrix[Mstep+Mforw,Mstep+Mforw] K_time;
     matrix[N,N] L_space;
-    matrix[Mstep+Mproj,Mstep+Mproj] L_time;
+    matrix[Mstep+Mforw,Mstep+Mforw] L_time;
     real global_sigma2 = square(global_sigma);
 
     if (fixed_gp_space_length_scale<=0.0) {
@@ -429,16 +430,16 @@ transformed parameters {
     // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
     Rin = exp(
-        (L_space * to_matrix(eta_in, N, Mstep) * L_time') + 
-        (local_sigma .* to_matrix(epsilon_in, N, Mstep))
+        (L_space * to_matrix(eta_in, N, Mstep+Mproj) * L_time') + 
+        (local_sigma .* to_matrix(epsilon_in, N, Mstep+Mproj))
     );
     if (DO_METAPOP && DO_IN_OUT) {
       Rout = exp(
-          (L_space * to_matrix(eta_out, N, Mstep) * L_time') + 
-          (local_sigma .* to_matrix(epsilon_out, N, Mstep))
+          (L_space * to_matrix(eta_out, N, Mstep+Mproj) * L_time') + 
+          (local_sigma .* to_matrix(epsilon_out, N, Mstep+Mproj))
       );
     } else {
-      Rout = rep_matrix(1.0,N,Mstep);
+      Rout = rep_matrix(1.0,N,Mstep+Mproj);
     }
 
     // metapopulation infection rate model
@@ -457,9 +458,9 @@ transformed parameters {
       
     }
     convlikout_reduced = metapop(DO_METAPOP,DO_IN_OUT,
-        block(Rin, 1, 1, Mstep, N),block(Rout, 1, 1, Mstep, N),convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
+        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik_reduced,convlikflux_reduced,fluxproportions,fluxt);
     convlikout= metapop(DO_METAPOP,DO_IN_OUT,
-        block(Rin, 1, 1, Mstep, N),block(Rout, 1, 1, Mstep, N),convlik,convlikflux,fluxproportions,fluxt);
+        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),convlik,convlikflux,fluxproportions,fluxt);
   }
 }
 
@@ -480,12 +481,14 @@ model {
   gp_sigma ~ normal(0.0, 0.25);
   global_sigma ~  normal(0.0, 0.25);
   local_scale ~ normal(0.0, 0.1);
-  for (j in 1:(Mstep+Mproj)){
+  for (j in 1:(Mstep+Mforw)){
     for (i in 1:N) {
       local_exp[i, j] ~ exponential(1.0);
       // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
     }
   }
+
+  print(target())
 
   // compute likelihoods
   if (OBSERVATION_DATA == INFECTION_REPORTS) {
@@ -503,70 +506,70 @@ model {
         ); 
     }
   } else {
-  for (k in 1:Mstep) {
-    for (j in 1:N) {
-      if (OBSERVATION_DATA == COUNTS) {
+    for (k in 1:Mstep) {
+      for (j in 1:N) {
+        if (OBSERVATION_DATA == COUNTS) {
 
-        if (OBSERVATION_MODEL == POISSON) {
-          Count_lik_reduced[k,j] ~ poisson(
-              convlikout_reduced[k,j,1] 
-          );
-        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-          Count_lik_reduced[k,j] ~ neg_binomial_2(
-              convlikout_reduced[k,j,1],
-              1.0 / dispersion
-          );
-        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-          Count_lik_reduced[k,j] ~ neg_binomial_2(
-              convlikout_reduced[k,j,1],
-              convlikout_reduced[k,j,1] / dispersion
-          );
-        } else {
-          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-        }
-
-      } else if (OBSERVATION_DATA == CLEANED_LATENT) {
-
-        if (OBSERVATION_MODEL == GAUSSIAN) {
-          for (i in 1:Tstep) {
-            vector[2] loglik;
-            real latent = Clean_latent[j,Tcond+i+(k-1)*Tstep];
-            real Elatent = convlikout[k,j,i];
-            loglik[1] = normal_lpdf( latent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-            loglik[2] = normal_lpdf( -latent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-            target += log_sum_exp(loglik);
+          if (OBSERVATION_MODEL == POISSON) {
+            Count_lik_reduced[k,j] ~ poisson(
+                convlikout_reduced[k,j,1] 
+            );
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+            Count_lik_reduced[k,j] ~ neg_binomial_2(
+                convlikout_reduced[k,j,1],
+                1.0 / dispersion
+            );
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+            Count_lik_reduced[k,j] ~ neg_binomial_2(
+                convlikout_reduced[k,j,1],
+                convlikout_reduced[k,j,1] / dispersion
+            );
+          } else {
+            reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
           }
-          // Clean_latent_lik_reduced[k,j] ~ normal(
-          //     convlikout_reduced[k,j,1], 
-          //     sqrt((1.0+dispersion)*convlikout_reduced[k,j,1])
-          // );
-        } else {
-          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+
+        } else if (OBSERVATION_DATA == CLEANED_LATENT) {
+
+          if (OBSERVATION_MODEL == GAUSSIAN) {
+            for (i in 1:Tstep) {
+              vector[2] loglik;
+              real latent = Clean_latent[j,Tcond+i+(k-1)*Tstep];
+              real Elatent = convlikout[k,j,i];
+              loglik[1] = normal_lpdf( latent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+              loglik[2] = normal_lpdf( -latent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+              target += log_sum_exp(loglik);
+            }
+            // Clean_latent_lik_reduced[k,j] ~ normal(
+            //     convlikout_reduced[k,j,1], 
+            //     sqrt((1.0+dispersion)*convlikout_reduced[k,j,1])
+            // );
+          } else {
+            reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+          }
+
+        } else if (OBSERVATION_DATA == CLEANED_RECON) {
+
+          if (OBSERVATION_MODEL == POISSON) {
+            Clean_recon_lik_reduced[k,j] ~ poisson(
+                convlikout_reduced[k,j,1] 
+            );
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+            Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
+                convlikout_reduced[k,j,1],
+                1.0 / dispersion
+            );
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+            Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
+                convlikout_reduced[k,j,1],
+                convlikout_reduced[k,j,1] / dispersion
+            );
+          } else {
+            reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+          }
+
         }
-
-      } else if (OBSERVATION_DATA == CLEANED_RECON) {
-
-        if (OBSERVATION_MODEL == POISSON) {
-          Clean_recon_lik_reduced[k,j] ~ poisson(
-              convlikout_reduced[k,j,1] 
-          );
-        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-          Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
-              convlikout_reduced[k,j,1],
-              1.0 / dispersion
-          );
-        } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-          Clean_recon_lik_reduced[k,j] ~ neg_binomial_2(
-              convlikout_reduced[k,j,1],
-              convlikout_reduced[k,j,1] / dispersion
-          );
-        } else {
-          reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-        }
-
       }
     }
-  }
   }
 }
 
@@ -577,7 +580,7 @@ generated quantities {
   vector[N] Rt_proj[Mproj];
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
-  matrix[N,Tproj] Cproj; 
+  matrix[N,Mproj*Tstep] Cproj; 
 
   { // print stats
     if (uniform_rng(0.0,1.0)<1.0) {
@@ -602,168 +605,160 @@ generated quantities {
     }
   }
   
-  
+
+  // Forward simulate model and compute predictive probabilities
   {
-    //matrix[N,Tstep] convlikout[Mstep];
-
-    //convlikout = metapop(DO_METAPOP,DO_IN_OUT,
-    //    Rin,Rout,convlik,convlikflux,fluxproportions,fluxt);
-
-
-    if (OBSERVATION_DATA == COUNTS ||
-        OBSERVATION_DATA == CLEANED_RECON ) {
-      { // posterior predictive expected counts
-        for (k in 1:Mstep) 
-          Cpred[,(1+(k-1)*Tstep):(k*Tstep)] = convlikout[k];
-      }
-      { // predictive probability of future counts 
-        row_vector[F1] pred_fluxproportions[1];
-        matrix[N,1] pred_Rin;
-        matrix[N,1] pred_Rout;
-        matrix[N,Tpred] convpredout[1];
-
-        pred_fluxproportions[1] = fluxproportions[Mstep];
-        pred_Rin = block(Rin, 1, Mstep, N, 1);
-        pred_Rout = block(Rout, 1, Mstep, N, 1);
-        convpredout = metapop(DO_METAPOP,DO_IN_OUT,
-            pred_Rin,pred_Rout,convpred,convpredflux,pred_fluxproportions,fluxt);
-
-        for (i in 1:Tpred) {
-          for (j in 1:N) {
-            if (OBSERVATION_DATA == COUNTS) {
-
-              if (OBSERVATION_MODEL == POISSON) {
-                Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i]
-                ));
-              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    1.0 / dispersion
-                ));
-              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    convpredout[1,j,i] / dispersion
-                ));
-              } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-              }
-
-            } else if (OBSERVATION_DATA == CLEANED_RECON) {
-
-              if (OBSERVATION_MODEL == POISSON) {
-                Ppred[j,i] = exp(poisson_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i]
-                ));
-              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    1.0 / dispersion
-                ));
-              } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-                Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
-                    convpredout[1,j,i],
-                    convpredout[1,j,i] / dispersion
-                ));
-              } else {
-                reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-              }
-              
-            }
-          }
-        }
-      }
-      { // forecasting expected counts given parameters
-        row_vector[F1] forw_fluxproportions[1];
-        matrix[F1,N*1] convforwflux[1];
-        matrix[N,Mproj] forw_Rin;
-        matrix[N,Mproj] forw_Rout;
-        matrix[N,1] convforwall[1];
-
-        forw_fluxproportions[1] = fluxproportions[Mstep];
-        forw_Rin = block(Rin, 1, Mstep+1, N, Mproj);
-        forw_Rout = block(Rout, 1, Mstep+1, N, Mproj);
-
-        for (m in 1:Mproj) {
-          for (t in 1:Tstep) {
-            i = (m-1)*Tstep + t;
-
-            for (j in 1:N) 
-              convforwall[1,j,1] = convforw[1,j,i] + 
-                  dot_product(Cproj[j,1:(i-1)], infprofile_rev[(Tip-i+2):Tip]);
-
-            if (DO_METAPOP && !DO_IN_OUT)
-              convforwflux = in_compute_flux(convforwall,fluxt);
-
-            Cproj[,i] = metapop(DO_METAPOP,DO_IN_OUT,
-                forw_Rin[, m],forw_Rout[, m],convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
-
-            if (OBSERVATION_MODEL == POISSON) {
-              Cproj[,i] = poisson_rng(Cproj[,i]);
-            } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-              Cproj[,i] = neg_binomial_2_rng(Cproj[,i], 1 / dispersion);
-            } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-              Cproj[,i] = neg_binomial_2_rng(Cproj[,i], Cproj[,i] / dispersion);
-            } else {
-              reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
-            }
-          }
-        }
-      }
-    } else if ( OBSERVATION_DATA == CLEANED_LATENT ||
-                OBSERVATION_DATA == INFECTION_REPORTS ) {
-      int Tidp = max(Tip,Tdp);
-      matrix[N,Tcur+Tforw] Clatent;
+    // Rollout stochasitc prediction of epidemic
+    {
       row_vector[F1] forw_fluxproportions[1];
       matrix[F1,N*1] convforwflux[1];
-      matrix[N,1] forw_Rin;
-      matrix[N,1] forw_Rout;
-      matrix[N,1] convforwall[1];
+      matrix[N,Mforw] forw_Rin;
+      matrix[N,Mforw] forw_Rout;
+      matrix[N,Tforw] convforwall[1];
+      matrix[N,Tcur+Tforw] Clatent;
 
-      forw_fluxproportions[1] = fluxproportions[Mstep];
-      forw_Rin = block(Rin, 1, Mstep, N, 1);
-      forw_Rout = block(Rout, 1, Mstep, N, 1);
-
+      // Fill Clatent with observations up until the current time
       Clatent[,1:Tcond] = Creal[,1:Tcond];
       for (k in 1:Mstep) 
         Clatent[,Tcond+(k-1)*Tstep+1:Tcond+k*Tstep] = convlikout[k];
-      for (i in 1:Tforw) {
-        for (j in 1:N) 
-          convforwall[1,j,1] = convforw[1,j,i] + 
-              dot_product(Clatent[j,Tcur+1:Tcur+(i-1)], infprofile_rev[(Tip-i+2):Tip]);
-        if (DO_METAPOP && !DO_IN_OUT)
-          convforwflux = in_compute_flux(convforwall,fluxt);
-        Clatent[,Tcur+i] = metapop(DO_METAPOP,DO_IN_OUT,
-            forw_Rin,forw_Rout,convforwall,convforwflux,fluxproportions,fluxt)[1,:,1];
-      }
- 
-      { // posterior predictive expected counts
-        for (t in Tcond+1:Tcur) {
-          int s = t-Tcond;
-          Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+
+      // Pick out the posterior samples of the future parameters conditioned on past observations
+      forw_fluxproportions[1] = fluxproportions[Mstep];
+      forw_Rin = block(Rin, 1, Mstep+1, N, Mforw);
+      forw_Rout = block(Rout, 1, Mstep+1, N, Mforw);
+
+      // For each timestep simulate the model forwards
+      for (m in 1:Mforw) {
+        for (t in 1:Tstep) {
+          int i = (m-1) * Tstep + t;
+          // Compute the infection pressure by adding on pressure from simulated counts
+          for (j in 1:N) 
+            convforwall[1,j,i] = convforw[1,j,i] + 
+                dot_product(Clatent[j,Tcur+1:Tcur+(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+
+          // Compute flux
+          if (DO_METAPOP && !DO_IN_OUT)
+            convforwflux = in_compute_flux(convforwall[,,i:i],fluxt);
+
+          // Compute metapop effects
+          Clatent[,Tcur+i] = metapop(DO_METAPOP,DO_IN_OUT,
+              forw_Rin[,m:m],forw_Rout[,m:m],convforwall[,,i:i],convforwflux,fluxproportions,fluxt)[1,:,1];
+
+          // Draw new latent infections from observation model
+          if (OBSERVATION_MODEL == POISSON) {
+            Clatent[,i] = to_vector(poisson_rng(Clatent[,i]));
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+            Clatent[,i] = to_vector(neg_binomial_2_rng(Clatent[,i], 1 / dispersion));
+          } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+            Clatent[,i] = to_vector(neg_binomial_2_rng(Clatent[,i], Clatent[,i] / dispersion));
+          } else if (OBSERVATION_MODEL == GAUSSIAN) {
+            Clatent[,i] = to_vector(normal_rng(Clatent[,i], sqrt((1.0+dispersion)*Clatent[,i])));
+          } else {
+            reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+          }
         }
+
       }
-      { // forecasting expected counts given parameters
-        for (t in Tcur+1:Tcur+Tproj) {
-          int i = t-Tcur;
-          Cproj[,i] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-        }
-      }
-      // predictive probability of future counts 
-      for (t in Tcur+1:Tcur+Tpred) {
-        int i = t-Tcur;
-        vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-        for (j in 1:N) {
-          Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,t] |
-              cc[j],
-              cc[j] / 1.0 //*** TODO use better estimated dispersion ***//
-          )); 
+      // Simulate observations based on the type data we are observing and compute predictive probabilities
+      {
+        // Cases where we only observe the latent epidemic
+        if (OBSERVATION_DATA == COUNTS || OBSERVATION_DATA == CLEANED_RECON){
+          { // Predictions are exactly the forward simulated model
+            for (t in Tcond+1:Tcur) {
+              int s = t-Tcond;
+              Cpred[,s] = Clatent[,t];
+            }
+          }
+          { // Projections are exactly the forward simulated model
+            for (t in Tcur+1:Tcur+Tproj) {
+              int s = t-Tcur;
+              Cproj[,s] = Clatent[,t];
+            }
+          }
+          // Compute predictive likelihood of observed latent epidemic
+          {
+            for (i in 1:Tpred) {
+              for (j in 1:N) {
+                if (OBSERVATION_DATA == COUNTS) {
+
+                  if (OBSERVATION_MODEL == POISSON) {
+                    Ppred[j,i] = exp(poisson_lpmf(Count[j,Tcur+i] |
+                        convforwall[1,j,i]
+                    ));
+                  } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+                    Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                        convforwall[1,j,i],
+                        1.0 / dispersion
+                    ));
+                  } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+                    Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,Tcur+i] |
+                        convforwall[1,j,i],
+                        convforwall[1,j,i] / dispersion
+                    ));
+                  } else {
+                    reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+                  }
+
+                } else if (OBSERVATION_DATA == CLEANED_RECON) {
+
+                  if (OBSERVATION_MODEL == POISSON) {
+                    Ppred[j,i] = exp(poisson_lpmf(Clean_recon[j,Tcur+i] |
+                        convforwall[1,j,i]
+                    ));
+                  } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
+                    Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                        convforwall[1,j,i],
+                        1.0 / dispersion
+                    ));
+                  } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
+                    Ppred[j,i] = exp(neg_binomial_2_lpmf(Clean_recon[j,Tcur+i] |
+                        convforwall[1,j,i],
+                        convforwall[1,j,i] / dispersion
+                    ));
+                  } else {
+                    reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
+                  }
+                  
+                }
+              }
+            }
+          }
+        // Cases where we observe case reports
+        } else if (OBSERVATION_DATA == CLEANED_LATENT || OBSERVATION_DATA == INFECTION_REPORTS) {
+          //*** TODO Build in more observation model options, and rename OBSERVATION_MODEL to INFECTION_MODEL? ***//
+          { // posterior predictive expected counts
+            for (t in Tcond+1:Tcur) {
+              int s = t-Tcond;
+              Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / 1.0)); //*** TODO use better estimated dispersion ***//
+            }
+          }
+          { // forecasting expected counts given parameters
+            for (t in Tcur+1:Tcur+Tproj) {
+              int s = t-Tcur;
+              Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / 1.0)); //*** TODO use better estimated dispersion ***//
+            }
+          }
+          // Compute predictive likelihood of observed future case observations
+          {
+            for (t in Tcur+1:Tcur+Tpred) {
+              int i = t-Tcur;
+              vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              for (j in 1:N) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Count[j,t] |
+                    cc[j],
+                    cc[j] / 1.0 //*** TODO use better estimated dispersion ***//
+                )); 
+              }
+            }
+          }
         }
       }
     }
-
-  } 
+  }
 
 }
 

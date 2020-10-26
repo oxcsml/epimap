@@ -91,6 +91,12 @@ Rmap_setup = function(opt = Rmap_options()) {
 
     days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*Mstep)
     days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
+    days_proj = seq(dates[Tcur+1],by=1,length.out=Tproj)
+    days_forward = seq(dates[Tcur+1],by=1,length.out=max(Tproj, Tpred))
+    days = c(days_likelihood, days_forward)
+    # days = c(days_likelihood)
+    # Mproj = 0
+
 
     print("Days used for likelihood fitting")
     print(days_likelihood)
@@ -232,23 +238,23 @@ Rmap_run = function(env) {
 
     #########################################################
     # time steps
-    times = 1:Mstep
-    timedist = matrix(0, Mstep, Mstep)
-    for (i in 1:Mstep) {
-      for (j in 1:Mstep) {
+    times = 1:(Mstep+Mproj)
+    timedist = matrix(0, Mstep+Mproj, Mstep+Mproj)
+    for (i in 1:(Mstep+Mproj)) {
+      for (j in 1:(Mstep+Mproj)) {
         timedist[i, j] = abs(times[i] - times[j]) * Tstep
       }
     }
 
     # precompute lockdown cutoff kernel
     lockdown_day = as.Date("2020-03-23")
-    days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tstep)]
-    days_lik_start = vapply(days_lik_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
-    day_pre_lockdown = vapply(days_lik_start, (function (day) day < lockdown_day), logical(1))
+    days_period_start = days[seq(1, length(days), Tstep)]
+    days_period_start = vapply(days_period_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
+    day_pre_lockdown = vapply(days_period_start, (function (day) day < lockdown_day), logical(1))
     
-    time_corellation_cutoff = matrix(0,Mstep,Mstep)
-    for (i in 1:Mstep) {
-      for (j in 1:Mstep) {
+    time_corellation_cutoff = matrix(0,Mstep+Mproj,Mstep+Mproj)
+    for (i in 1:(Mstep+Mproj)) {
+      for (j in 1:(Mstep+Mproj)) {
         time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
       }
     }
@@ -260,9 +266,8 @@ Rmap_run = function(env) {
       Mstep = Mstep,
       Tall = Tall,
       Tcond = Tcond,
-      Tlik = Tlik,
-      Tproj = Tproj,
-      Tstep=Tstep,
+      Tstep = Tstep,
+      Mproj = Mproj,
 
       Count = Count,
       Clean_latent = Clean_latent,
@@ -307,7 +312,7 @@ Rmap_run = function(env) {
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
       }
-      lapply(1:Mstep, function(k) {
+      lapply(1:(Mstep+Mproj), function(k) {
         lapply(1:N, function(j) {
           l = j+(k-1)*N;
           setval('local_exp', 1.0, j, k);
@@ -320,7 +325,7 @@ Rmap_run = function(env) {
       lapply(1:F, function(f) setval('flux_probs', 1/F, f))
       as.list(env)
     })
-    # print(Rmap_init[[1]])
+    # print(Rmap_init)
     Rmap_pars = c(
       "global_sigma",
       "local_scale",

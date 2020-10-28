@@ -1,30 +1,41 @@
 library(rstan)
 library(geosphere)
 library(optparse)
+source('dataprocessing/read_data.r')
+source('mapping/utils.r')
 
 Rmap_options = function(
   spatialkernel        = "matern12",
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
+  gp_space_scale       = 0.5, # units of 100km
+  gp_space_decay_scale = .1,
+  gp_time_scale        = 28.0, # units of 1 day
+  gp_time_decay_scale  = .1,
+  fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
-  metapop              = "radiation2,uniform,in",
-  observation_data     = "cleaned_recon_sample",
-  observation_model    = "negative_binomial_3",
-  cleaned_sample_id    = 0,
-  chains               = 1,
-  iterations           = 8000,
-  time_steps           = 15,
+  metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
+  observation_data     = "cleaned_latent_sample",
+  observation_model    = "gaussian",
+  cleaned_sample_id    = 0, 
+
+  first_day_modelled   = "2020-06-01",
+  weeks_modelled       = NULL,
+  last_day_modelled    = NULL,
+  days_ignored         = 7,
   days_per_step        = 7,
-  days_ignored         = 6,
   days_predicted       = 2,
   num_steps_forecasted = 3,
+
   thinning             = 10,
+  chains               = 1,
+  iterations           = 4000, 
+
   data_directory       = "data/",
-  clean_directory      = "fits/clean",
+  clean_directory      = "fits/clean", 
   results_directory    = NULL
 ) {
-     
   as.list(environment())
 }
 
@@ -44,35 +55,26 @@ Rmap_setup = function(opt = Rmap_options()) {
     rstan_options(auto_write = TRUE)
 
     #########################################################
-    Mstep <- opt$time_steps        # Testing with 1 time period
-    Tignore <- opt$days_ignored  # counts in most recent 7 days may not be reliable?
-    if (!(Tall == length(Clean_latent) && Tall == length(Clean_recon))){
-      print("WARNING: length of case data and cleaned data do not match. May need to regenerate the cleaned data. Truncating the case data")
-    }
-    Tall <- min(Tall, length(Clean_latent),length(Clean_recon))
-    
-    Tpred <- opt$days_predicted    # number of days held out for predictive probs eval
-    Tstep <- opt$days_per_step # number of days to step for each time step of Rt prediction
-    Tlik <- Mstep*Tstep     # number of days for likelihood to infer Rt
-    Tall <- Tall-Tignore  # number of days; last 7 days counts ignore; not reliable
-    Tcur <- Tall-Tpred       # number of days we condition on
-    Tcond <- Tcur-Tlik       # number of days we condition on
-    Mproj <- opt$num_steps_forecasted
-    Tproj <- Tstep*Mproj           # number of days to project forward
+    list[Mstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates,
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
+    Tpred = opt$days_predicted    # number of days for predictive probs eval
+    Mproj = opt$num_steps_forecasted
+    Tproj = Tstep*Mproj           # number of days to project forward
 
+    stopifnot(Tcur == length(Clean_latent))
+    stopifnot(Tcur == length(Clean_recon))
 
-    Count <- AllCount
-    Count <- Count[,1:Tall] # get rid of ignored last days
-    Clean_latent <- Clean_latent[,1:Tall] # get rid of ignored last days
-    Clean_recon <- Clean_recon[,1:Tall] # get rid of ignored last days
-
-    days_likelihood = seq(dates[Tcond+1],by=1,length.out=Tstep*Mstep)
+    days_likelihood = dates[(Tcond+1):Tcur]
     days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
 
-    print("Days used for likelihood fitting")
-    print(days_likelihood)
-    print("Days used for held out likelihood")
-    print(days_pred_held_out)
+    message("Days used for held out likelihood = ",
+      days_pred_held_out[1],"...",days_pred_held_out[Tpred])
 
     if (is.null(opt$results_directory)) {
       opt$results_directory = paste(
@@ -84,7 +86,8 @@ Rmap_setup = function(opt = Rmap_options()) {
         '-',opt$localkernel,  
         '-',opt$globalkernel,  
         '-',opt$metapop,  
-        '-',opt$observation,
+        '-',opt$observation_data,
+        '-',opt$observation_model,
         sep=''
       )
     }
@@ -94,7 +97,7 @@ Rmap_setup = function(opt = Rmap_options()) {
     } else {
       runname = paste(opt$results_directory,'/',sep='')
     }
-    print(runname)
+    message("runname = ",runname)
 
     #########################################################
   })
@@ -149,7 +152,8 @@ Rmap_run = function(env) {
       'count' = 1,
       'cleaned_latent_mean' = 2,
       'cleaned_latent_sample' = 2,
-      'cleaned_recon_sample' = 3
+      'cleaned_recon_sample' = 3,
+      'latent_reports' = 4
     )
     OBSERVATION_MODEL = list(
       'poisson' = 1,
@@ -234,18 +238,24 @@ Rmap_run = function(env) {
       N = N, 
       Mstep = Mstep,
       Tall = Tall,
-      Tcond = Tcond,
-      Tlik = Tlik,
+      Tcur = Tcur,
+      Tstep = Tstep,
+      Mproj = Mproj,
       Tproj = Tproj,
-      Tstep=Tstep,
+      Tpred = Tpred,
 
-      Count = Count,
+      Count = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
       geodist = geodist,
       timedist = timedist,
       timecorcut = time_corellation_cutoff,
 
+      gp_space_scale = opt$gp_space_scale,
+      gp_space_decay_scale = opt$gp_space_decay_scale,
+      gp_time_scale = opt$gp_time_scale,
+      gp_time_decay_scale = opt$gp_time_decay_scale,
+      fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
@@ -265,26 +275,62 @@ Rmap_run = function(env) {
     )
 
     #########################################################
-    Rmap_init = list()
-    for (i in 1:numchains) {
-      Rmap_init[[i]] = list(
-        gp_time_length_scale = 100.0,
-        gp_space_length_scale = 2.0,
-        gp_space_sigma = .01,
-        global_sigma = .01,
-        local_scale = .01,
-        dispersion = 5.0
-      )
-    }
-
+    Rmap_init = lapply(1:numchains, function(i) {
+      env = list2env(list(
+        global_sigma = .25,
+        local_scale = .25,
+        gp_sigma = .25,
+        gp_space_decay = opt$gp_space_decay,
+        gp_time_decay = opt$gp_time_decay,
+        dispersion = 1.0
+      ))
+      setval = function(par,val,...) {
+        env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
+      }
+      lapply(1:Mstep, function(k) {
+        lapply(1:N, function(j) {
+          l = j+(k-1)*N;
+          setval('local_exp', 1.0, j, k);
+          lapply(c('eta_in','eta_out','epsilon_in','epsilon_out'), function(par) {
+            setval(par, rnorm(1,0,1) , l)
+          })
+        })
+        setval('coupling_rate',.01, k);
+      })
+      lapply(1:F, function(f) setval('flux_probs', 1/F, f))
+      as.list(env)
+    })
+    # message(Rmap_init[[1]])
+    Rmap_pars = c(
+      "global_sigma",
+      "local_scale",
+      "gp_sigma",
+      "gp_space_length_scale",
+      "gp_time_length_scale",
+      "dispersion",
+      "coupling_rate",
+      "flux_probs",
+      "Rt",
+      "Rt_all",
+      "Ppred",
+      "Cpred",
+      "Cproj"
+    )
+    Rmap_control = list(
+      # max_treedepth = 3, # testing only
+      adapt_delta = .9
+    )
 
     #########################################################
-    fit <- stan(file = 'mapping/stan_files/Rmap.stan',
-                data = Rmap_data, 
-                init = Rmap_init,
-                iter = numiters, 
-                chains = numchains,
-                control = list(adapt_delta = .9))
+    fit <- stan(
+      file = 'mapping/stan_files/Rmap.stan',
+      data = Rmap_data, 
+      init = Rmap_init,
+      pars = Rmap_pars,
+      iter = numiters, 
+      chains = numchains,
+      control = list(adapt_delta = .9)
+    )
 
 
     #########################################################
@@ -293,7 +339,7 @@ Rmap_run = function(env) {
     #########################################################
     # Summary of fit
     print(summary(fit, 
-        pars=c("gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+        pars=c("gp_space_length_scale","gp_sigma","gp_time_length_scale",
             "global_sigma","local_scale","dispersion",
             "Rt_all","coupling_rate","flux_probs"), 
         probs=0.5)$summary)
@@ -301,9 +347,9 @@ Rmap_run = function(env) {
 
     #########################################################
     end_time <- Sys.time()
-    print("Time to run")
-    print(end_time - start_time)
-    print(runname)
+    message("Time to run")
+    message(end_time - start_time)
+    message(runname)
 
     #########################################################
   })
@@ -336,7 +382,7 @@ Rmap_postprocess = function(env) {
     save_samples = function(pars,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
       samples = samples[seq(numchains,by=numchains*opt$thinning,to=numiters/2),,,drop=FALSE]
-      ns = numiters/2
+      ns = floor(numiters/2/opt$thinning)
       np = dim(samples)[3]/N
       parnames = dimnames(samples)[[3]]
       dim(samples) = c(ns,np*N)
@@ -387,7 +433,7 @@ Rmap_postprocess = function(env) {
     Rt = Rt[indicies,]
 
     Rt <- Rt[sapply(1:(N*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
-    print(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
+    message(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas, 
       days_all,
@@ -436,7 +482,7 @@ Rmap_postprocess = function(env) {
     Cpred <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
     #Cpred <- s[,c("2.5%", "50%", "97.5%")]
     Cpred <- t(t(Cpred))
-    print(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
+    message(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas,
       seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
@@ -449,7 +495,7 @@ Rmap_postprocess = function(env) {
 
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
-    Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
+    Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
@@ -482,7 +528,7 @@ Rmap_postprocess = function(env) {
     Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
     #Cproj <- s[,c("2.5%", "50%", "97.5%")]
     Cproj <- t(t(Cproj))
-    print(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
+    message(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
     df <- area_date_dataframe(
       quoted_areas,
       seq(dates[Tcur]+1,by=1,length.out=Tproj),
@@ -501,7 +547,7 @@ Rmap_postprocess = function(env) {
     logpred <- log(Ppred)
     dim(logpred) <- c(Tpred,N)
     logpred <- t(logpred)
-    print(sprintf("mean log predictives = %f",mean(logpred)))
+    message(sprintf("mean log predictives = %f",mean(logpred)))
     df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', length(quoted_areas)))
     for (i in 1:Tpred)
       colnames(df)[i+1] <- sprintf('logpred_day%d',i)
@@ -512,7 +558,7 @@ Rmap_postprocess = function(env) {
     # pairs plot
     #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
     #pairs(fit, pars=c(
-    #    "gp_space_length_scale","gp_space_sigma","gp_time_length_scale",
+    #    "gp_space_length_scale","gp_sigma","gp_time_length_scale",
     #    "global_sigma","local_scale","precision")) 
     #dev.off()
 
@@ -586,13 +632,13 @@ df <- area_date_dataframe(
       "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
 )
 writemergedresults(df, 'Rt', row.names=FALSE, quote=FALSE)
-print('done Rt')
+message('done Rt')
 
 #################################################################
 # Rt exceedance probabilities
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
-numsamples = numruns * numiters/2
+numsamples = numruns * floor(numiters/2 / opt$thinning)
 Rt <- as.matrix(Rt_samples)
 dim(Rt) <- c(numsamples,Mstep,N)
 Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
@@ -614,7 +660,7 @@ df <- area_date_dataframe(
     c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
 )
 writemergedresults(df, 'Pexceed', row.names=FALSE, quote=FALSE)
-print('done Pexceedance')
+message('done Pexceedance')
 
 rm(Rt_samples)
 
@@ -634,14 +680,14 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
-print('done Cpred')
+message('done Cpred')
 
 rm(Cpred_samples)
 
 ####################################################################################
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
 Cproj_samples = load_samples('Cproj')
-Cweekly <- as.matrix(Count[,(Tcond+1):(Tcond+Tlik)])
+Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
@@ -668,7 +714,7 @@ df <- area_date_dataframe(
     c("C_weekly")
 )
 writemergedresults(df, 'Cweekly', row.names=FALSE, quote=FALSE)
-print('done Cweekly')
+message('done Cweekly')
 
 
 
@@ -684,10 +730,181 @@ df <- area_date_dataframe(
     c("C_025","C_25","C_50","C_75","C_975")
 )
 writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
-print('done Cproj')
+message('done Cproj')
 
 })
 }
 
 ##########################################################################
 ##########################################################################
+
+epimap_cmdline_options = function(opt = Rmap_options()) {
+  list(
+    make_option(
+      c("-s", "--spatialkernel"), 
+      type="character", 
+      default=opt$spatialkernel,
+      help=paste(
+          "Use spatial kernel (matern12/matern32/matern52/exp_quad/none);",
+          "default =", opt$spatialkernel
+      )
+    ),
+    make_option(
+      c("-p", "--temporalkernel"), 
+      type="character", 
+      default=opt$temporalkernel,
+      help=paste(
+          "Use temporal kernel (matern12/matern32/matern52/exp_quad/none);",
+          "default =", opt$temporalkernel
+      )
+    ),
+    make_option(
+      c("--fixed_gp_space_length_scale"), 
+      type="double", 
+      default=opt$fixed_gp_space_length_scale,
+      help=paste(
+          "If given and positive, fix the space length scale to the value;",
+          "default =", opt$fixed_gp_space_length_scale
+      )
+    ),
+
+
+    make_option(
+      c("--fixed_gp_time_length_scale"), 
+      type="double", 
+      default=opt$fixed_gp_time_length_scale,
+      help=paste(
+          "If given and positive, fix the time length scale to the value;",
+          "default =", opt$fixed_gp_time_length_scale
+      )
+    ),
+
+    make_option(
+      c("-l", "--localkernel"),
+      type="character", 
+      default=opt$localkernel,
+      help=paste("Use local kernel (local/none); default =", opt$localkernel)
+    ),
+    make_option(
+      c("-g", "--globalkernel"),  
+      type="character",
+      default=opt$globalkernel,
+      help=paste("Use global kernel (global/none); default =", opt$globalkernel)
+    ),
+    make_option(
+      c("-m", "--metapop"),
+      type="character",
+      default=opt$metapop,
+      help=paste(
+          "metapopulation model for inter-region cross infections",
+          "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
+          "default = ", opt$metapop
+      )
+    ),
+    make_option(
+      c("-v", "--observation_data"),
+      type="character",
+      default=opt$observation_data,
+      help=paste(
+          "observation values to use in the model",
+          "(counts/clatent_mean/clatent_sample/clatent_recon/latent_reports);",
+          "default =", opt$observation_data
+      )
+    ),
+    make_option(
+      c("-o", "--observation_model"),
+      type="character",
+      default=opt$observation_model,
+      help=paste(
+          "observation model",
+          "(poisson/neg_binomial_{2,3}/gaussian);",
+          "default =", opt$observation_model
+      )
+    ),
+    make_option(
+      c("-x", "--cleaned_sample_id"),
+      type="integer",
+      default=opt$cleaned_sample_id,
+      help=paste("id of cleaned sample to use; default =", opt$cleaned_sample_id)
+    ),
+    make_option(
+      c("-c", "--chains"),
+      type="integer",
+      default=opt$chains,
+      help=paste("number of MCMC chains; default =", opt$chains)
+    ),
+    make_option(
+      c("-i", "--iterations"),
+      type="integer",
+      default=opt$iterations,
+      help=paste("Length of MCMC chains; defualt =", opt$iterations)
+    ),
+    make_option(
+      c("--first_day_modelled"),
+      type="character",
+      default=opt$first_day_modelled,
+      help=paste("Date of first day to model; default =",opt$first_day_modelled)
+    ),
+    make_option(
+      c("--weeks_modelled"),
+      type="integer",
+      default=opt$weeks_modelled,
+      help=paste("Number of weeks to model; default =",opt$weeks_modelled)
+    ),
+    make_option(
+      c("--last_day_modelled"),
+      type="character",
+      default=opt$last_day_modelled,
+      help=paste("Date of last day to model; default =",opt$last_day_modelled)
+    ),
+    make_option(
+      c("--days_ignored"),
+      type="integer",
+      default=opt$days_ignored,
+      help=paste("Days ignored; default =",opt$days_ignored)
+    ),
+    make_option(
+      c("--days_predicted"),
+      type="integer",
+      default=opt$days_predicted,
+      help=paste("Days predicted; default =",opt$days_predicted)
+    ),
+    make_option(
+      c("--num_steps_forecasted"),
+      type="integer",
+      default=opt$num_steps_forecasted,
+      help=paste("Days predicted; default =",opt$num_steps_forecasted)
+    ),
+    make_option(
+      c("-d", "--results_directory"),
+      type="character",
+      default=opt$results_directory,
+      help="If specified, store outputs in directory, otherwise use a unique directory"
+    ),
+    make_option(
+      c("-r", "--clean_directory"),
+      type="character",
+      default=opt$clean_directory,
+      help="If specified, store outputs in directory, otherwise use a unique directory"
+    ),
+    make_option(
+      c("-t", "--task_id"),
+      type="integer",
+      default=0,
+      help="Task ID for Slurm usage. By default, turned off [0]."
+    )
+  ) 
+}
+
+epimap_get_cmdline_options = function(opt=Rmap_options()) {
+  cmdline_opt = epimap_cmdline_options(opt)
+  opt_parser = OptionParser(option_list=cmdline_opt)
+  parsed_opt = parse_args(opt_parser)
+  for (name in names(parsed_opt)){
+    opt[name] = parsed_opt[name]
+  }
+  opt
+}
+
+
+

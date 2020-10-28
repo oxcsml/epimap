@@ -1,15 +1,27 @@
 library(rstan)
 library(optparse)
+library(gsubfn)
 source("dataprocessing/read_data.r")
+source("mapping/utils.r")
+rstan_options(auto_write = FALSE)
 
 epiclean_options = function(
-  num_samples     = 10,
-  iterations      = 3000,
-  num_steps       = NULL,
-  days_per_step   = 7,
-  days_ignored    = 0,
-  data_directory  = "data/",
-  clean_directory = "fits/clean"
+  gp_time_scale        = 14.0, # units of 1 day
+  gp_time_decay_scale  = .1,
+  fixed_gp_time_length_scale = -1.0,
+
+  first_day_modelled = "2020-06-01",
+  last_day_modelled  = NULL,
+  weeks_modelled     = NULL,
+  days_ignored         = 7,
+  days_per_step      = 1,
+  num_steps_forecasted = 3*7,
+
+  num_samples        = 20,
+  iterations         = 3000,
+
+  data_directory     = "data/",
+  clean_directory    = "fits/clean"
 ) {
   as.list(environment())
 }
@@ -17,6 +29,9 @@ epiclean_options = function(
 epiclean = function(area_index = 0, opt = epiclean_options()) {
   env = new.env(parent=globalenv())
   env$area_index = area_index
+  if (area_index==0) {
+    stop("Area index 0.")
+  }
   env$opt = opt
   Rmap_read_data(env)
   with(env,{
@@ -26,39 +41,38 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
 
     options(mc.cores = min(numchains,parallel::detectCores()))
 
-    # counts in most recent 5 days may not be reliable
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
-    Tstep <- opt$days_per_step
-    Tall <- Tall-Tignore
-    if (is.null(opt$num_steps)) {
-      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
-      print(paste("Nstep = ",Nstep))
-    } else {
-      Nstep <- opt$num_steps
-    }
-    Tlik <- Nstep*Tstep
-    Tcond <- Tall-Tlik
+    # work out days to be modelled
+    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates, 
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
+
+    area = areas[area_index]
+    Count <- AllCount[area,]
+    message("Area = ",area)
 
     Nsample <- opt$num_samples
 
     # Case only reported a few days after testing, 
     # no result delay truncation
-    Trdp <- 5
+    Trdp <- 1
     resultdelaydecay = .5
-    resultdelaystrength = 5
+    resultdelaystrength = Trdp
 
-    area = areas[area_index]
-    Count <- AllCount[area,1:Tall]
-    print(area)
-
-    # ---------------------------------------------------------------------------- #
-    #                               Main computation                               #
-    # ---------------------------------------------------------------------------- #
+    # ------------------------------------------------------------------------ #
+    #                             Main computation                             #
+    # ------------------------------------------------------------------------ #
 
     Rmap_clean_data <- list(
       Tall = Tall,
+      Tcond = Tcond,
       Tstep = Tstep, 
       Nstep = Nstep,
+      Nproj = opt$num_steps_forecasted,
       Count = Count[area,],
       Tip = Tip,
       infprofile = infprofile,
@@ -67,14 +81,17 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
       Trdp = Trdp,
       resultdelaydecay = resultdelaydecay,
       resultdelaystrength = resultdelaystrength,
+      gp_time_scale        = opt$gp_time_scale,
+      gp_time_decay_scale  = opt$gp_time_decay_scale,
+      fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       mu_scale = 0.5,
       sigma_scale = 0.5,
-      alpha_scale = 0.1,
-      phi_latent_scale = 1.0,
+      # alpha_scale = 1-exp(-Tstep/14),
+      phi_latent_scale = 1e-6,
       phi_observed_scale = 5.0,
       outlier_prob_threshold = .95,
       outlier_count_threshold = 2,
-      xi_scale = 0.1,
+      xi_scale = 0.01,
       reconstruct_infections = TRUE
     )
     
@@ -85,23 +102,11 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
       alpha1 = .95,
       phi_latent = 1.0,
       phi_observed = 5.0,
-      xi = .01,
-      'Reta[1]' = 0.0,
-      'Reta[2]' = 0.0,
-      'Reta[3]' = 0.0,
-      'Reta[4]' = 0.0,
-      'Reta[5]' = 0.0,
-      'Reta[6]' = 0.0,
-      'Reta[7]' = 0.0,
-      'Reta[8]' = 0.0,
-      'Reta[9]' = 0.0,
-      'Reta[10]' = 0.0,
-      'Reta[11]' = 0.0,
-      'Reta[12]' = 0.0,
-      'Reta[13]' = 0.0,
-      'Reta[14]' = 0.0,
-      'Reta[15]' = 0.0
+      xi = .01
     )
+    for (i in 1:Nstep) {
+      init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
+    }
     
     start_time <- Sys.time()
     
@@ -116,13 +121,14 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     
     print("Time to run")
     print(end_time - start_time)
-    
+   
+    dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
     saveRDS(fit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
     
     #################################################################
     # Summary of fit
     print(summary(fit, 
-      pars=c("mu","sigma","alpha","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
+      pars=c("mu","sigma","alpha","gp_time_length_scale","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
       probs=c(0.5)
     )$summary)
   })
@@ -135,30 +141,26 @@ epiclean_combine = function(opt = epiclean_options()) {
   Rmap_read_data(env)
   with(env,{
 
+    # work out days to be modelled
+    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+      dates, 
+      first_day_modelled = opt$first_day_modelled,
+      last_day_modelled  = opt$last_day_modelled,
+      days_ignored       = opt$days_ignored,
+      weeks_modelled     = opt$weeks_modelled,
+      days_per_step      = opt$days_per_step
+    )
+
+    Count <- AllCount[, 1:Tcur]
+
     numiters <- opt$iterations 
-
-    Tignore <- opt$days_ignored  # don't ignore for now? can ignore last 5 days of cleaned data instead?
-    Tstep <- opt$days_per_step
-    Tall <- Tall-Tignore
-    if (is.null(opt$num_steps)) {
-      Nstep <- floor((Tall-length(testdelayprofile))/Tstep)
-      print(paste("Nstep = ",Nstep))
-    } else {
-      Nstep <- opt$num_steps
-    }
-    Tlik <- Nstep*Tstep
-    Tcond <- Tall-Tlik
-
     Nsample <- opt$num_samples
 
-    Count <- AllCount[, 1:Tall]
-
-
     # Initialize arrays
-    Clatent_sample <- array(0, c(N, Tall, Nsample))
-    Clatent_mean <- array(0, c(N, Tall))
-    Crecon_sample <- array(0, c(N, Tall, Nsample))
-    Crecon_median <- array(0, c(N, Tall))
+    Clatent_sample <- array(0, c(N, Tcur, Nsample))
+    Clatent_mean <- array(0, c(N, Tcur))
+    Crecon_sample <- array(0, c(N, Tcur, Nsample))
+    Crecon_median <- array(0, c(N, Tcur))
     Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
     for (i in 1:Nsample) {
       Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
@@ -176,9 +178,9 @@ epiclean_combine = function(opt = epiclean_options()) {
       ####################################################################
       Clatent_s <- extract(fit, pars = "Clatent", permuted = FALSE)
       Clatent_s <- Clatent_s[seq(skip, by = skip, length.out = Nsample), , ]
-      dim(Clatent_s) <- c(Nsample, Tall)
+      dim(Clatent_s) <- c(Nsample, Tcur)
       Clatent_s <- t(Clatent_s)
-      dim(Clatent_s) <- c(1, Tall, Nsample)
+      dim(Clatent_s) <- c(1, Tcur, Nsample)
       Clatent_sample[area_index, , ] <- Clatent_s
       Clatent_m <- summary(fit, pars = "Clatent", probs = c(0.5))$summary
       Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
@@ -188,7 +190,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
       Crecon_s <- Crecon_s[seq(skip, by = skip, length.out = Nsample), , ]
       Crecon_s <- t(Crecon_s)
-      dim(Crecon_s) <- c(1, Tall, Nsample)
+      dim(Crecon_s) <- c(1, Tcur, Nsample)
       Crecon_sample[area_index, , ] <- Crecon_s
       Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
       Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
@@ -206,7 +208,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
       ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcond + 1):Tall
+      ind <- (Tcond + 1):Tcur
       ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
       for (i in 1:Nsample) {
         plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
@@ -222,7 +224,7 @@ epiclean_combine = function(opt = epiclean_options()) {
       par(oma = c(0, 0, 0, 0))
       par(mar = c(1, 1, 1, 1))
       CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tall - Nstep * Tstep + 1):Tall
+      ind <- (Tcur - Nstep * Tstep + 1):Tcur
       CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
       for (i in 1:Nsample) {
         plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
@@ -254,3 +256,101 @@ epiclean_combine = function(opt = epiclean_options()) {
   })
   env
 }
+
+
+epiclean_cmdline_options = function(opt = epiclean_options()) {
+  list(
+    make_option(
+      c("--task_id"),
+      type="integer",
+      default=1,
+      help="Task ID for Slurm usage. Maps to area_index."
+    ),
+    make_option(
+      c("--num_samples"),
+      type="integer",
+      default=opt$num_samples,
+      help="Number of samples to output."
+    ),
+    make_option(
+      c("--iterations"),
+      type="integer",
+      default=opt$iterations,
+      help=paste("Number of MCMC iterations, default",opt$iterations)
+    ),
+    make_option(
+      c("--first_day_modelled"),
+      type="character",
+      default=opt$first_day_modelled,
+      help=paste("Date of first day to model; default =",opt$first_day_modelled)
+    ),
+    make_option(
+      c("--weeks_modelled"),
+      type="integer",
+      default=opt$weeks_modelled,
+      help=paste("Number of weeks to model; default =",opt$weeks_modelled)
+    ),
+    make_option(
+      c("--last_day_modelled"),
+      type="character",
+      default=opt$last_day_modelled,
+      help=paste("Date of last day to model; default =",opt$last_day_modelled)
+    ),
+    make_option(
+      c("--days_ignored"),
+      type="integer",
+      default=opt$days_ignored,
+      help=paste("Number of recent days ignored, default",opt$days_ignored)
+    ),
+    make_option(
+      c("--days_per_step"),
+      type="integer",
+      default=opt$days_per_step,
+      help=paste("Days per modelling step, default",opt$days_per_step)
+    ),
+    make_option(
+      c("--num_steps_forecasted"),
+      type="integer",
+      default=opt$num_steps_forecasted,
+      help=paste("Number of steps to forecast, default",opt$num_steps_forecasted)
+    ),
+    make_option(
+      c("--gp_time_scale"),
+      type="double",
+      default=opt$gp_time_scale,
+      help=paste("GP time scale, default",opt$gp_time_scale)
+    ),
+    make_option(
+      c("--gp_time_decay_scale"),
+      type="double",
+      default=opt$gp_time_decay_scale,
+      help=paste("GP time decay scale, default",opt$gp_time_decay_scale)
+    ),
+    make_option(
+      c("--fixed_gp_time_length_scale"),
+      type="double",
+      default=opt$fixed_gp_time_length_scale,
+      help=paste("Fixed GP time length scale, default",
+                 opt$fixed_gp_time_length_scale)
+    ),
+
+    make_option(
+      c("--clean_directory"), 
+      type="character", 
+      default=opt$clean_directory, 
+      help=paste("Directory to put cleaned results in default",opt$clean_directory)
+    )
+  )
+}
+
+epiclean_get_cmdline_options = function(opt=epiclean_options()) {
+  cmdline_opt = epiclean_cmdline_options(opt)
+  opt_parser = OptionParser(option_list=cmdline_opt)
+  parsed_opt = parse_args(opt_parser)
+  for (o in names(parsed_opt)) {
+    opt[o] = parsed_opt[o]
+  }
+  opt
+}
+
+

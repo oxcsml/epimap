@@ -60,6 +60,8 @@ areas.to_csv("data/areas.csv", index=False)
 cases.to_csv("data/cases.csv", index=False)
 metadata.to_csv("data/metadata.csv", index=False)
 distances.to_csv("data/distances.csv", index=False)
-traffic_flux.to_csv("data/traffic_flux.csv")
-traffic_flux_transpose.to_csv("data/traffic_flux_transpose.csv")
+traffic_flux.to_csv("data/traffic_flux_row-normed.csv")
+traffic_flux_transpose.to_csv("data/traffic_flux_transpose_row-normed.csv")
 serial_interval.to_csv("data/serial_interval.csv", index=False)
+
+# %%

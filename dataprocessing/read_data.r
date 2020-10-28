@@ -36,12 +36,12 @@ Rmap_read_data = function(env) {
     colnames(geodist) <- areas
 
     # Use counts from uk_cases in case updated
-    uk_cases <- readdata("uk_cases")
-    ind <- sapply(uk_cases[,2], function(s)
+    cases <- readdata("cases")
+    ind <- sapply(cases[,2], function(s)
         !(s %in% c('Outside Wales','Unknown','...17','...18'))
     )
-    uk_cases <- uk_cases[ind,]
-    AllCount <- uk_cases[,3:ncol(uk_cases)]
+    cases <- cases[ind,]
+    AllCount <- cases[,3:ncol(cases)]
     Tall <- ncol(AllCount)
     dates <- as.Date(colnames(AllCount), format='X%Y.%m.%d')
     colnames(AllCount) <- dates

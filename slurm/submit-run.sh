@@ -2,7 +2,7 @@
 
 trap 'echo submit-run: Failed before finishing with exit code $? && exit $?' ERR
 
-if [ $# -le 2 ]; then
+if [ $# -le 1 ]; then
   echo Usage: submit-run results_directory clean_directory
   exit 1
 fi

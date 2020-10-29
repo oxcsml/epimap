@@ -668,13 +668,13 @@ generated quantities {
 
           // Draw new latent infections from observation model
           if (OBSERVATION_MODEL == POISSON) {
-            Clatent[,i] = to_vector(poisson_rng(Clatent[,i]));
+            Clatent[,Tcur+i] = to_vector(poisson_rng(Clatent[,Tcur+i]));
           } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-            Clatent[,i] = to_vector(neg_binomial_2_rng(Clatent[,i], 1 / dispersion));
+            Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(Clatent[,Tcur+i], 1 / dispersion));
           } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
-            Clatent[,i] = to_vector(neg_binomial_2_rng(Clatent[,i], Clatent[,i] / dispersion));
+            Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(Clatent[,Tcur+i], Clatent[,Tcur+i] / dispersion));
           } else if (OBSERVATION_MODEL == GAUSSIAN) {
-            Clatent[,i] = to_vector(normal_rng(Clatent[,i], sqrt((1.0+dispersion)*Clatent[,i])));
+            Clatent[,Tcur+i] = to_vector(normal_rng(Clatent[,Tcur+i], sqrt((1.0+dispersion)*Clatent[,Tcur+i])));
           } else {
             reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
           }

@@ -333,12 +333,17 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
       help=paste("Fixed GP time length scale, default",
                  opt$fixed_gp_time_length_scale)
     ),
-
     make_option(
       c("--clean_directory"), 
       type="character", 
       default=opt$clean_directory, 
       help=paste("Directory to put cleaned results in default",opt$clean_directory)
+    ),
+    make_option(
+      c("--data_directory"), 
+      type="character", 
+      default=opt$data_directory, 
+      help=paste("Directory to put cleaned results in default",opt$data_directory)
     )
   )
 }

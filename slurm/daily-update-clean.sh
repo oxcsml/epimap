@@ -19,10 +19,6 @@ make preprocess-data
 today=$(date +'%Y-%m-%d')
 clean_directory="fits/clean-${today}"
 results_directory="fits/map-${today}"
-mkdir -p $results_directory
-mkdir -p $results_directory-cori
-git rev-parse HEAD > $results_directory/git-hash.txt
-git rev-parse HEAD > $results_directory-cori/git-hash.txt
 
 # clean 
 slurm/submit-clean.sh $clean_directory

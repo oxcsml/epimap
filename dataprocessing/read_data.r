@@ -73,18 +73,20 @@ Rmap_read_data = function(env) {
     rownames(traffic_flux) <- areas
 
     #########################################################
-    # TODO: Second block is redundant here?
-    if (opt$observation_data == 'cleaned_latent_sample' ||
-        opt$observation_data == 'cleaned_recon_sample') {
-      sample_id = opt$cleaned_sample_id
-      Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
-      Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
-      print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else {
-      sample_id = 'mean'
-      Clean_latent <- readclean('Clatent_mean', row.names=1)
-      Clean_recon <- readclean('Crecon_median', row.names=1)
-      # placeholder if not using cleaned data
+    # If cleaning stage, no cleaned data so don't load.
+
+    if ("observation_data" %in% names(opt)) {
+      if (opt$observation_data == 'cleaned_latent_sample' || opt$observation_data == 'cleaned_recon_sample') {
+        sample_id = opt$cleaned_sample_id
+        Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
+        Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
+        print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
+      } else {
+        sample_id = 'mean'
+        Clean_latent <- readclean('Clatent_mean', row.names=1)
+        Clean_recon <- readclean('Crecon_median', row.names=1)
+        # placeholder if not using cleaned data
+      }
     }
 
   })

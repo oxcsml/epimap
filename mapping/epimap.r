@@ -18,7 +18,7 @@ Rmap_options = function(
   metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
-  cleaned_sample_id    = 0, 
+  cleaned_sample_id    = 1, 
 
   first_day_modelled   = "2020-06-01",
   weeks_modelled       = NULL,
@@ -885,7 +885,13 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       c("-r", "--clean_directory"),
       type="character",
       default=opt$clean_directory,
-      help="If specified, store outputs in directory, otherwise use a unique directory"
+      help="Directory from which to load cleaned epidemic samples"
+    ),
+    make_option(
+      c("--data_directory"),
+      type="character",
+      default=opt$data_directory,
+      help="Directory from which to load data about regions and raw cases"
     ),
     make_option(
       c("-t", "--task_id"),

@@ -9,6 +9,9 @@ mapping = {
     "South Oxfordshire": "Hutchintown",
     "Buckinghamshire": "Shehland",
 }
+
+order = list(sorted(list(mapping.values())))
+
 areas = pd.read_csv("../../data/areas.csv")
 cases = pd.read_csv("../../data/cases.csv")
 metadata = pd.read_csv("../../data/metadata.csv")
@@ -21,18 +24,25 @@ areas.replace({"area": mapping}, inplace=True)
 cases = cases[cases["Area name"].isin(mapping.keys())]
 cases.replace({"Area name": mapping}, inplace=True)
 cases.drop(columns=["Country"], inplace=True)
+cases.rename(columns={"Area name": "area"}, inplace=True)
+cases.rename({"AREA": "area"}, inplace=True)
 metadata = metadata[metadata.AREA.isin(mapping.keys())]
 metadata.replace({"AREA": mapping}, inplace=True)
+metadata.rename(columns={"AREA": "area"}, inplace=True)
+distances.rename(columns={"Unnamed: 0": "area"}, inplace=True)
+traffic_flux.rename(columns={"Unnamed: 0": "area"}, inplace=True)
+traffic_flux_transpose.rename(columns={"Unnamed: 0": "area"}, inplace=True)
+
 
 serial_interval = pd.read_csv("../../data/serial_interval.csv")
 
 
 def process_df(df):
-    df = df[df["Unnamed: 0"].isin(mapping.keys())][
-        ["Unnamed: 0"] + list(mapping.keys())
-    ]
-    df.replace({"Unnamed: 0": mapping}, inplace=True)
-    df.rename(mapping, inplace=True)
+    df = df[df["area"].isin(mapping.keys())][["area"] + list(mapping.keys())]
+    df.replace({"area": mapping}, inplace=True)
+    df.rename(columns=mapping, inplace=True)
+    df.sort_values(by="area", inplace=True)
+    df = df[["area"] + order]
 
     return df
 
@@ -43,7 +53,7 @@ traffic_flux_transpose = process_df(traffic_flux_transpose)
 
 
 def norm_flux(df):
-    df = df.set_index("Unnamed: 0")
+    df = df.set_index("area")
     cols = df.columns
     data = df.to_numpy()
     data[np.eye(len(df)).astype(bool)] = 0
@@ -55,6 +65,10 @@ def norm_flux(df):
 
 traffic_flux = norm_flux(traffic_flux)
 traffic_flux_transpose = norm_flux(traffic_flux_transpose)
+
+areas = areas.sort_values(by="area")
+cases = cases.sort_values(by="area")
+metadata = metadata.sort_values(by="area")
 
 areas.to_csv("data/areas.csv", index=False)
 cases.to_csv("data/cases.csv", index=False)

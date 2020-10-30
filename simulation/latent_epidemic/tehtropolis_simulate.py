@@ -1,10 +1,11 @@
 #%%
 import numpy as np
-from simulation import simulate
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import pandas as pd
+from simulation import simulate
 from plotting import plot_epidemic
+from utils import save_simulation_with_data
 
 append = ""
 # append = "simulation/latent_epidemic/"
@@ -132,6 +133,8 @@ simulation_days = R.shape[1]
 
 epi_scale = 1.0
 
+np.random.seed(0)
+
 X, C, Z, E = simulate(
     initial_infections / epi_scale,
     R,
@@ -147,12 +150,22 @@ X, C, Z, E = simulate(
 )
 
 # X = X[:, 40:]
-plot_epidemic(areas.area, R, X, C, R_interp.capitalize() + " R interpolation")
+# plot_epidemic(areas.area, R, X, C, R_interp.capitalize() + " R interpolation")
 
 dates = pd.date_range(counts.columns[1], periods=simulation_days)
 area_names = areas.area
 
 X = pd.DataFrame(data=X, index=area_names, columns=dates)
 C = pd.DataFrame(data=C, index=area_names, columns=dates)
+R = pd.DataFrame(data=R, index=area_names, columns=dates)
+
+params = {
+    "delay_profile": list(delay_profile),
+    "observation_dispersion": observation_dispersion,
+    "infection_dispersion": infection_dispersion,
+    "flux_mixing": list(flux_mixing),
+    "mixing_proportions": list(mixing_proportions),
+}
 
 save_simulation_with_data(X, C, "test_sim")
+# %%

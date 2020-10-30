@@ -167,5 +167,5 @@ params = {
     "mixing_proportions": list(mixing_proportions),
 }
 
-save_simulation_with_data(X, C, "test_sim")
+save_simulation_with_data(X, C, R, params, "test_sim")
 # %%

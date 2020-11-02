@@ -33,7 +33,7 @@ serial_interval = serial_interval.to_numpy()[:30, 1].astype(np.float)
 N = len(areas)
 
 R_interp = "stepwise"
-R_noise = "additive_pre"
+R_noise = "none"
 initial_infection_profile = "one_start"
 
 R_weekly = [
@@ -108,7 +108,7 @@ if R_noise == "multiplicative_post":
 elif R_noise == "additive_post":
     R = R + 0.1 * np.random.randn(*R.shape)
 
-delay_profile = np.array([0.0, 0.0, 0.1, 0.2, 0.3, 0.3, 0.1])
+delay_profile = np.array([0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.3, 0.1])
 N = radiation_fluxes_01.shape[0]
 uniform_flux = np.ones((N, N)) * 1 / N
 flux_matrices = np.concatenate(
@@ -146,11 +146,11 @@ X, C, Z, E = simulate(
     mixing_proportions,
     observation_probability * epi_scale,
     simulation_days,
-    # infection_distribution="poisson",
+    observation_model="biological",
 )
 
 # X = X[:, 40:]
-# plot_epidemic(areas.area, R, X, C, R_interp.capitalize() + " R interpolation")
+plot_epidemic(areas.area, R, X, C, R_interp.capitalize() + " R interpolation")
 
 dates = pd.date_range(counts.columns[1], periods=simulation_days)
 area_names = areas.area

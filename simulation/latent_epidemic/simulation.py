@@ -78,7 +78,12 @@ def simulate(
 
             C[:, t] = np.random.negative_binomial(r, 1 - p)
     elif observation_model == "biological":
-        raise NotImplementedError()
+        for t in range(initial_days, simulation_days):
+            for i in range(N):
+                delays = np.random.multinomial(X[i, t], pvals=delay_profile)
+                for j in range(len(delays)):
+                    if t + j < simulation_days:
+                        C[i, t + j] += delays[j]
     else:
         raise ValueError(f"{observation_model} is not a valid observation model")
 

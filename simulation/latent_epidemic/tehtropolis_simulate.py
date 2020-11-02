@@ -124,19 +124,19 @@ flux_matrices = np.concatenate(
 flux_mixing = np.array([0.08, 0.92, 0.0, 0.0])
 flux_matrix = flux_matrices @ flux_mixing
 mixing_proportions = np.ones_like(R[0, :]) * 0.1  # 0.05 * R[0, :].squeeze() / 2.5
-observation_probability = np.ones_like(mixing_proportions)
+observation_probability = np.ones_like(
+    mixing_proportions
+)  # observation_probability = np.random.uniform(size=len(mixing_proportions))
 
 observation_dispersion = 0.7
 infection_dispersion = 1.5
 
 simulation_days = R.shape[1]
 
-epi_scale = 1.0
-
 np.random.seed(0)
 
 X, C, Z, E = simulate(
-    initial_infections / epi_scale,
+    initial_infections,
     R,
     delay_profile,
     observation_dispersion,
@@ -144,7 +144,7 @@ X, C, Z, E = simulate(
     infection_dispersion,
     flux_matrix,
     mixing_proportions,
-    observation_probability * epi_scale,
+    observation_probability,
     simulation_days,
     observation_model="biological",
 )

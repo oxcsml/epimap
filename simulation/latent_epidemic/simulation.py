@@ -80,7 +80,8 @@ def simulate(
     elif observation_model == "biological":
         for t in range(initial_days, simulation_days):
             for i in range(N):
-                delays = np.random.multinomial(X[i, t], pvals=delay_profile)
+                observed = np.random.binomial(X[i, t], observation_probability[t])
+                delays = np.random.multinomial(observed, pvals=delay_profile)
                 for j in range(len(delays)):
                     if t + j < simulation_days:
                         C[i, t + j] += delays[j]

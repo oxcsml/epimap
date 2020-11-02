@@ -14,7 +14,7 @@ Rmap_options = function(
   fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
   metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
-  observation_data     = "cleaned_recon_sample",
+  observation_data     = "cleaned_latent_sample",
   observation_model    = "negative_binomial_3",
   cleaned_sample_id    = 0,
   chains               = 1,
@@ -453,7 +453,7 @@ Rmap_postprocess = function(env) {
     #s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
     #Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
     
-    times = rep(c(1:Mstep,rep(Mstep,Mproj)), N)
+    times = rep(c(1:(Mstep+Mproj)), N)
     places = rep(1:N, each=Mstep+Mproj)
     indicies = places + (N)*(times-1)
     Rt = Rt[indicies,]

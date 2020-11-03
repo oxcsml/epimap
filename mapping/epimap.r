@@ -478,16 +478,16 @@ Rmap_postprocess = function(env) {
     numthresholds = length(thresholds)
     numsamples = numchains*numiters/2
     Rt <- as.matrix(fit, pars="Rt")
-    dim(Rt) <- c(numsamples,Mstep,N)
-    Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
-    for (k in 1:Mstep) {
+    dim(Rt) <- c(numsamples,Mstep+Mproj,N)
+    Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
+    for (k in 1:(Mstep+Mproj)) {
       for (i in 1:N) {
         for (x in 1:numthresholds) {
           Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
         }
       }
     }
-    Pexceedance = Pexceedance[c(1:Mstep,rep(Mstep,Mproj)),,]
+    Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
     Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
     dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
     df <- area_date_dataframe(
@@ -647,7 +647,7 @@ Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
 
-Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
+Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:(Mstep+Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
     quoted_areas, 
     days_all,
@@ -666,16 +666,16 @@ thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
 numsamples = numruns * numiters/2 / opt$thinning
 Rt <- as.matrix(Rt_samples)
-dim(Rt) <- c(numsamples,Mstep,N)
-Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
-for (k in 1:Mstep) {
+dim(Rt) <- c(numsamples,Mstep+Mproj,N)
+Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
+for (k in 1:(Mstep+Mproj)) {
   for (i in 1:N) {
     for (x in 1:numthresholds) {
       Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
     }
   }
 }
-Pexceedance = Pexceedance[c(1:Mstep,rep(Mstep,Mproj)),,]
+Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
 Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
 dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
 df <- area_date_dataframe(

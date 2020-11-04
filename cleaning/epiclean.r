@@ -14,11 +14,12 @@ epiclean_options = function(
   last_day_modelled  = NULL,
   weeks_modelled     = NULL,
   days_ignored         = 7,
-  days_per_step      = 1,
+  days_per_step      = 7,
   num_steps_forecasted = 3*7,
 
   num_samples        = 20,
-  iterations         = 3000,
+  num_iterations     = 3000,
+  num_chains         = 1,
 
   data_directory     = "data/",
   clean_directory    = "fits/clean"
@@ -26,7 +27,7 @@ epiclean_options = function(
   as.list(environment())
 }
 
-epiclean = function(area_index = 0, opt = epiclean_options()) {
+epiclean_run = function(area_index = 0, opt = epiclean_options()) {
   env = new.env(parent=globalenv())
   env$area_index = area_index
   if (area_index==0) {
@@ -36,10 +37,8 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
   Rmap_read_data(env)
   with(env,{
 
-    numchains = 1
     numiters = opt$iterations
 
-    options(mc.cores = min(numchains,parallel::detectCores()))
 
     # work out days to be modelled
     list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
@@ -62,65 +61,27 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
     Trdp <- 1
     resultdelaydecay = .5
     resultdelaystrength = Trdp
+    resultdelayprofile = resultdelaystrength * resultdelaydecay^(1:Trdp)
 
-    # ------------------------------------------------------------------------ #
-    #                             Main computation                             #
-    # ------------------------------------------------------------------------ #
-
-    Rmap_clean_data <- list(
-      Tall = Tall,
+    start_time <- Sys.time()
+    fit = epiclean(
+      Count = Count[area,],
       Tcond = Tcond,
-      Tstep = Tstep, 
       Nstep = Nstep,
       Nproj = opt$num_steps_forecasted,
-      Count = Count[area,],
-      Tip = Tip,
+      Tstep = Tstep,
       infprofile = infprofile,
-      Ttdp = length(testdelayprofile),
       testdelayprofile = testdelayprofile,
-      Trdp = Trdp,
-      resultdelaydecay = resultdelaydecay,
-      resultdelaystrength = resultdelaystrength,
-      gp_time_scale        = opt$gp_time_scale,
-      gp_time_decay_scale  = opt$gp_time_decay_scale,
+      resultdelayprofile = resultdelayprofile,
+      gp_time_scale = opt$gp_time_scale,
+      gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      mu_scale = 0.5,
-      sigma_scale = 0.5,
-      # alpha_scale = 1-exp(-Tstep/14),
-      phi_latent_scale = 1e-6,
-      phi_observed_scale = 5.0,
-      outlier_prob_threshold = .95,
-      outlier_count_threshold = 2,
-      xi_scale = 0.01,
-      reconstruct_infections = TRUE
-    )
-    
-    init = list()
-    init[[1]] = list(
-      mu = 0.0,
-      sigma = 0.01,
-      alpha1 = .95,
-      phi_latent = 1.0,
-      phi_observed = 5.0,
-      xi = .01
-    )
-    for (i in 1:Nstep) {
-      init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
-    }
-    
-    start_time <- Sys.time()
-    
-    fit <- stan(file = 'cleaning/stan_files/Rmap-clean.stan',
-                data = Rmap_clean_data, 
-                init = init,
-                iter = numiters, 
-                chains = numchains,
-                control = list(adapt_delta = .9))
-    
+      num_iterations = opt$num_iterations,
+      num_chains = opt$num_chains,
+    )$stanfit
     end_time <- Sys.time()
     
-    print("Time to run")
-    print(end_time - start_time)
+    print("Time to run: ",end_time - start_time)
    
     dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
     saveRDS(fit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
@@ -134,6 +95,99 @@ epiclean = function(area_index = 0, opt = epiclean_options()) {
   })
   env
 }
+
+epiclean_default_options = epiclean_options()
+epiclean = function(
+  Count,
+  Tall = length(Count),
+  Tcond,
+  Nstep,
+  Nproj,
+  Tstep = 1, 
+  infprofile = infprofile,
+  Tip = length(infprofile),
+  testdelayprofile = testdelayprofile,
+  Ttdp = length(testdelayprofile),
+  resultdelayprofile = resultdelayprofile,
+  Trdp = length(resultdelayprofile),
+  gp_time_scale = epiclean_default_optionsions$gp_time_scale,
+  gp_time_decay_scale = epiclean_default_options$gp_time_decay_scale,
+  fixed_gp_time_length_scale = epiclean_default_options$fixed_gp_time_length_scale,
+  mu_scale = 0.5,
+  sigma_scale = 0.5,
+  phi_latent_scale = 5.0,
+  phi_observed_scale = 5.0,
+  xi_scale = 0.01,
+  outlier_prob_threshold = .95,
+  outlier_count_threshold = 2,
+  reconstruct_infections = TRUE,
+  num_iterations = epiclean_default_options$num_iterations,
+  num_chains = epiclean_default_options$num_chains,
+  percentiles = c(.025,.25,.5,.75,.975)
+) {
+
+  # ------------------------------------------------------------------------ #
+  #                             Main computation                             #
+  # ------------------------------------------------------------------------ #
+
+  data <- list(
+    Count = Count,
+    Tall = Tall,
+    Tcond = Tcond,
+    Tstep = Tstep, 
+    Nstep = Nstep,
+    Nproj = Nproj,
+    Tip = Tip,
+    infprofile = infprofile,
+    Ttdp = Ttdp,
+    testdelayprofile = testdelayprofile,
+    Trdp = Trdp,
+    resultdelaydecay = resultdelaydecay,
+    resultdelaystrength = resultdelaystrength,
+    gp_time_scale = gp_time_scale,
+    gp_time_decay_scale = gp_time_decay_scale,
+    fixed_gp_time_length_scale = fixed_gp_time_length_scale,
+    mu_scale = mu_scale,
+    sigma_scale = sigma_scale,
+    phi_latent_scale = phi_latent_scale,
+    phi_observed_scale = phi_observed_scale,
+    xi_scale = xi_scale,
+    outlier_prob_threshold = outlier_prob_threshold,
+    outlier_count_threshold = outlier_count_threshold,
+    reconstruct_infections = reconstruct_infections
+  )
+  
+  init = list()
+  init[[1]] = list(
+    mu = 0.0,
+    sigma = sigma_scale,
+    alpha1 = gp_time_decay_scale,
+    phi_latent = phi_latent_scale,
+    phi_observed = phi_observed_scale,
+    xi = xi_scale
+  )
+  for (i in 1:Nstep) {
+    init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
+    init[[1]][[paste('Ceta[',i,']',sep='')]] = 0.0
+  }
+  
+  options(mc.cores = min(numchains,parallel::detectCores()))
+  stanfit = stan(
+    file = 'cleaning/stan_files/Rmap-clean.stan',
+    data = data, 
+    init = init,
+    iter = num_iterations, 
+    chains = num_chains,
+    control = list(adapt_delta = .9)
+  )
+
+  #Rt = summary(stanfit,pars="Rt",
+  list(
+    stanfit = stanfit
+    #Rt = Rt,
+    #Xt = Xt
+  )
+}  
 
 epiclean_combine = function(opt = epiclean_options()) {
   env = new.env(parent=globalenv())

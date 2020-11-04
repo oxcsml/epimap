@@ -18,9 +18,9 @@ Rmap_read_data = function(env) {
     D <- length(infprofile)
 
     Tdp <- 21
-    Adp <- 5.8+2
+    Adp <- 5.8
     Bdp <- 0.948
-    testdelayprofile <- pgamma(1:Tdp,shape=Adp,rate=Bdp)
+    testdelayprofile <- c(0.0,0.0,pgamma(1:(Tdp-2),shape=Adp,rate=Bdp))
 
     #Tdp = 21
     #mudp = log(7) - .5 * .5^2

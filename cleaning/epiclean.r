@@ -1,6 +1,7 @@
 library(rstan)
 library(optparse)
 library(gsubfn)
+library(plyr)
 source("dataprocessing/read_data.r")
 source("mapping/utils.r")
 rstan_options(auto_write = FALSE)
@@ -22,7 +23,8 @@ epiclean_options = function(
   num_chains         = 1,
 
   data_directory     = "data/",
-  clean_directory    = "fits/clean"
+  clean_directory    = "fits/clean",
+  produce_plots      = FALSE
 ) {
   as.list(environment())
 }
@@ -220,6 +222,10 @@ epiclean_combine = function(opt = epiclean_options()) {
       Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
       Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
     }
+    percentiles = c(.025,.25,.5,.75,.975)
+    str_percentiles = c("2.5%","25%","50%","75%","97.5%")
+    num_percentiles = length(percentiles)
+    Rt_percentiles = array(0, c(N, Tlik, num_percentiles))
     
     # Loop over areas, loading area RDS files and filling the arrays
     for (area_index in 1:N) {
@@ -250,44 +256,52 @@ epiclean_combine = function(opt = epiclean_options()) {
       Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
       Crecon_median[area_index, ] <- round(Crecon_m)
 
-
+    
       ####################################################################
-      # pairs plot
-      pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
-      pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
-      dev.off()
-    
-      pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
-      par(mfrow = c(5, 2))
-      par(oma = c(0, 0, 0, 0))
-      par(mar = c(1, 1, 1, 1))
-      ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcond + 1):Tcur
-      ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
-      for (i in 1:Nsample) {
-        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-        for (j in 1:3) {
-          lines(ind, ClatentCI[ind, j])
-        }
-        points(ind, Clatent_sample[area_index, ind, i], col = "red", pch = 20)
+      area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
+      for (p in 1:num_percentiles) {
+        Rt_percentiles[area_index,,p] = area_rt[1:Tlik,str_percentiles[p]]
       }
-      dev.off()
+
+      if (opt$produce_plots) {
+        ####################################################################
+        # pairs plot
+        pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
+        pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
+        dev.off()
     
-      pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
-      par(mfrow = c(5, 2))
-      par(oma = c(0, 0, 0, 0))
-      par(mar = c(1, 1, 1, 1))
-      CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcur - Nstep * Tstep + 1):Tcur
-      CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
-      for (i in 1:Nsample) {
-        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-        for (j in 1:3) {
-          lines(ind, CreconCI[ind, j])
+        pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
+        par(mfrow = c(5, 2))
+        par(oma = c(0, 0, 0, 0))
+        par(mar = c(1, 1, 1, 1))
+        ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+        ind <- (Tcond + 1):Tcur
+        ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
+        for (i in 1:Nsample) {
+          plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
+          for (j in 1:3) {
+            lines(ind, ClatentCI[ind, j])
+          }
+          points(ind, Clatent_sample[area_index, ind, i], col = "red", pch = 20)
         }
-        points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
+        dev.off()
+      
+        pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
+        par(mfrow = c(5, 2))
+        par(oma = c(0, 0, 0, 0))
+        par(mar = c(1, 1, 1, 1))
+        CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+        ind <- (Tcur - Nstep * Tstep + 1):Tcur
+        CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
+        for (i in 1:Nsample) {
+          plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
+          for (j in 1:3) {
+            lines(ind, CreconCI[ind, j])
+          }
+          points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
+        }
+        dev.off()
       }
-      dev.off()
     }
     
     days <- colnames(Count)
@@ -307,6 +321,13 @@ epiclean_combine = function(opt = epiclean_options()) {
       colnames(cc) <- days
       write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
     }
+
+    days_modelled = days[(Tcond+1):(Tcond+Tlik)]
+    Rt_percentiles = format(round(Rt_percentiles,2),nsmall=2)
+    dimnames(Rt_percentiles) = list(area=quoted_areas,date=days_modelled,str_percentiles)
+    df = adply(Rt_percentiles,c(2,1))
+    df = df[,c(2,1,3:(num_percentiles+2))]
+    write.csv(df, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
   })
   env
 }
@@ -393,7 +414,15 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
       type="character", 
       default=opt$clean_directory, 
       help=paste("Directory to put cleaned results in default",opt$clean_directory)
+    ),
+
+    make_option(
+      c("--produce_plots"), 
+      type="logical", 
+      default=opt$produce_plots, 
+      help=paste("Whether to produce plots; default",opt$produce_plots)
     )
+
   )
 }
 

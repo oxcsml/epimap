@@ -1,6 +1,7 @@
 library(rstan)
 library(optparse)
 library(gsubfn)
+library(plyr)
 source("dataprocessing/read_data.r")
 source("mapping/utils.r")
 rstan_options(auto_write = FALSE)
@@ -167,7 +168,10 @@ epiclean_combine = function(opt = epiclean_options()) {
       Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
       Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
     }
-    Rt = array(0, c(N, Tlik))
+    percentiles = c(.025,.25,.5,.75,.975)
+    str_percentiles = c("2.5%","25%","50%","75%","97.5%")
+    num_percentiles = length(percentiles)
+    Rt_percentiles = array(0, c(N, Tlik, num_percentiles))
     
     # Loop over areas, loading area RDS files and filling the arrays
     for (area_index in 1:N) {
@@ -200,9 +204,10 @@ epiclean_combine = function(opt = epiclean_options()) {
 
     
       ####################################################################
-      area_rt = summary(fit, pars = "Rt", probs=c(.5))$summary
-      area_rt = area_rt[,"50%"]
-      Rt[area_index,] = area_rt[1:Tlik]
+      area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
+      for (p in 1:num_percentiles) {
+        Rt_percentiles[area_index,,p] = area_rt[1:Tlik,str_percentiles[p]]
+      }
 
       if (opt$produce_plots) {
         ####################################################################
@@ -264,10 +269,11 @@ epiclean_combine = function(opt = epiclean_options()) {
     }
 
     days_modelled = days[(Tcond+1):(Tcond+Tlik)]
-    Rt = format(round(Rt,2),nsmall=2)
-    rownames(Rt) = quoted_areas
-    colnames(Rt) = days_modelled
-    write.csv(Rt, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE)
+    Rt_percentiles = format(round(Rt_percentiles,2),nsmall=2)
+    dimnames(Rt_percentiles) = list(area=quoted_areas,date=days_modelled,str_percentiles)
+    df = adply(Rt_percentiles,c(2,1))
+    df = df[,c(2,1,3:(num_percentiles+2))]
+    write.csv(df, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
   })
   env
 }

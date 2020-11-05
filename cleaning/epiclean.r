@@ -16,7 +16,7 @@ epiclean_options = function(
   weeks_modelled     = NULL,
   days_ignored         = 7,
   days_per_step      = 7,
-  num_steps_forecasted = 3*7,
+  num_steps_forecasted = ceiling(21/days_per_step),
 
   num_samples        = 20,
   num_iterations     = 3000,
@@ -29,89 +29,55 @@ epiclean_options = function(
   as.list(environment())
 }
 
-epiclean_run = function(area_index = 0, opt = epiclean_options()) {
-  env = new.env(parent=globalenv())
-  env$area_index = area_index
-  if (area_index==0) {
-    stop("Area index 0.")
-  }
-  env$opt = opt
-  Rmap_read_data(env)
-  with(env,{
-
-    numiters = opt$iterations
-
-
-    # work out days to be modelled
-    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
-      dates, 
-      first_day_modelled = opt$first_day_modelled,
-      last_day_modelled  = opt$last_day_modelled,
-      days_ignored       = opt$days_ignored,
-      weeks_modelled     = opt$weeks_modelled,
-      days_per_step      = opt$days_per_step
-    )
-
-    area = areas[area_index]
-    Count <- AllCount[area,]
-    message("Area = ",area)
-
-    Nsample <- opt$num_samples
-
-    # Case only reported a few days after testing, 
-    # no result delay truncation
-    Trdp <- 1
-    resultdelaydecay = .5
-    resultdelaystrength = Trdp
-    resultdelayprofile = resultdelaystrength * resultdelaydecay^(1:Trdp)
-
-    start_time <- Sys.time()
-    fit = epiclean(
-      Count = Count[area,],
-      Tcond = Tcond,
-      Nstep = Nstep,
-      Nproj = opt$num_steps_forecasted,
-      Tstep = Tstep,
-      infprofile = infprofile,
-      testdelayprofile = testdelayprofile,
-      resultdelayprofile = resultdelayprofile,
-      gp_time_scale = opt$gp_time_scale,
-      gp_time_decay_scale = opt$gp_time_decay_scale,
-      fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      num_iterations = opt$num_iterations,
-      num_chains = opt$num_chains,
-    )$stanfit
-    end_time <- Sys.time()
-    
-    print("Time to run: ",end_time - start_time)
-   
-    dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
-    saveRDS(fit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
-    
-    #################################################################
-    # Summary of fit
-    print(summary(fit, 
-      pars=c("mu","sigma","alpha","gp_time_length_scale","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
-      probs=c(0.5)
-    )$summary)
-  })
-  env
-}
-
 epiclean_default_options = epiclean_options()
+
+#' Epiclean inference of Rt and incidence curve.
+#'
+#' Uses Bayesian inference, with a latent incidence process given by a 
+#' continuous approximation of a negative-binomial renewal process, 
+#' a piecewise constant AR1 prior on Rt, and an observation model for
+#' counts of positive diagnoses described by a negative-binomial and a
+#' delay distribution.
+#' 
+#' Implemented as MCMC sampling (No-U-Turns Sampler) in stan.
+#'
+#' @param Count List of case counts of positive tests by day; colnames(Count) can be date strings in YYYY-MM-DD format.
+#' @param Tcond Initial number of days that are not modelled (but are conditioned on)
+#' @param Nstep Number of AR1 time steps to model 
+#' @param Nproj Number of AR1 time steps to forecast
+#' @param Tstep Number of days per AR1 time step; default 1
+#' @param infprofile Infection profile (generation interval distribution)
+#' @param testdelayprofile Distribution of delay between infection and getting tested
+#' @param resultdelayalpha Distribution of delay between getting tested and resulted being reported
+#' @param gp_time_scale Length scale of AR1 process; default 14
+#' @param gp_time_decay_scale Decay scale of AR1 process; default .1
+#' @param fixed_gp_time_length_scale If specified, fixes AR1 length scale as specified
+#' @param mu_scale Scale of prior on the prior mean of log(Rt)
+#' @param sigma_scale Scale of prior on the prior standard deviation of log(Rt)
+#' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process
+#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts
+#' @param xi_scale Scale of prior on exegeneous infection rate
+#' @param reconstruct_infections Whether to reconstruct infection day for each case; default True
+#' @param outlier_prob_threshold Probability hreshold to determine if a diagnosis count is an outlier; default 1.0
+#' @param outlier_count_threshold Count threshold to determine if a diagnosis count is an outlier; default 10
+#' @param num_iterations Number of MCMC iterations; default 3000
+#' @param num_chains Number of MCMC chains; default 1
+#' @param percentiles Thresholds of percentiles for posterior statistics; default c(.025,.25,.5,.75,.975)
+#'
+#' @return A list consists of the stanfit MCMC output, as well as posterior 
+#' statistics of the instantaneous reproduction numbers Rt and 
+#' incidence numbers Xt.
+#'
+#' @export
 epiclean = function(
   Count,
-  Tall = length(Count),
   Tcond,
   Nstep,
   Nproj,
   Tstep = 1, 
-  infprofile = infprofile,
-  Tip = length(infprofile),
-  testdelayprofile = testdelayprofile,
-  Ttdp = length(testdelayprofile),
-  resultdelayprofile = resultdelayprofile,
-  Trdp = length(resultdelayprofile),
+  infprofile,
+  testdelayprofile,
+  resultdelayalpha,
   gp_time_scale = epiclean_default_optionsions$gp_time_scale,
   gp_time_decay_scale = epiclean_default_options$gp_time_decay_scale,
   fixed_gp_time_length_scale = epiclean_default_options$fixed_gp_time_length_scale,
@@ -120,8 +86,8 @@ epiclean = function(
   phi_latent_scale = 5.0,
   phi_observed_scale = 5.0,
   xi_scale = 0.01,
-  outlier_prob_threshold = .95,
-  outlier_count_threshold = 2,
+  outlier_prob_threshold = 1.0,
+  outlier_count_threshold = 10,
   reconstruct_infections = TRUE,
   num_iterations = epiclean_default_options$num_iterations,
   num_chains = epiclean_default_options$num_chains,
@@ -132,6 +98,15 @@ epiclean = function(
   #                             Main computation                             #
   # ------------------------------------------------------------------------ #
 
+  if (is.null(colnames(Count))) {
+    startdate = 1
+  } else if (typeof(colnames(Count)[1])=="character") {
+    startdate = as.Date(colnames(Count)[1])
+  } else {
+    startdate = colnames(Count)[1]
+  }
+  Tall = length(Count)
+
   data <- list(
     Count = Count,
     Tall = Tall,
@@ -139,13 +114,12 @@ epiclean = function(
     Tstep = Tstep, 
     Nstep = Nstep,
     Nproj = Nproj,
-    Tip = Tip,
+    Tip = length(infprofile),
+    Ttdp = length(testdelayprofile),
+    Trdp = length(resultdelayalpha),
     infprofile = infprofile,
-    Ttdp = Ttdp,
     testdelayprofile = testdelayprofile,
-    Trdp = Trdp,
-    resultdelaydecay = resultdelaydecay,
-    resultdelaystrength = resultdelaystrength,
+    resultdelayalpha = c(resultdelayalpha,0),
     gp_time_scale = gp_time_scale,
     gp_time_decay_scale = gp_time_decay_scale,
     fixed_gp_time_length_scale = fixed_gp_time_length_scale,
@@ -172,164 +146,245 @@ epiclean = function(
     init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
     init[[1]][[paste('Ceta[',i,']',sep='')]] = 0.0
   }
+  notpars = c(
+    "Reta",
+    "Ceta",
+    "Ecount"
+  )
+    
   
-  options(mc.cores = min(numchains,parallel::detectCores()))
+  options(mc.cores = min(num_chains,parallel::detectCores()))
   stanfit = stan(
     file = 'cleaning/stan_files/Rmap-clean.stan',
     data = data, 
     init = init,
     iter = num_iterations, 
+    pars = notpars,
+    include = FALSE,
     chains = num_chains,
     control = list(adapt_delta = .9)
   )
 
+  Rt = summary(stanfit, pars = "Rt", probs=percentiles)$summary
+  Xt = summary(stanfit, pars = "Xt", probs=percentiles)$summary
+  rownames(Rt) = as.character(seq(from=startdate+Tcond,length.out=Nstep+Nproj,by=Tstep))
+  rownames(Xt) = as.character(seq(from=startdate,length.out=Tcond+Tstep*Nstep,by=1))
+
   #Rt = summary(stanfit,pars="Rt",
   list(
-    stanfit = stanfit
-    #Rt = Rt,
-    #Xt = Xt
+    stanfit = stanfit,
+    Rt = Rt,
+    Xt = Xt
   )
 }  
 
+epiclean_run = function(area_index = 0, opt = epiclean_options()) {
+  if (area_index==0) {
+    stop("Area index 0.")
+  }
+  Rmap_read_data(environment())
+
+  numiters = opt$iterations
+
+
+  # work out days to be modelled
+  list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+    dates, 
+    first_day_modelled = opt$first_day_modelled,
+    last_day_modelled  = opt$last_day_modelled,
+    days_ignored       = opt$days_ignored,
+    weeks_modelled     = opt$weeks_modelled,
+    days_per_step      = opt$days_per_step
+  )
+
+  area = areas[area_index]
+  Count <- AllCount[area,]
+  message("Area = ",area)
+
+  Nsample <- opt$num_samples
+
+  # Case only reported a few days after testing, 
+  # no result delay truncation
+  Trdp <- 1
+  resultdelaydecay = .5
+  resultdelaystrength = Trdp
+  resultdelayalpha = resultdelaystrength * resultdelaydecay^(1:Trdp)
+
+  start_time <- Sys.time()
+  fit = epiclean(
+    Count = Count[area,],
+    Tcond = Tcond,
+    Nstep = Nstep,
+    Nproj = opt$num_steps_forecasted,
+    Tstep = Tstep,
+    infprofile = infprofile,
+    testdelayprofile = testdelayprofile,
+    resultdelayalpha = resultdelayalpha,
+    gp_time_scale = opt$gp_time_scale,
+    gp_time_decay_scale = opt$gp_time_decay_scale,
+    fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
+    num_iterations = opt$num_iterations,
+    num_chains = opt$num_chains,
+  )
+  end_time <- Sys.time()
+  
+  print(paste("Time to run: ",end_time - start_time))
+ 
+  dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
+  saveRDS(fit$stanfit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
+  
+  #################################################################
+  # Summary of fit
+  print(summary(fit$stanfit, 
+    pars=c("mu","sigma","alpha","gp_time_length_scale","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
+    probs=c(0.5)
+  )$summary)
+  fit
+}
+
+
 epiclean_combine = function(opt = epiclean_options()) {
-  env = new.env(parent=globalenv())
-  env$opt = opt
-  Rmap_read_data(env)
-  with(env,{
+  Rmap_read_data(environment())
 
-    # work out days to be modelled
-    list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
-      dates, 
-      first_day_modelled = opt$first_day_modelled,
-      last_day_modelled  = opt$last_day_modelled,
-      days_ignored       = opt$days_ignored,
-      weeks_modelled     = opt$weeks_modelled,
-      days_per_step      = opt$days_per_step
-    )
+  # work out days to be modelled
+  list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
+    dates, 
+    first_day_modelled = opt$first_day_modelled,
+    last_day_modelled  = opt$last_day_modelled,
+    days_ignored       = opt$days_ignored,
+    weeks_modelled     = opt$weeks_modelled,
+    days_per_step      = opt$days_per_step
+  )
 
-    Count <- AllCount[, 1:Tcur]
+  Count <- AllCount[, 1:Tcur]
 
-    numiters <- opt$iterations 
-    Nsample <- opt$num_samples
+  numiters <- opt$iterations 
+  Nsample <- opt$num_samples
 
-    # Initialize arrays
-    Clatent_sample <- array(0, c(N, Tcur, Nsample))
-    Clatent_mean <- array(0, c(N, Tcur))
-    Crecon_sample <- array(0, c(N, Tcur, Nsample))
-    Crecon_median <- array(0, c(N, Tcur))
-    Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
-    for (i in 1:Nsample) {
-      Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
-      Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
+  # Initialize arrays
+  Clatent_sample <- array(0, c(N, Tcur, Nsample))
+  Clatent_mean <- array(0, c(N, Tcur))
+  Crecon_sample <- array(0, c(N, Tcur, Nsample))
+  Crecon_median <- array(0, c(N, Tcur))
+  Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
+  for (i in 1:Nsample) {
+    Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
+    Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
+  }
+  percentiles = c(.025,.25,.5,.75,.975)
+  str_percentiles = c("2.5%","25%","50%","75%","97.5%")
+  num_percentiles = length(percentiles)
+  Rt_percentiles = array(0, c(N, Tlik, num_percentiles))
+  
+  # Loop over areas, loading area RDS files and filling the arrays
+  for (area_index in 1:N) {
+    area <- areas[area_index]
+    print(area)
+  
+    fit <- readRDS(paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
+  
+    skip <- numiters / 2 / Nsample
+    ####################################################################
+    Clatent_s <- extract(fit, pars = "Clatent", permuted = FALSE)
+    Clatent_s <- Clatent_s[seq(skip, by = skip, length.out = Nsample), , ]
+    dim(Clatent_s) <- c(Nsample, Tcur)
+    Clatent_s <- t(Clatent_s)
+    dim(Clatent_s) <- c(1, Tcur, Nsample)
+    Clatent_sample[area_index, , ] <- Clatent_s
+    Clatent_m <- summary(fit, pars = "Clatent", probs = c(0.5))$summary
+    Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
+    Clatent_mean[area_index, ] <- Clatent_m
+
+    ####################################################################
+    Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
+    Crecon_s <- Crecon_s[seq(skip, by = skip, length.out = Nsample), , ]
+    Crecon_s <- t(Crecon_s)
+    dim(Crecon_s) <- c(1, Tcur, Nsample)
+    Crecon_sample[area_index, , ] <- Crecon_s
+    Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
+    Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
+    Crecon_median[area_index, ] <- round(Crecon_m)
+
+  
+    ####################################################################
+    area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
+    for (p in 1:num_percentiles) {
+      Rt_percentiles[area_index,,p] = area_rt[1:Tlik,str_percentiles[p]]
     }
-    percentiles = c(.025,.25,.5,.75,.975)
-    str_percentiles = c("2.5%","25%","50%","75%","97.5%")
-    num_percentiles = length(percentiles)
-    Rt_percentiles = array(0, c(N, Tlik, num_percentiles))
-    
-    # Loop over areas, loading area RDS files and filling the arrays
-    for (area_index in 1:N) {
-      area <- areas[area_index]
-      print(area)
-    
-      fit <- readRDS(paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
-    
-      skip <- numiters / 2 / Nsample
-      ####################################################################
-      Clatent_s <- extract(fit, pars = "Clatent", permuted = FALSE)
-      Clatent_s <- Clatent_s[seq(skip, by = skip, length.out = Nsample), , ]
-      dim(Clatent_s) <- c(Nsample, Tcur)
-      Clatent_s <- t(Clatent_s)
-      dim(Clatent_s) <- c(1, Tcur, Nsample)
-      Clatent_sample[area_index, , ] <- Clatent_s
-      Clatent_m <- summary(fit, pars = "Clatent", probs = c(0.5))$summary
-      Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
-      Clatent_mean[area_index, ] <- Clatent_m
 
+    if (opt$produce_plots) {
       ####################################################################
-      Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
-      Crecon_s <- Crecon_s[seq(skip, by = skip, length.out = Nsample), , ]
-      Crecon_s <- t(Crecon_s)
-      dim(Crecon_s) <- c(1, Tcur, Nsample)
-      Crecon_sample[area_index, , ] <- Crecon_s
-      Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
-      Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
-      Crecon_median[area_index, ] <- round(Crecon_m)
-
-    
-      ####################################################################
-      area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
-      for (p in 1:num_percentiles) {
-        Rt_percentiles[area_index,,p] = area_rt[1:Tlik,str_percentiles[p]]
-      }
-
-      if (opt$produce_plots) {
-        ####################################################################
-        # pairs plot
-        pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
-        pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
-        dev.off()
-    
-        pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
-        par(mfrow = c(5, 2))
-        par(oma = c(0, 0, 0, 0))
-        par(mar = c(1, 1, 1, 1))
-        ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-        ind <- (Tcond + 1):Tcur
-        ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
-        for (i in 1:Nsample) {
-          plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-          for (j in 1:3) {
-            lines(ind, ClatentCI[ind, j])
-          }
-          points(ind, Clatent_sample[area_index, ind, i], col = "red", pch = 20)
+      # pairs plot
+      pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
+      pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
+      dev.off()
+  
+      pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
+      par(mfrow = c(5, 2))
+      par(oma = c(0, 0, 0, 0))
+      par(mar = c(1, 1, 1, 1))
+      ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+      ind <- (Tcond + 1):Tcur
+      ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
+      for (i in 1:Nsample) {
+        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
+        for (j in 1:3) {
+          lines(ind, ClatentCI[ind, j])
         }
-        dev.off()
-      
-        pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
-        par(mfrow = c(5, 2))
-        par(oma = c(0, 0, 0, 0))
-        par(mar = c(1, 1, 1, 1))
-        CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-        ind <- (Tcur - Nstep * Tstep + 1):Tcur
-        CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
-        for (i in 1:Nsample) {
-          plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-          for (j in 1:3) {
-            lines(ind, CreconCI[ind, j])
-          }
-          points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
-        }
-        dev.off()
+        points(ind, Clatent_sample[area_index, ind, i], col = "red", pch = 20)
       }
-    }
+      dev.off()
     
-    days <- colnames(Count)
-    rownames(Clatent_mean) <- quoted_areas
-    colnames(Clatent_mean) <- days
-    write.csv(Clatent_mean, paste(opt$clean_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
-    rownames(Crecon_median) <- quoted_areas
-    colnames(Crecon_median) <- days
-    write.csv(Crecon_median, paste(opt$clean_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
-    for (i in 1:Nsample) {
-      cc <- Clatent_sample[, , i]
-      rownames(cc) <- quoted_areas
-      colnames(cc) <- days
-      write.csv(cc, paste(opt$clean_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
-      cc <- Crecon_sample[, , i]
-      rownames(cc) <- quoted_areas
-      colnames(cc) <- days
-      write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+      pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
+      par(mfrow = c(5, 2))
+      par(oma = c(0, 0, 0, 0))
+      par(mar = c(1, 1, 1, 1))
+      CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+      ind <- (Tcur - Nstep * Tstep + 1):Tcur
+      CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
+      for (i in 1:Nsample) {
+        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
+        for (j in 1:3) {
+          lines(ind, CreconCI[ind, j])
+        }
+        points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
+      }
+      dev.off()
     }
+  }
+  
+  days <- colnames(Count)
+  rownames(Clatent_mean) <- quoted_areas
+  colnames(Clatent_mean) <- days
+  write.csv(Clatent_mean, paste(opt$clean_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
+  rownames(Crecon_median) <- quoted_areas
+  colnames(Crecon_median) <- days
+  write.csv(Crecon_median, paste(opt$clean_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
+  for (i in 1:Nsample) {
+    cc <- Clatent_sample[, , i]
+    rownames(cc) <- quoted_areas
+    colnames(cc) <- days
+    write.csv(cc, paste(opt$clean_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
+    cc <- Crecon_sample[, , i]
+    rownames(cc) <- quoted_areas
+    colnames(cc) <- days
+    write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+  }
 
-    days_modelled = days[(Tcond+1):(Tcond+Tlik)]
-    Rt_percentiles = format(round(Rt_percentiles,2),nsmall=2)
-    dimnames(Rt_percentiles) = list(area=quoted_areas,date=days_modelled,str_percentiles)
-    df = adply(Rt_percentiles,c(2,1))
-    df = df[,c(2,1,3:(num_percentiles+2))]
-    write.csv(df, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
-  })
-  env
+  days_modelled = days[(Tcond+1):(Tcond+Tlik)]
+  Rt_percentiles = format(round(Rt_percentiles,2),nsmall=2)
+  dimnames(Rt_percentiles) = list(area=quoted_areas,date=days_modelled,str_percentiles)
+  df = adply(Rt_percentiles,c(2,1))
+  df = df[,c(2,1,3:(num_percentiles+2))]
+  write.csv(df, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+  list(
+    Rt = Rt_percentiles,
+    Clatent_sample = Clatent_sample,
+    Clatent_mean = Clatent_mean,
+    Crecon_sample = Crecon_sample,
+    Crecon_median = Crecon_median
+  )
 }
 
 

@@ -10,8 +10,7 @@ data {
   int<lower=1> Ttdp;
   vector[Ttdp] testdelayprofile;
   int<lower=1> Trdp;
-  real<lower=0,upper=1> resultdelaydecay;
-  real<lower=1> resultdelaystrength;
+  vector<lower=0>[Trdp+1] resultdelayalpha;
   real<lower=0> gp_time_scale;
   real<lower=0> gp_time_decay_scale;
   real fixed_gp_time_length_scale;
@@ -68,7 +67,7 @@ parameters {
 transformed parameters {
   real alpha;
   vector[Nstep+Nproj] Rt;
-  vector[Tcur] Clatent;
+  vector[Tcur] Xt;
   vector[Tlik] Ecount;
   vector[Trdp] resultdelayprofile_revcum;
 
@@ -96,7 +95,7 @@ transformed parameters {
   { // latent renewal process 
     // negative binomial noise approximated by gaussian
     for (t in 1:Tcond) {
-      Clatent[t] = xi + 
+      Xt[t] = xi + 
         (1.0-mean_serial_interval_real) * Count[1,t+mean_serial_interval_int] + 
         mean_serial_interval_real * Count[1,t+mean_serial_interval_int+1];
     }
@@ -107,18 +106,18 @@ transformed parameters {
         int L = min(Tip,t-1);
 
         real Einfection = Rt[i] * (xi + dot_product(
-            Clatent[t-L:t-1], 
+            Xt[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         ));
         //approximate poisson with log normal with same mean/variance
-        Clatent[t] = fabs(
+        Xt[t] = fabs(
           Einfection + 
           //sqrt(Einfection) * Ceta[s] // Poisson
           sqrt((1.0+phi_latent) * Einfection) * Ceta[s] // neg-binomial
         );
 
         Ecount[s] = dot_product(
-            Clatent[t-Ttdp+1:t], 
+            Xt[t-Ttdp+1:t], 
             testdelayprofile_rev
         );
     } } 
@@ -136,10 +135,7 @@ model {
   Ceta ~ std_normal();
 
   {
-    vector[Trdp] diralpha;
-    for (i in 1:Trdp) 
-      diralpha[i] = resultdelaystrength * resultdelaydecay^i;
-    resultdelayprofile ~ dirichlet(diralpha);
+    resultdelayprofile ~ dirichlet(resultdelayalpha[1:Trdp]);
   }
 
   {
@@ -161,7 +157,7 @@ generated quantities {
   int Noutliers = 0;
   real meandelay = 0.0;
   real denomdelay = 0.0;
-  vector[Tstep*Nproj] Clatent_proj;
+  vector[Tstep*Nproj] Xt_proj;
   vector[Tstep*Nproj] Count_proj;
   real gp_time_length_scale = -Tstep/log(alpha);
 
@@ -184,7 +180,7 @@ generated quantities {
     if (c==0) continue;
     denomdelay += c;
     if (reconstruct_infections) {
-      Precon = testdelayprofile_rev .* Clatent[t-Ttdp+1:t];
+      Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
       Precon /= sum(Precon);
       Crecon_t = multinomial_rng(Precon,c);
       for (i in 1:Ttdp) {
@@ -198,30 +194,30 @@ generated quantities {
   meandelay /= denomdelay;
 
   {
-    vector[Tcur+Tstep*Nproj] clatent;
-    clatent[1:Tcur] = Clatent;
+    vector[Tcur+Tstep*Nproj] xlatent;
+    xlatent[1:Tcur] = Xt;
     for (i in Nstep+1:Nstep+Nproj) {
       for (j in 1:Tstep) {
         int s = (i-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
         real Einfection = Rt[i] * (xi + dot_product(
-            clatent[t-L:t-1], 
+            xlatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         ));
         //approximate poisson with log normal with same mean/variance
-        clatent[t] = fabs(
+        xlatent[t] = fabs(
           Einfection + 
-          sqrt(Einfection) * normal_rng(0.0,1.0) // Poisson
-          // sqrt((1.0+phi_latent) * Einfection) * Ceta[s] // neg-binomial
+          //sqrt(Einfection) * normal_rng(0.0,1.0) // Poisson
+          sqrt((1.0+phi_latent) * Einfection) * normal_rng(0.0,1.0) // NB
         );
 
         Count_proj[t-Tcur] = dot_product(
-            clatent[t-Ttdp+1:t], 
+            xlatent[t-Ttdp+1:t], 
             testdelayprofile_rev
         );
     } } 
-    Clatent_proj = clatent[Tcur+1:Tcur+Tstep*Nproj];
+    Xt_proj = xlatent[Tcur+1:Tcur+Tstep*Nproj];
   }
 
 

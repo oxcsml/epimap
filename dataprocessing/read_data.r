@@ -18,17 +18,14 @@ Rmap_read_data = function(env) {
     D <- length(infprofile)
 
     Tdp <- 21
+    presymptomdays <- 2
+    Tdpnz <- Tdp - presymptomdays
     Adp <- 5.8
     Bdp <- 0.948
-    testdelayprofile <- c(0.0,0.0,pgamma(1:(Tdp-2),shape=Adp,rate=Bdp))
-
-    #Tdp = 21
-    #mudp = log(7) - .5 * .5^2
-    #sddp = .5
-    #testdelayprofile = plnorm(1:Tdp,mudp,sddp)
-    testdelayprofile <- testdelayprofile/testdelayprofile[Tdp]
-    testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdp-1)])
-
+    testdelayprofile <- pgamma(1:Tdpnz,shape=Adp,rate=Bdp)
+    testdelayprofile <- testdelayprofile/testdelayprofile[Tdpnz]
+    testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdpnz-1)])
+    testdelayprofile <- c(rep(0, presymptomdays), testdelayprofile)
 
     df <- readdata("areas",row.names=1)
     N <- nrow(df)

@@ -99,10 +99,6 @@ transformed parameters {
       Clatent[t] = xi + 
         (1.0-mean_serial_interval_real) * Count[1,t+mean_serial_interval_int] + 
         mean_serial_interval_real * Count[1,t+mean_serial_interval_int+1];
-      if (is_nan(Clatent[t])) {
-        print(Clatent[t]);
-        reject("Clatent is nan");
-      }
     }
     for (i in 1:Nstep) {
       for (j in 1:Tstep) {
@@ -114,33 +110,17 @@ transformed parameters {
             Clatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         ));
-        if (is_nan(Rt[i])) {
-          print(Rt[i]);
-          reject("Rt[i] is nan");
-        }
-        if (is_nan(Einfection)) {
-          print(Einfection);
-          reject("Einfection is nan");
-        }
         //approximate poisson with log normal with same mean/variance
         Clatent[t] = fabs(
           Einfection + 
-          sqrt(Einfection) * Ceta[s] // Poisson
-          // sqrt((1.0+phi_latent) * Einfection) * Ceta[s] // neg-binomial
+          //sqrt(Einfection) * Ceta[s] // Poisson
+          sqrt((1.0+phi_latent) * Einfection) * Ceta[s] // neg-binomial
         );
-        if (is_nan(Clatent[t])) {
-          print(Clatent[t]);
-          reject("Clatent is nan");
-        }
 
         Ecount[s] = dot_product(
             Clatent[t-Ttdp+1:t], 
             testdelayprofile_rev
         );
-        if (is_nan(Ecount[s])) {
-          print(Ecount[s]);
-          reject("Ecount is nan");
-        }
     } } 
   }
 }
@@ -165,10 +145,6 @@ model {
   {
     for (t in Tcond+1:Tcur-Trdp+1) {
       int s = t-Tcond;
-      if (is_nan(Ecount[s])) {
-        print(Ecount[s]);
-        reject("Ecount is nan");
-      }
       Count[1,t] ~ neg_binomial_2(Ecount[s], 1.0 / phi_observed);
     }
     for (i in 2:Trdp) {

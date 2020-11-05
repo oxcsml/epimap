@@ -9,9 +9,9 @@ Rmap_options = function(
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
-  gp_space_scale       = 0.5, # units of 100km
+  gp_space_scale       = 1.0, # units of 100km
   gp_space_decay_scale = .1,
-  gp_time_scale        = 28.0, # units of 1 day
+  gp_time_scale        = 60.0, # units of 1 day
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
@@ -22,8 +22,8 @@ Rmap_options = function(
 
   first_day_modelled   = "2020-06-01",
   weeks_modelled       = NULL,
-  last_day_modelled    = NULL,
-  days_ignored         = 7,
+  last_day_modelled    = "2020-09-20",
+  days_ignored         = NULL,
   days_per_step        = 7,
   days_predicted       = 2,
   num_steps_forecasted = 3,
@@ -337,20 +337,33 @@ Rmap_run = function(env) {
     )
     Rmap_control = list(
       # max_treedepth = 3, # testing only
-      adapt_delta = .9
+      adapt_delta = .9,
+      max_treedepth = 8
     )
 
     #########################################################
-    fit <- stan(
-      file = 'mapping/stan_files/Rmap.stan',
-      data = Rmap_data, 
-      init = Rmap_init,
-      pars = Rmap_pars,
-      iter = numiters, 
-      chains = numchains,
-      control = list(adapt_delta = .9)
-    )
-
+    if (opt$fixed_gp_space_length_scale <= 0.0 ||
+        opt$fixed_gp_time_length_scale <= 0.0) {
+      fit <- stan(
+        file = 'mapping/stan_files/Rmap.stan',
+        data = Rmap_data, 
+        init = Rmap_init,
+        pars = Rmap_pars,
+        iter = numiters, 
+        chains = numchains,
+        control = list(adapt_delta = .9)
+      )
+    } else {
+      fit <- stan(
+        file = 'mapping/stan_files/Rmap-fixedlengthscale.stan',
+        data = Rmap_data, 
+        init = Rmap_init,
+        pars = Rmap_pars,
+        iter = numiters, 
+        chains = numchains,
+        control = list(adapt_delta = .9)
+      )
+    } 
 
     #########################################################
     saveRDS(fit, paste(runname,'stanfit.rds', sep=''))
@@ -358,10 +371,19 @@ Rmap_run = function(env) {
     #########################################################
     # Summary of fit
     print(summary(fit, 
-        pars=c("gp_space_length_scale","gp_sigma","gp_time_length_scale",
-            "global_sigma","local_scale","dispersion",
-            "Rt_all","coupling_rate","flux_probs"), 
-        probs=0.5)$summary)
+        pars=c(
+          "gp_space_length_scale",
+          "gp_sigma",
+          "gp_time_length_scale",
+          "global_sigma",
+          "local_scale",
+          "dispersion",
+          "Rt_all",
+          "coupling_rate",
+          "flux_probs"
+        ), 
+        probs=c(.025,0.5,.975)
+    )$summary)
 
 
     #########################################################
@@ -777,6 +799,27 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
           "default =", opt$temporalkernel
       )
     ),
+    make_option(
+      c("--gp_space_scale"), 
+      type="double", 
+      default=opt$gp_space_scale,
+      help=paste(
+          "If given and positive, set minimum space length scale to the value;",
+          "default =", opt$gp_space_scale
+      )
+    ),
+
+    make_option(
+      c("--gp_time_scale"), 
+      type="double", 
+      default=opt$gp_time_scale,
+      help=paste(
+          "If given and positive, set minimum time length scale to the value;",
+          "default =", opt$gp_time_scale
+      )
+    ),
+
+
     make_option(
       c("--fixed_gp_space_length_scale"), 
       type="double", 

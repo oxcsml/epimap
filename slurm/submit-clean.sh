@@ -20,7 +20,7 @@ mkdir -p $clean_directory/stanfits
 mkdir -p $clean_directory/output
 
 echo submit-clean: compiling
-Rscript cleaning/compile.r
+Rscript epimap/compile.r
 
 echo submit-clean: cleaning area
 sbatch --wait \
@@ -35,7 +35,7 @@ sbatch --wait \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \
-    "Rscript cleaning/clean_area.r --task_id \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
+    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
 wait
 
 echo submit-clean: combining areas
@@ -50,7 +50,7 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    "Rscript cleaning/combine_areas.r $options && echo combine_areas: DONE"
+    "Rscript covidmap/stage1_combine.r $options && echo combine_areas: DONE"
 wait
 
 echo submit-clean: DONE

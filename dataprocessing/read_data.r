@@ -23,11 +23,6 @@ Rmap_read_data = function(env) {
     Adp <- 5.8
     Bdp <- 0.948
     testdelayprofile <- pgamma(1:Tdpnz,shape=Adp,rate=Bdp)
-
-    #Tdp = 21
-    #mudp = log(7) - .5 * .5^2
-    #sddp = .5
-    #testdelayprofile = plnorm(1:Tdp,mudp,sddp)
     testdelayprofile <- testdelayprofile/testdelayprofile[Tdpnz]
     testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdpnz-1)])
     testdelayprofile <- c(rep(0, presymptomdays), testdelayprofile)

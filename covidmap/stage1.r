@@ -1,12 +1,13 @@
-library(rstan)
 library(optparse)
 library(gsubfn)
 library(plyr)
 source("dataprocessing/read_data.r")
 source("mapping/utils.r")
+source("epimap/epiclean.r")
+
 rstan_options(auto_write = FALSE)
 
-epiclean_options = function(
+covidmap_stage1_options = function(
   gp_time_scale        = 14.0, # units of 1 day
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
@@ -29,156 +30,7 @@ epiclean_options = function(
   as.list(environment())
 }
 
-epiclean_default_options = epiclean_options()
-
-#' Epiclean inference of Rt and incidence curve.
-#'
-#' Uses Bayesian inference, with a latent incidence process given by a 
-#' continuous approximation of a negative-binomial renewal process, 
-#' a piecewise constant AR1 prior on Rt, and an observation model for
-#' counts of positive diagnoses described by a negative-binomial and a
-#' delay distribution.
-#' 
-#' Implemented as MCMC sampling (No-U-Turns Sampler) in stan.
-#'
-#' @param Count List of case counts of positive tests by day; colnames(Count) can be date strings in YYYY-MM-DD format.
-#' @param Tcond Initial number of days that are not modelled (but are conditioned on)
-#' @param Nstep Number of AR1 time steps to model 
-#' @param Nproj Number of AR1 time steps to forecast
-#' @param Tstep Number of days per AR1 time step; default 1
-#' @param infprofile Infection profile (generation interval distribution)
-#' @param testdelayprofile Distribution of delay between infection and getting tested
-#' @param resultdelayalpha Distribution of delay between getting tested and resulted being reported
-#' @param gp_time_scale Length scale of AR1 process; default 14
-#' @param gp_time_decay_scale Decay scale of AR1 process; default .1
-#' @param fixed_gp_time_length_scale If specified, fixes AR1 length scale as specified
-#' @param mu_scale Scale of prior on the prior mean of log(Rt)
-#' @param sigma_scale Scale of prior on the prior standard deviation of log(Rt)
-#' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process
-#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts
-#' @param xi_scale Scale of prior on exegeneous infection rate
-#' @param reconstruct_infections Whether to reconstruct infection day for each case; default True
-#' @param outlier_prob_threshold Probability hreshold to determine if a diagnosis count is an outlier; default 1.0
-#' @param outlier_count_threshold Count threshold to determine if a diagnosis count is an outlier; default 10
-#' @param num_iterations Number of MCMC iterations; default 3000
-#' @param num_chains Number of MCMC chains; default 1
-#' @param percentiles Thresholds of percentiles for posterior statistics; default c(.025,.25,.5,.75,.975)
-#'
-#' @return A list consists of the stanfit MCMC output, as well as posterior 
-#' statistics of the instantaneous reproduction numbers Rt and 
-#' incidence numbers Xt.
-#'
-#' @export
-epiclean = function(
-  Count,
-  Tcond,
-  Nstep,
-  Nproj,
-  Tstep = 1, 
-  infprofile,
-  testdelayprofile,
-  resultdelayalpha,
-  gp_time_scale = epiclean_default_optionsions$gp_time_scale,
-  gp_time_decay_scale = epiclean_default_options$gp_time_decay_scale,
-  fixed_gp_time_length_scale = epiclean_default_options$fixed_gp_time_length_scale,
-  mu_scale = 0.5,
-  sigma_scale = 0.5,
-  phi_latent_scale = 5.0,
-  phi_observed_scale = 5.0,
-  xi_scale = 0.01,
-  outlier_prob_threshold = 1.0,
-  outlier_count_threshold = 10,
-  reconstruct_infections = TRUE,
-  num_iterations = epiclean_default_options$num_iterations,
-  num_chains = epiclean_default_options$num_chains,
-  percentiles = c(.025,.25,.5,.75,.975)
-) {
-
-  # ------------------------------------------------------------------------ #
-  #                             Main computation                             #
-  # ------------------------------------------------------------------------ #
-
-  if (is.null(colnames(Count))) {
-    startdate = 1
-  } else if (typeof(colnames(Count)[1])=="character") {
-    startdate = as.Date(colnames(Count)[1])
-  } else {
-    startdate = colnames(Count)[1]
-  }
-  Tall = length(Count)
-
-  data <- list(
-    Count = Count,
-    Tall = Tall,
-    Tcond = Tcond,
-    Tstep = Tstep, 
-    Nstep = Nstep,
-    Nproj = Nproj,
-    Tip = length(infprofile),
-    Ttdp = length(testdelayprofile),
-    Trdp = length(resultdelayalpha),
-    infprofile = infprofile,
-    testdelayprofile = testdelayprofile,
-    resultdelayalpha = c(resultdelayalpha,0),
-    gp_time_scale = gp_time_scale,
-    gp_time_decay_scale = gp_time_decay_scale,
-    fixed_gp_time_length_scale = fixed_gp_time_length_scale,
-    mu_scale = mu_scale,
-    sigma_scale = sigma_scale,
-    phi_latent_scale = phi_latent_scale,
-    phi_observed_scale = phi_observed_scale,
-    xi_scale = xi_scale,
-    outlier_prob_threshold = outlier_prob_threshold,
-    outlier_count_threshold = outlier_count_threshold,
-    reconstruct_infections = reconstruct_infections
-  )
-  
-  init = list()
-  init[[1]] = list(
-    mu = 0.0,
-    sigma = sigma_scale,
-    alpha1 = gp_time_decay_scale,
-    phi_latent = phi_latent_scale,
-    phi_observed = phi_observed_scale,
-    xi = xi_scale
-  )
-  for (i in 1:Nstep) {
-    init[[1]][[paste('Reta[',i,']',sep='')]] = 0.0
-    init[[1]][[paste('Ceta[',i,']',sep='')]] = 0.0
-  }
-  notpars = c(
-    "Reta",
-    "Ceta",
-    "Ecount"
-  )
-    
-  
-  options(mc.cores = min(num_chains,parallel::detectCores()))
-  stanfit = stan(
-    file = 'cleaning/stan_files/Rmap-clean.stan',
-    data = data, 
-    init = init,
-    iter = num_iterations, 
-    pars = notpars,
-    include = FALSE,
-    chains = num_chains,
-    control = list(adapt_delta = .9)
-  )
-
-  Rt = summary(stanfit, pars = "Rt", probs=percentiles)$summary
-  Xt = summary(stanfit, pars = "Xt", probs=percentiles)$summary
-  rownames(Rt) = as.character(seq(from=startdate+Tcond,length.out=Nstep+Nproj,by=Tstep))
-  rownames(Xt) = as.character(seq(from=startdate,length.out=Tcond+Tstep*Nstep,by=1))
-
-  #Rt = summary(stanfit,pars="Rt",
-  list(
-    stanfit = stanfit,
-    Rt = Rt,
-    Xt = Xt
-  )
-}  
-
-epiclean_run = function(area_index = 0, opt = epiclean_options()) {
+covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) {
   if (area_index==0) {
     stop("Area index 0.")
   }
@@ -243,7 +95,7 @@ epiclean_run = function(area_index = 0, opt = epiclean_options()) {
 }
 
 
-epiclean_combine = function(opt = epiclean_options()) {
+covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Rmap_read_data(environment())
 
   # work out days to be modelled
@@ -258,7 +110,7 @@ epiclean_combine = function(opt = epiclean_options()) {
 
   Count <- AllCount[, 1:Tcur]
 
-  numiters <- opt$iterations 
+  numiters <- opt$num_iterations 
   Nsample <- opt$num_samples
 
   # Initialize arrays
@@ -274,7 +126,7 @@ epiclean_combine = function(opt = epiclean_options()) {
   percentiles = c(.025,.25,.5,.75,.975)
   str_percentiles = c("2.5%","25%","50%","75%","97.5%")
   num_percentiles = length(percentiles)
-  Rt_percentiles = array(0, c(N, Tlik, num_percentiles))
+  Rt_percentiles = array(0, c(N, Nstep, num_percentiles))
   
   # Loop over areas, loading area RDS files and filling the arrays
   for (area_index in 1:N) {
@@ -285,19 +137,19 @@ epiclean_combine = function(opt = epiclean_options()) {
   
     skip <- numiters / 2 / Nsample
     ####################################################################
-    Clatent_s <- extract(fit, pars = "Clatent", permuted = FALSE)
-    Clatent_s <- Clatent_s[seq(skip, by = skip, length.out = Nsample), , ]
+    Clatent_s <- extract(fit, pars = "Xt", permuted = FALSE)
+    Clatent_s <- Clatent_s[seq(from=skip, by = skip, length.out = Nsample), , ]
     dim(Clatent_s) <- c(Nsample, Tcur)
     Clatent_s <- t(Clatent_s)
     dim(Clatent_s) <- c(1, Tcur, Nsample)
     Clatent_sample[area_index, , ] <- Clatent_s
-    Clatent_m <- summary(fit, pars = "Clatent", probs = c(0.5))$summary
+    Clatent_m <- summary(fit, pars = "Xt", probs = c(0.5))$summary
     Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
     Clatent_mean[area_index, ] <- Clatent_m
 
     ####################################################################
     Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
-    Crecon_s <- Crecon_s[seq(skip, by = skip, length.out = Nsample), , ]
+    Crecon_s <- Crecon_s[seq(from=skip, by = skip, length.out = Nsample), , ]
     Crecon_s <- t(Crecon_s)
     dim(Crecon_s) <- c(1, Tcur, Nsample)
     Crecon_sample[area_index, , ] <- Crecon_s
@@ -309,7 +161,7 @@ epiclean_combine = function(opt = epiclean_options()) {
     ####################################################################
     area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
     for (p in 1:num_percentiles) {
-      Rt_percentiles[area_index,,p] = area_rt[1:Tlik,str_percentiles[p]]
+      Rt_percentiles[area_index,,p] = area_rt[1:Nstep,str_percentiles[p]]
     }
 
     if (opt$produce_plots) {
@@ -371,7 +223,7 @@ epiclean_combine = function(opt = epiclean_options()) {
     write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
   }
 
-  days_modelled = days[(Tcond+1):(Tcond+Tlik)]
+  days_modelled = days[seq(from=Tcond+1, by=Tstep, to=Tcond+Tlik)]
   Rt_percentiles = format(round(Rt_percentiles,2),nsmall=2)
   dimnames(Rt_percentiles) = list(area=quoted_areas,date=days_modelled,str_percentiles)
   df = adply(Rt_percentiles,c(2,1))
@@ -388,13 +240,13 @@ epiclean_combine = function(opt = epiclean_options()) {
 }
 
 
-epiclean_cmdline_options = function(opt = epiclean_options()) {
+covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
   list(
     make_option(
-      c("--task_id"),
+      c("--area_index"),
       type="integer",
-      default=1,
-      help="Task ID for Slurm usage. Maps to area_index."
+      default=0,
+      help="Area index (required argument)."
     ),
     make_option(
       c("--num_samples"),
@@ -481,8 +333,8 @@ epiclean_cmdline_options = function(opt = epiclean_options()) {
   )
 }
 
-epiclean_get_cmdline_options = function(opt=epiclean_options()) {
-  cmdline_opt = epiclean_cmdline_options(opt)
+covidmap_stage1_get_cmdline_options = function(opt=covidmap_stage1_options()) {
+  cmdline_opt = covidmap_stage1_cmdline_options(opt)
   opt_parser = OptionParser(option_list=cmdline_opt)
   parsed_opt = parse_args(opt_parser)
   for (o in names(parsed_opt)) {

@@ -21,6 +21,10 @@ mkdir -p $clean_directory/pdfs
 mkdir -p $clean_directory/stanfits
 mkdir -p $clean_directory/output
 
+echo submit-clean: Compiling
+Rscript cleaning/compile.r
+
+echo submit-clean: Cleaning areas
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \

@@ -12,7 +12,7 @@ fi
 clean_directory=$1
 echo "clean_directory = $clean_directory"
 
-options="--clean_directory $clean_directory"
+options="--produce_plots TRUE --clean_directory $clean_directory"
 
 mkdir -p $clean_directory
 mkdir -p $clean_directory/pdfs

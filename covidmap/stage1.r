@@ -2,7 +2,7 @@ library(optparse)
 library(gsubfn)
 library(plyr)
 source("dataprocessing/read_data.r")
-source("mapping/utils.r")
+source("covidmap/utils.r")
 source("epimap/epiclean.r")
 
 rstan_options(auto_write = FALSE)
@@ -12,10 +12,10 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = "2020-06-01",
-  last_day_modelled  = NULL,
+  first_day_modelled = "2020-08-01",
+  last_day_modelled  = "2020-10-31",
   weeks_modelled     = NULL,
-  days_ignored         = 7,
+  days_ignored       = NULL,
   days_per_step      = 7,
   num_steps_forecasted = ceiling(21/days_per_step),
 
@@ -29,6 +29,63 @@ covidmap_stage1_options = function(
 ) {
   as.list(environment())
 }
+
+covidmap_stage1_plots = function(area,Count,fit,directory,Tcond,Tstep,Nstep,Nsample) {
+  Tcur = Tcond + Tstep*Nstep
+  ####################################################################
+  # pairs plot
+  pdf(paste(directory,"/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
+  pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
+  dev.off()
+
+  Crecon_sample <- extract(fit, pars = "Crecon", permuted = FALSE)
+  Clatent_sample <- extract(fit, pars = "Xt", permuted = FALSE)
+  numsamples = dim(Crecon_sample)[1]
+  skip <- numsamples / Nsample
+  Clatent_sample <- Clatent_sample[seq(from=skip, by = skip, length.out = Nsample), , ]
+  Crecon_sample <- Crecon_sample[seq(from=skip, by = skip, length.out = Nsample), , ]
+  dim(Clatent_sample) <- c(Nsample, Tcur)
+  Clatent_sample <- t(Clatent_sample)
+  Crecon_sample <- t(Crecon_sample)
+  dim(Clatent_sample) <- c(Tcur, Nsample)
+  dim(Crecon_sample) <- c(Tcur, Nsample)
+ 
+  pdf(paste(directory,"/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
+  par(mfrow = c(5, 2))
+  par(oma = c(0, 0, 0, 0))
+  par(mar = c(1, 1, 1, 1))
+  ClatentCI <- summary(fit, pars = "Xt", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+  ind <- (Tcond + 1):Tcur
+  ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
+
+
+  for (i in 1:Nsample) {
+    plot(t(Count), pch = 20, ylim = c(0, max(Count[, ind])))
+    for (j in 1:3) {
+      lines(ind, ClatentCI[ind, j])
+    }
+    points(ind, Clatent_sample[ind, i], col = "red", pch = 20)
+  }
+  dev.off()
+
+  pdf(paste(directory,"/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
+  par(mfrow = c(5, 2))
+  par(oma = c(0, 0, 0, 0))
+  par(mar = c(1, 1, 1, 1))
+  CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+  ind <- (Tcur - Nstep * Tstep + 1):Tcur
+  CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
+ 
+  for (i in 1:Nsample) {
+    plot(t(Count), pch = 20, ylim = c(0, max(Count[ind])))
+    for (j in 1:3) {
+      lines(ind, CreconCI[ind, j])
+    }
+    points(ind, Crecon_sample[ind, i], col = "red", pch = "x")
+  }
+  dev.off()
+}
+
 
 covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) {
   if (area_index==0) {
@@ -64,7 +121,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
 
   start_time <- Sys.time()
   fit = epiclean(
-    Count = Count[area,],
+    Count = Count,
     Tcond = Tcond,
     Nstep = Nstep,
     Nproj = opt$num_steps_forecasted,
@@ -80,7 +137,6 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   )
   end_time <- Sys.time()
   
-  print(paste("Time to run: ",end_time - start_time))
  
   dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
   saveRDS(fit$stanfit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
@@ -88,10 +144,35 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   #################################################################
   # Summary of fit
   print(summary(fit$stanfit, 
-    pars=c("mu","sigma","alpha","gp_time_length_scale","phi_latent","phi_observed","xi","Noutliers","meandelay","resultdelayprofile","Rt"),
+    pars=c(
+      "mu",
+      "sigma",
+      "alpha",
+      "gp_time_length_scale",
+      "phi_latent",
+      "phi_observed",
+      "xi",
+      "Noutliers",
+      "meandelay",
+      "resultdelayprofile",
+      "Rt"
+    ),
     probs=c(0.5)
   )$summary)
-  fit
+
+  message(paste(
+    "Time to run:",
+    round(difftime(end_time, start_time, units="hours"),3),
+    "hours")
+  )
+
+  if (opt$produce_plots) {
+    covidmap_stage1_plots(
+      area,Count,fit$stanfit,paste(opt$clean_directory,"/pdfs",sep=""),
+      Tcond,Tstep,Nstep,Nsample
+    )
+  }
+  return(invisible(fit))
 }
 
 
@@ -164,45 +245,6 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
       Rt_percentiles[area_index,,p] = area_rt[1:Nstep,str_percentiles[p]]
     }
 
-    if (opt$produce_plots) {
-      ####################################################################
-      # pairs plot
-      pdf(paste(opt$clean_directory,"/pdfs/pairs-", area, ".pdf", sep = ""), width = 9, height = 9)
-      pairs(fit, pars = c("mu", "sigma", "alpha", "phi_latent", "phi_observed"))
-      dev.off()
-  
-      pdf(paste(opt$clean_directory,"/pdfs/Clatent-", area, ".pdf", sep = ""), width = 9, height = 9)
-      par(mfrow = c(5, 2))
-      par(oma = c(0, 0, 0, 0))
-      par(mar = c(1, 1, 1, 1))
-      ClatentCI <- summary(fit, pars = "Clatent", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcond + 1):Tcur
-      ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
-      for (i in 1:Nsample) {
-        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-        for (j in 1:3) {
-          lines(ind, ClatentCI[ind, j])
-        }
-        points(ind, Clatent_sample[area_index, ind, i], col = "red", pch = 20)
-      }
-      dev.off()
-    
-      pdf(paste(opt$clean_directory,"/pdfs/Crecon-", area, ".pdf", sep = ""), width = 9, height = 9)
-      par(mfrow = c(5, 2))
-      par(oma = c(0, 0, 0, 0))
-      par(mar = c(1, 1, 1, 1))
-      CreconCI <- summary(fit, pars = "Crecon", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
-      ind <- (Tcur - Nstep * Tstep + 1):Tcur
-      CreconCI <- CreconCI[, c("2.5%", "50%", "97.5%")]
-      for (i in 1:Nsample) {
-        plot(t(Count[area, ]), pch = 20, ylim = c(0, max(Count[area, ind])))
-        for (j in 1:3) {
-          lines(ind, CreconCI[ind, j])
-        }
-        points(ind, Crecon_sample[area_index, ind, i], col = "red", pch = "x")
-      }
-      dev.off()
-    }
   }
   
   days <- colnames(Count)
@@ -255,10 +297,10 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       help="Number of samples to output."
     ),
     make_option(
-      c("--iterations"),
+      c("--num_iterations"),
       type="integer",
-      default=opt$iterations,
-      help=paste("Number of MCMC iterations, default",opt$iterations)
+      default=opt$num_iterations,
+      help=paste("Number of MCMC iterations, default",opt$num_iterations)
     ),
     make_option(
       c("--first_day_modelled"),

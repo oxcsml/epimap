@@ -184,6 +184,7 @@ data {
   int<lower=1> Tall;        // number of all days in case count time series
   int<lower=1> Tcur;       // number of days we will condition on
   int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
+  int<lower=1> Mignore;           // number of time steps to ignore
   int<lower=0> Mproj;           // number of time steps
   int<lower=0> Tproj;       // number of days to forecast
   int<lower=0> Tpred;
@@ -247,6 +248,9 @@ transformed data {
   int Count_lik_reduced[Mstep,N];
   int Clean_recon_lik_reduced[Mstep,N];
   matrix[Mstep,N] Clean_latent_lik_reduced;
+
+  matrix[N,N] fixed_L_space;
+  matrix[Mstep,Mstep] fixed_L_time;
 
   int NONE_KERNEL = 1;
   int EXP_QUAD_KERNEL = 2;
@@ -340,6 +344,26 @@ transformed data {
     convlikflux_reduced = in_compute_flux(convlik_reduced,fluxt);
     //convpredflux = in_compute_flux(convpred,fluxt);
   }
+
+  if (fixed_gp_space_length_scale > 0.0 &&
+      fixed_gp_time_length_scale > 0.0) {
+    matrix[N,N] fixed_K_space;
+    matrix[Mstep,Mstep] fixed_K_time;
+
+    // GP space kernel
+    fixed_K_space = kernel(SPATIAL_KERNEL,geodist, 1.0, fixed_gp_space_length_scale,
+        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+
+    // GP time kernel
+
+    fixed_K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, fixed_gp_time_length_scale,
+        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+    fixed_K_time  = fixed_K_time .* timecorcut;  // Zero out uncorrelated time entries
+
+    fixed_L_space = cholesky_decompose(fixed_K_space);
+    fixed_L_time = cholesky_decompose(fixed_K_time)';
+  }
+
 }
 
 parameters {
@@ -351,11 +375,14 @@ parameters {
   real<lower=0.0> local_scale;
   real<lower=0.0> global_sigma;
 
-  vector[N*Mstep] eta_in;
-  vector[N*Mstep] eta_out;
+  row_vector[Mstep] global_eta_in;
+  row_vector[Mstep] global_eta_out;
 
-  vector[N*Mstep] epsilon_in;
-  vector[N*Mstep] epsilon_out;
+  vector[N*Mstep] gp_eta_in;
+  vector[N*Mstep] gp_eta_out;
+
+  vector[N*Mstep] local_eta_in;
+  vector[N*Mstep] local_eta_out;
 
   real<lower=0.0> dispersion;
   // real<lower=0> Ravg;
@@ -366,18 +393,19 @@ parameters {
 transformed parameters {
   matrix[N, Mstep] Rin;                 // instantaneous reproduction number
   matrix[N, Mstep] Rout;                 // instantaneous reproduction number
-  matrix[N, Mstep] local_sigma;
   row_vector[F1] fluxproportions[Mstep];
   matrix[N,1] convlikout_reduced[Mstep];
   matrix[N,Tstep] convlikout[Mstep];
   real gp_space_length_scale;
   real gp_time_length_scale;
-  {
+  matrix[N,N] L_space;
+  matrix[Mstep,Mstep] L_time;
+
+  if (fixed_gp_space_length_scale <= 0.0 ||
+      fixed_gp_time_length_scale <= 0.0) {
     matrix[N,N] K_space;
     matrix[Mstep,Mstep] K_time;
-    matrix[N,N] L_space;
-    matrix[Mstep,Mstep] L_time;
-    real global_sigma2 = square(global_sigma);
+    //real global_sigma2 = square(global_sigma);
 
     if (fixed_gp_space_length_scale<=0.0) {
       gp_space_length_scale = - gp_space_scale / log(1.0-gp_space_decay);
@@ -391,13 +419,10 @@ transformed parameters {
     }
  
     // GP space kernel
-    K_space = kernel(SPATIAL_KERNEL,geodist, gp_sigma, gp_space_length_scale,
+    K_space = kernel(SPATIAL_KERNEL,geodist, 1.0, gp_space_length_scale,
         NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
-    if (GLOBAL_KERNEL) 
-      K_space = K_space + global_sigma2; // Add global noise
-
-//print("K_space");
-//print(K_space);
+    //if (GLOBAL_KERNEL) 
+    //  K_space = K_space + global_sigma2; // Add global noise
 
     // GP time kernel
 
@@ -405,37 +430,58 @@ transformed parameters {
         NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
     K_time  = K_time .* timecorcut;  // Zero out uncorrelated time entries
 
-//print("K_time");
-//print(K_time);
-
     L_space = cholesky_decompose(K_space);
-    L_time = cholesky_decompose(K_time);
+    L_time = cholesky_decompose(K_time)';
+  } else {
+    gp_space_length_scale = fixed_gp_space_length_scale;
+    gp_time_length_scale  = fixed_gp_time_length_scale;
+    L_space = fixed_L_space;
+    L_time  = fixed_L_time;
+  }
 
+  {
+    matrix[N, Mstep] global_effect_in;
+    matrix[N, Mstep] global_effect_out;
+    matrix[N, Mstep] local_effect_in;
+    matrix[N, Mstep] local_effect_out;
     // Noise kernel (reshaped from (N*Mstep, N*Mstep) to (N,Mstep) since diagonal)
-    if (LOCAL_KERNEL) {
-      for (m in 1:Mstep) {
-        for (n in 1:N) {
-          local_sigma[n, m] = sqrt((2.0 * square(local_scale)) * local_exp[n, m]);
-        }
+    if (GLOBAL_KERNEL) {
+      global_effect_in = rep_matrix(global_sigma * global_eta_in * L_time, N);
+      if (DO_METAPOP && DO_IN_OUT) {
+        global_effect_out = rep_matrix(global_sigma * global_eta_out * L_time, N);
+      } else {
+        global_effect_out = rep_matrix(0.0,N,Mstep);
       }
     } else {
-      local_sigma = rep_matrix(0.0,N,Mstep);
+      global_effect_in = rep_matrix(0.0,N,Mstep);
+      global_effect_out = rep_matrix(0.0,N,Mstep);
+    }
+    if (LOCAL_KERNEL) {
+      matrix[N, Mstep] local_sigma = sqrt((2.0 * square(local_scale)) * local_exp);
+      local_effect_in = local_sigma .* to_matrix(local_eta_in, N, Mstep);
+      if (DO_METAPOP && DO_IN_OUT) {
+        local_effect_out = local_sigma .* to_matrix(local_eta_out, N, Mstep);
+      } else {
+        local_effect_out = rep_matrix(0.0,N,Mstep);
+      }
+    } else {
+      local_effect_in = rep_matrix(0.0,N,Mstep);
+      local_effect_out = rep_matrix(0.0,N,Mstep);
     }
     
-//print("local_sigma");
-//print(local_sigma);
-
     // Compute (K_time (*) K_space) * eta via efficient kronecker trick. 
     // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
     Rin = exp(
-        (L_space * to_matrix(eta_in, N, Mstep) * L_time') + 
-        (local_sigma .* to_matrix(epsilon_in, N, Mstep))
+      (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep) * L_time) 
+      + global_effect_in 
+      + local_effect_in
     );
     if (DO_METAPOP && DO_IN_OUT) {
       Rout = exp(
-          (L_space * to_matrix(eta_out, N, Mstep) * L_time') + 
-          (local_sigma .* to_matrix(epsilon_out, N, Mstep))
+        (gp_sigma * L_space * to_matrix(gp_eta_out, N, Mstep) * L_time) 
+        + global_effect_out 
+        + local_effect_out
       );
     } else {
       Rout = rep_matrix(1.0,N,Mstep);
@@ -469,23 +515,23 @@ model {
   dispersion ~ normal(0.0,5.0);
 
   // GP prior density
-  eta_in ~ std_normal();
-  eta_out ~ std_normal();
-  epsilon_in ~ std_normal();
-  epsilon_out ~ std_normal();
+  gp_eta_in ~ std_normal();
+  gp_eta_out ~ std_normal();
+  local_eta_in ~ std_normal();
+  local_eta_out ~ std_normal();
+  global_eta_in ~ std_normal();
+  global_eta_out ~ std_normal();
 
 
   gp_space_decay ~ normal(0.0,gp_space_decay_scale);
   gp_time_decay ~ normal(0.0,gp_time_decay_scale);
-  gp_sigma ~ normal(0.0, 0.25);
-  global_sigma ~  normal(0.0, 0.25);
-  local_scale ~ normal(0.0, 0.1);
-  for (j in 1:Mstep){
-    for (i in 1:N) {
+  gp_sigma ~ normal(0.0, 0.5);
+  global_sigma ~  normal(0.0, 0.5);
+  local_scale ~ normal(0.0, 0.2);
+  for (j in 1:Mstep)
+    for (i in 1:N) 
       local_exp[i, j] ~ exponential(1.0);
-      // local_sigma2[i, j] ~ exponential(0.5 / square(local_scale)); // reparameterised
-    }
-  }
+  
 
   // compute likelihoods
   if (OBSERVATION_DATA == INFECTION_REPORTS) {
@@ -496,11 +542,12 @@ model {
     for (s in 1:Tlik) {
       int t = Tcond+s;
       vector[N] Ereport = Einfect[,t-Tdp+1:t] * delayprofile_rev;
-      for (j in 1:N)
+      for (j in 1:N) {
         Count[j,t] ~ neg_binomial_2(
               Ereport[j],
               Ereport[j] / dispersion
         ); 
+      }
     }
   } else if (OBSERVATION_DATA == COUNTS) {
     if (OBSERVATION_MODEL == POISSON) {
@@ -531,23 +578,27 @@ model {
     }
   } else if (OBSERVATION_DATA == CLEANED_LATENT) {
     if (OBSERVATION_MODEL == GAUSSIAN) {
-      for (k in 1:Mstep) 
+      for (k in 1:Mstep-Mignore) 
         for (j in 1:N) 
           for (i in 1:Tstep) {
             real Xlatent = Clean_latent[j,Tcond+i+(k-1)*Tstep];
             real Elatent = convlikout[k,j,i];
-            vector[2] loglik;
-            loglik[1] = normal_lpdf( Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-            loglik[2] = normal_lpdf( -Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-            target += log_sum_exp(loglik);
-            // below code may be faster?
-            //real Dlatent = Xlatent - Elatent;
-            //real Vlatent = (1.0+dispersion)*Elatent;
-            //target += log(1.0+exp(-Xlatent/(1.0+dispersion))) -.5 * (
-            //  log(Vlatent) + 
-            //  Dlatent*Dlatent/Vlatent
-            //);
-              
+            real loglik1;
+            real loglik2;
+            if (0) {
+              vector[2] loglik;
+              loglik[1] = normal_lpdf( Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+              loglik[2] = normal_lpdf( -Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+              loglik1 = log_sum_exp(loglik);
+            }
+            if (1) { // below code may be faster?
+              loglik2 = log(1.0+exp(-2.0*Xlatent/(1.0+dispersion))) +
+                normal_lpdf(Xlatent|Elatent,sqrt((1.0+dispersion)*Elatent));
+            }
+            //if (fabs(loglik1-loglik2)>1e-10)
+            //  print(fabs(loglik1-loglik2));
+            target += loglik2;
+
           }
           // Clean_latent_lik_reduced[k,j] ~ normal(
           //     convlikout_reduced[k,j,1], 
@@ -595,17 +646,6 @@ generated quantities {
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Tproj] Cproj; 
-
-  { // print stats
-    if (uniform_rng(0.0,1.0)<0.05) {
-      print(
-        "space ", gp_space_length_scale,
-        "; time ", gp_time_length_scale,
-        "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
-        "; dispersion ",dispersion
-      );
-    }
-  }
 
   // Estimated Rt and Rt for each and all areas
   {
@@ -776,6 +816,19 @@ generated quantities {
     }
 
   } 
+
+  { // print stats
+    if (uniform_rng(0.0,1.0)<0.1) {
+      print(
+        "space ", gp_space_length_scale,
+        "; time ", gp_time_length_scale,
+        "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
+        "; dispersion ",dispersion,
+        "; last Rt ", Rt_all[Mstep-1], ", ", Rt_all[Mstep]
+      );
+    }
+  }
+
 
 }
 

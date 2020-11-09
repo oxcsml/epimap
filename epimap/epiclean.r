@@ -22,11 +22,11 @@ library(plyr)
 #' @param resultdelayalpha Parameters of Dirichlet prior of delay distribution between getting tested and resulted being reported
 #' @param gp_time_scale Length scale of AR1 process; default 14
 #' @param gp_time_decay_scale Decay scale of AR1 process; default .1
-#' @param fixed_gp_time_length_scale If specified, fixes AR1 length scale as specified
+#' @param fixed_gp_time_length_scale If specified, fixes AR1 length scale as specified; not specified by default
 #' @param mu_scale Scale of prior on the prior mean of log(Rt)
 #' @param sigma_scale Scale of prior on the prior standard deviation of log(Rt)
-#' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process
-#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts
+#' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process; default 5.0
+#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts; default 5.0
 #' @param xi_scale Scale of prior on exegeneous infection rate
 #' @param reconstruct_infections Whether to reconstruct infection day for each case; default True
 #' @param outlier_prob_threshold Probability hreshold to determine if a diagnosis count is an outlier; default 1.0
@@ -53,14 +53,14 @@ epiclean = function(
   gp_time_decay_scale = .1,
   fixed_gp_time_length_scale = -1.0,
   mu_scale = 0.5,
-  sigma_scale = 0.5,
+  sigma_scale = 1.0,
   phi_latent_scale = 5.0,
   phi_observed_scale = 5.0,
   xi_scale = 0.01,
   outlier_prob_threshold = 1.0,
   outlier_count_threshold = 10,
   reconstruct_infections = TRUE,
-  num_iterations = 3000,
+  num_iterations = 4000,
   num_chains = 1,
   percentiles = c(.025,.25,.5,.75,.975)
 ) {

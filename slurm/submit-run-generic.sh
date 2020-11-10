@@ -26,7 +26,7 @@ sbatch --wait \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
-    --mem-per-cpu=20G \
+    --mem-per-cpu=10G \
     --array=1-10 \
     --wrap \
     "Rscript mapping/run.r $options \
@@ -43,7 +43,7 @@ sbatch --wait \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
-    --mem-per-cpu=100G \
+    --mem-per-cpu=10G \
     --wrap \
     "Rscript mapping/merge_results.r $options && echo merge: DONE"
 

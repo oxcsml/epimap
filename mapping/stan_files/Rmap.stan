@@ -452,7 +452,6 @@ transformed parameters {
 }
 
 model {
-  coupling_rate ~ normal(0.0, .1);
   flux_probs ~ dirichlet(ones);
   dispersion ~ normal(0.0,5.0);
 

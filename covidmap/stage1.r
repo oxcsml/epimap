@@ -25,7 +25,11 @@ covidmap_stage1_options = function(
 
   data_directory     = "data/",
   clean_directory    = "fits/clean",
-  produce_plots      = FALSE
+  produce_plots      = FALSE,
+  stage              = "clean",
+
+  limit_area         = NULL,
+  limit_radius       = NULL
 ) {
   as.list(environment())
 }
@@ -370,6 +374,20 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       type="logical", 
       default=opt$produce_plots, 
       help=paste("Whether to produce plots; default",opt$produce_plots)
+    ),
+
+    make_option(
+      c("--limit_area"), 
+      type="character", 
+      default=opt$limit_area, 
+      help=paste("If not NULL, center the radius of regions on this region",opt$limit_area)
+    ),
+
+    make_option(
+      c("--limit_radius"), 
+      type="double", 
+      default=opt$limit_radius, 
+      help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
     )
 
   )

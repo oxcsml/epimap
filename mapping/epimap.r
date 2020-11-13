@@ -36,7 +36,12 @@ Rmap_options = function(
 
   data_directory       = "data/",
   clean_directory      = "fits/clean", 
-  results_directory    = NULL
+  results_directory    = NULL,
+
+  limit_area           = NULL,
+  limit_radius         = NULL,
+
+  stage                = "map"
 ) {
   as.list(environment())
 }
@@ -55,25 +60,6 @@ Rmap_setup = function(opt = Rmap_options()) {
 
     options(mc.cores = min(numchains,parallel::detectCores()))
     rstan_options(auto_write = TRUE)
-
-
-    #########################################################
-    if (opt$cleaned_sample_id>0 && (
-        opt$observation_data == 'cleaned_latent_sample' ||
-        opt$observation_data == 'cleaned_recon_sample' ||
-        opt$observation_data == 'latent_reports')) {
-      sample_id = opt$cleaned_sample_id
-      Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''), 
-        row.names=1)
-      Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
-        row.names=1)
-      message(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else {
-      # placeholder if not using cleaned data
-      sample_id = 'mean'
-      Clean_latent <- readclean('Clatent_mean', row.names=1)
-      Clean_recon <- readclean('Crecon_median', row.names=1)
-    }
 
     #########################################################
     list[Mstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
@@ -269,7 +255,6 @@ Rmap_run = function(env) {
       Tstep = Tstep,
       Mignore = opt$steps_ignored_stage2,
       Mproj = Mproj,
-      Tproj = Tproj,
       Tpred = Tpred,
 
       Count = AllCount,
@@ -285,8 +270,9 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      coupling_mu_scale = 0.5,
-      coupling_sigma_scale = 0.5,
+      coupling_mu_loc = -2.19,
+      coupling_mu_scale = 1.5, # set mean of process to be 0.1, 1 std = 0.024-0.33
+      coupling_sigma_scale = 1.5,
       coupling_alpha_scale = 1-exp(-Tstep/14),
       
       SPATIAL_KERNEL = SPATIAL_KERNEL,
@@ -551,13 +537,13 @@ Rmap_postprocess = function(env) {
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
-    ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-    Cweekly <- cbind(Cweekly,ignoredweek)
+    # ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+    # Cweekly <- cbind(Cweekly,ignoredweek)
 
     s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
     projectedweeks <- as.matrix(s[,"50%"])
     dim(projectedweeks) <- c(Tstep,Mproj,N)
-    projectedweeks <- projectedweeks[,2:Mproj,,drop=FALSE]
+    projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
     projectedweeks <- apply(projectedweeks,c(2,3),sum)
     projectedweeks <- t(projectedweeks)
     Cweekly <- cbind(Cweekly,projectedweeks)
@@ -743,14 +729,14 @@ Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
-ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-Cweekly <- cbind(Cweekly,ignoredweek)
+# ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+# Cweekly <- cbind(Cweekly,ignoredweek)
 
 projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
     probs=c(.5)
 ))
 dim(projectedweeks) <- c(Tstep,Mproj,N)
-projectedweeks <- projectedweeks[,2:Mproj,,drop=FALSE]
+projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
 projectedweeks <- apply(projectedweeks,c(2,3),sum)
 projectedweeks <- t(projectedweeks)
 Cweekly <- cbind(Cweekly,projectedweeks)
@@ -965,6 +951,18 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       type="integer",
       default=0,
       help="Task ID for Slurm usage. By default, turned off [0]."
+    ),
+    make_option(
+      c("--limit_area"), 
+      type="character", 
+      default=opt$limit_area, 
+      help=paste("If not NULL, center the radius of regions on this region",opt$limit_area)
+    ),
+    make_option(
+      c("--limit_radius"), 
+      type="double", 
+      default=opt$limit_radius, 
+      help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
     )
   ) 
 }

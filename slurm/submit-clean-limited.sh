@@ -12,7 +12,7 @@ fi
 clean_directory=$1
 echo "clean_directory = $clean_directory"
 
-options="--weeks_modelled 15 --produce_plots TRUE --clean_directory $clean_directory"
+options="--weeks_modelled 15 --produce_plots TRUE --clean_directory $clean_directory --limit_area Oxford --limit_radius 0.8"
 
 mkdir -p $clean_directory
 mkdir -p $clean_directory/pdfs
@@ -33,7 +33,7 @@ sbatch --wait \
     --time=18:00:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
-    --array=1-348 \
+    --array=1-64 \
     --wrap \
     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
 wait

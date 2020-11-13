@@ -290,11 +290,11 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     projections = projections.loc[
         ~projections.index.duplicated(keep='first')]
 
-    return reproduction_numbers.sort_index(), \
-           exceedance_probs.sort_index(), \
-           weekly.sort_index(), \
-           predictions.sort_index(), \
-           projections.sort_index()
+    return reproduction_numbers.sort_index().dropna(), \
+           exceedance_probs.sort_index().dropna(), \
+           weekly.sort_index().dropna(), \
+           predictions.sort_index().dropna(), \
+           projections.sort_index().dropna()
 
 
 if __name__ == '__main__':

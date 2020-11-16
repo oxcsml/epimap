@@ -2,7 +2,7 @@ library(rstan)
 library(geosphere)
 library(optparse)
 source('dataprocessing/read_data.r')
-source('mapping/utils.r')
+source('covidmap/utils.r')
 
 Rmap_options = function(
   spatialkernel        = "matern12",
@@ -15,18 +15,20 @@ Rmap_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = -1.0,
   fixed_gp_time_length_scale = -1.0,
-  metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
+  metapop              = "traffic_forward,traffic_reverse,uniform,in",
+  #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
   cleaned_sample_id    = 0,
 
-  first_day_modelled   = "2020-06-01",
-  weeks_modelled       = NULL,
+  first_day_modelled   = "2020-08-01",
   last_day_modelled    = NULL,
+  weeks_modelled       = NULL,
   days_ignored         = 7,
   days_per_step        = 7,
   days_predicted       = 2,
-  num_steps_forecasted = 3,
+  steps_ignored_stage2 = 0,
+  num_steps_forecasted = 4,
 
   thinning             = 1,
   chains               = 1,
@@ -259,6 +261,7 @@ Rmap_run = function(env) {
       Tall = Tall,
       Tcur = Tcur,
       Tstep = Tstep,
+      Mignore = opt$steps_ignored_stage2,
       Mproj = Mproj,
       Tproj = Tproj,
       Tpred = Tpred,
@@ -313,9 +316,16 @@ Rmap_run = function(env) {
         lapply(1:N, function(j) {
           l = j+(k-1)*N;
           setval('local_exp', 1.0, j, k);
-          lapply(c('eta_in','eta_out','epsilon_in','epsilon_out'), function(par) {
-            setval(par, rnorm(1,0,1) , l)
-          })
+          lapply(
+            c(
+              'gp_eta_in','gp_eta_out',
+              'global_eta_in','global_eta_out',
+              'local_eta_in','local_eta_out'
+            ), 
+            function(par) {
+              setval(par, rnorm(1,0,1) , l)
+            }
+          )
         })
         setval('coupling_rate',.01, k);
       })
@@ -347,28 +357,15 @@ Rmap_run = function(env) {
     )
 
     #########################################################
-    if (opt$fixed_gp_space_length_scale <= 0.0 ||
-        opt$fixed_gp_time_length_scale <= 0.0) {
-      fit <- stan(
-        file = 'mapping/stan_files/Rmap.stan',
-        data = Rmap_data,
-        init = Rmap_init,
-        pars = Rmap_pars,
-        iter = numiters,
-        chains = numchains,
-        control = list(adapt_delta = .9)
-      )
-    } else {
-      fit <- stan(
-        file = 'mapping/stan_files/Rmap-fixedlengthscale.stan',
-        data = Rmap_data,
-        init = Rmap_init,
-        pars = Rmap_pars,
-        iter = numiters,
-        chains = numchains,
-        control = list(adapt_delta = .9)
-      )
-    }
+    fit <- stan(
+      file = 'mapping/stan_files/Rmap.stan',
+      data = Rmap_data, 
+      init = Rmap_init,
+      pars = Rmap_pars,
+      iter = numiters, 
+      chains = numchains,
+      control = list(adapt_delta = .9)
+    )
 
     #########################################################
     saveRDS(fit, paste(runname,'stanfit.rds', sep=''))
@@ -393,8 +390,11 @@ Rmap_run = function(env) {
 
     #########################################################
     end_time <- Sys.time()
-    message("Time to run")
-    message(end_time - start_time)
+    message(paste(
+      "Time to run:",
+      round(difftime(end_time, start_time, units="hours"),3),
+      "hours")
+    )
     message(runname)
 
     #########################################################
@@ -739,6 +739,8 @@ Cproj_samples = load_samples('Cproj')
 Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
+
+stopifnot(Tcur+Tstep<=length(AllCount))
 
 ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
 Cweekly <- cbind(Cweekly,ignoredweek)

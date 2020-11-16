@@ -200,6 +200,8 @@ data {
   int F;
   matrix[N,N] flux[F];      // fluxes for radiation metapopulation model
 
+  int<lower=1> N_region;               // number of regions
+  matrix[N,N_region] sparse_region; 
 
   matrix[N,N] geodist;      // distance between locations
   matrix[Mstep,Mstep] timedist;     // distance between time samples
@@ -592,9 +594,12 @@ model {
 generated quantities {
   real Rt_all[Mstep];
   vector[N] Rt[Mstep];
+  vector[N_region] Rt_region[Mstep];
+
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Tproj] Cproj; 
+  matrix[N_region,Tproj] Cproj_region;
 
   { // print stats
     if (uniform_rng(0.0,1.0)<0.05) {
@@ -616,6 +621,10 @@ generated quantities {
     for (m in 1:Mstep) {
       Rt_all[m] = sum(convlikout_reduced[m]) / sum(convone_reduced[m]);
       Rt[m] = (convlikout_reduced[m] * oneT) ./ (convone_reduced[m] * oneT);
+      for (n in 1:N_region) {
+        matrix[N,1] region_slice = block(sparse_region, 1, n, N, 1);
+        Rt_region[m,n] = sum(convlikout_reduced[m] .* region_slice) / sum(convone_reduced[m] .* region_slice);
+      }
     }
   }
   
@@ -760,6 +769,8 @@ generated quantities {
         for (t in Tcur+1:Tcur+Tproj) {
           int i = t-Tcur;
           Cproj[,i] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+          for (n in 1:N_region)
+            Cproj_region[n,i] = sum(Cproj[,i] .* sparse_region[,n]);
         }
       }
       // predictive probability of future counts 

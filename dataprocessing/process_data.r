@@ -30,6 +30,10 @@ meta_areas <- metadata$AREA
 longitudes <- metadata$LONG
 latitudes <- metadata$LAT
 
+nhs_regions <- metadata$NHS_Region 
+nhs_regions_unique <- nhs_regions[!duplicated(nhs_regions)]
+nhs_regions_to_areas <- matrix(0, N, 9)
+
 for (i in 1:N) {
   area <- areas[i]
   j <- grep(sprintf('^%s$',area), meta_areas)
@@ -43,6 +47,9 @@ for (i in 1:N) {
     geoloc[i, 1] = longitudes[j[l]]
     geoloc[i, 2] = latitudes[j[l]]
     population[i] = metadata$POPULATION[j[l]]
+
+    nhs_row = (nhs_regions_unique == nhs_regions[i])
+    nhs_regions_to_areas[i,] = nhs_row
   } else {
     print(sprintf("Cannot find area '%s'",area))
     for (r in 1:length(meta_areas)) {
@@ -61,10 +68,14 @@ write.csv(
     area=quoted_areas, 
     longitude=geoloc[,1], 
     latitude=geoloc[,2], 
-    population=population
+    population=population,
+    nhs_region=nhs_regions_to_areas
   ),'data/areas.csv',row.names=FALSE,quote=FALSE)
 
-
+write.csv(
+  data.frame(
+    nhs_region=nhs_regions_unique
+  ),'data/nhs_regions.csv',row.names=FALSE,quote=FALSE)
 
 #########################################################################
 

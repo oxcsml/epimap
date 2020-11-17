@@ -6,8 +6,8 @@ limit_data_by_distance <- function(env,area,distance) {
   env$geoloc <- env$geoloc[ind,]
   env$geodist <- env$geodist[ind,ind]
   env$AllCount <- env$AllCount[ind,]
-  # env$Clean_latent <- env$Clean_latent[ind,]
-  # env$Clean_recon <- env$Clean_recon[ind,]
+  env$Clean_latent <- env$Clean_latent[ind,]
+  env$Clean_recon <- env$Clean_recon[ind,]
   env$radiation_flux <- env$radiation_flux[ind,ind,]
   env$traffic_flux <- env$traffic_flux[ind,ind,]
   for (i in 1:env$N) {

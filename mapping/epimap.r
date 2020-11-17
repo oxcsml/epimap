@@ -270,10 +270,10 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      coupling_mu_loc = -2.19,
-      coupling_mu_scale = 1.5, # set mean of process to be 0.1, 1 std = 0.024-0.33
-      coupling_sigma_scale = 1.5,
-      coupling_alpha_scale = 1-exp(-Tstep/14),
+      coupling_mu_loc = -2.19, # centre at .1
+      coupling_mu_scale = 0.25, # set mean of process to be 0.1, 1 std = 0.024-0.33
+      coupling_sigma_scale = 0.25,
+      coupling_alpha_scale = 1-exp(-Tstep/28),
       
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,

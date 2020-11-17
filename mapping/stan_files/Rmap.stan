@@ -244,7 +244,8 @@ transformed data {
 
   // precompute convolutions between Counts and infprofile 
   matrix[N,Tstep] convlik[Mstep];      // for use in likelihood computation
-  matrix[N,Tforw] convforw[1];    // for use in forecasting into future 
+  // YW COMMENTED OUT
+  //matrix[N,Tforw] convforw[1];    // for use in forecasting into future 
 
   matrix[F1,N*N] fluxt;      // transposed flux matrices
   matrix[F1,N*Tstep] convlikflux[Mstep];
@@ -312,10 +313,11 @@ transformed data {
     //  int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
     //  convpred[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur-1+i], infprofile_rev[Tip-L+1:Tip])+1e-6;
     //}
-    for (i in 1:Tforw) {
-      int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
-      convforw[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
-    }
+    // YW COMMENTED OUT
+    //for (i in 1:Tforw) {
+    //  int L = min(Tip,Tcur+i-1); // length of infection profile that overlaps with case counts 
+    //  convforw[1,j,i] = dot_product(Creal[j,Tcur-L+i:Tcur], infprofile_rev[Tip-L+1:Tip-i+1])+1e-6;
+    //}
   }
 
   if (DO_METAPOP && !DO_IN_OUT) {
@@ -361,7 +363,7 @@ parameters {
   real<lower=0.0> dispersion;
   // real<lower=0> Ravg;
 
-  real coupling_mu; // prior mean for sigmoid^-1(coupling_rate) 
+  real coupling_mu_eta; // prior mean for sigmoid^-1(coupling_rate) 
   real<lower=0> coupling_sigma; // prior scale for sigmoid^-1(coupling_rate) 
   real<lower=0,upper=1> coupling_alpha1; // 1-autocorrelation for sigmoid^-1(coupling_rate) 
   vector[Mstep+Mforw] coupling_eta; // noise for sigmoid^-1(coupling_rate) 
@@ -378,7 +380,7 @@ transformed parameters {
   real gp_time_length_scale;
   matrix[N,N] L_space;
   matrix[Mstep+Mforw,Mstep+Mforw] L_time;
-  real coupling_alpha = 1-coupling_alpha1; // autocorrelation for sigmoid^-1(coupling_rate) 
+  real coupling_alpha = 1.0-coupling_alpha1; // autocorrelation for sigmoid^-1(coupling_rate) 
   real coupling_rate[Mstep+Mforw];
 
   { // AR1 process for sigmoid^-1(coupling_rate)
@@ -387,7 +389,11 @@ transformed parameters {
     Zt[1] += coupling_eta[1];
     for (i in 2:(Mstep+Mforw))
       Zt[i] += coupling_alpha * Zt[i-1] + delta * coupling_eta[i];
-    coupling_rate = to_array_1d(inv_logit(coupling_mu + coupling_sigma * Zt));
+    coupling_rate = to_array_1d(inv_logit(
+      coupling_mu_loc + 
+      coupling_mu_scale * coupling_mu_eta + 
+      coupling_sigma * Zt
+    ));
   }
 
   if (fixed_gp_space_length_scale <= 0.0) {
@@ -449,19 +455,59 @@ transformed parameters {
     }
 
     // TODO: seeing if zeroing the local/global effects helps
-    global_effect_in[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
-    global_effect_out[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
-    local_effect_in[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
-    local_effect_out[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
+    //global_effect_in[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
+    //global_effect_out[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
+    //local_effect_in[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
+    //local_effect_out[:, Mstep+1:Mstep+Mforw] = rep_matrix(0.0,N,Mforw);
     
     // Compute (K_time (*) K_space) * eta via efficient kronecker trick. 
     // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
-    Rin = exp(
-      (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
-      + global_effect_in 
-      + local_effect_in
-    );
+    { // AR1 process for GP temporal structure
+      real alpha = exp(-Tstep/gp_time_length_scale);
+      real delta = sqrt(1.0-alpha*alpha);
+      matrix[N,Mstep+Mforw] gp_eta = to_matrix(gp_eta_in,N,Mstep+Mforw);
+      matrix[N,Mstep+Mforw] gp_Zt;
+      row_vector[Mstep+Mforw] global_Zt;
+
+      gp_Zt[,1] = gp_eta[,1];
+      for (i in 2:(Mstep+Mforw))
+        gp_Zt[,i] = alpha * gp_Zt[,i-1] + delta * gp_eta[,i];
+
+      global_Zt[1] = global_eta_in[1];
+      for (i in 2:(Mstep+Mforw))
+        global_Zt[i] = alpha * global_Zt[i-1] + delta * global_eta_in[i];
+
+      Rin = exp(
+        // (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
+        // + global_effect_in 
+        (gp_sigma * L_space * gp_Zt) 
+        + rep_matrix(global_sigma * global_Zt, N)
+        + local_effect_in
+      );
+      if (0) {
+        print("Rin ", 
+          max(Rin[,Mstep-1]), ", ", 
+          max(Rin[,Mstep]), ", ", 
+          max(Rin[,Mstep+Mforw])
+        );
+        print("gp_Zt ", 
+          max(gp_Zt[,Mstep-1]), ", ", 
+          max(gp_Zt[,Mstep]), ", ", 
+          max(gp_Zt[,Mstep+Mforw])
+        );
+        print("global_Zt ", 
+          (global_Zt[Mstep-1]), ", ", 
+          (global_Zt[Mstep]), ", ", 
+          (global_Zt[Mstep+Mforw])
+        );
+        print("local_Zt ", 
+          max(local_effect_in[,Mstep-1]), ", ", 
+          max(local_effect_in[,Mstep]), ", ", 
+          max(local_effect_in[,Mstep+Mforw])
+        );
+      }
+    }
     if (DO_METAPOP && DO_IN_OUT) {
       Rout = exp(
         (gp_sigma * L_space * to_matrix(gp_eta_out, N, Mstep+Mforw) * L_time) 
@@ -534,13 +580,13 @@ model {
   gp_sigma ~ normal(0.0, 0.5);
   global_sigma ~  normal(0.0, 0.5);
   local_scale ~ normal(0.0, 0.2);
-  for (j in 1:Mstep)
+  for (j in 1:(Mstep+Mforw))
     for (i in 1:N) 
       local_exp[i, j] ~ exponential(1.0);
   
 
   
-  coupling_mu ~ normal(coupling_mu_loc, coupling_mu_scale);
+  coupling_mu_eta ~ std_normal();
   coupling_sigma ~ normal(0.0, coupling_sigma_scale);
   coupling_alpha1 ~ normal(0.0, coupling_alpha_scale);
   coupling_eta ~ std_normal();
@@ -676,17 +722,6 @@ generated quantities {
       convlik_forw[k] = convlik[k];
     }
 
-    { // print stats
-      if (uniform_rng(0.0,1.0)<1.0) {
-        print(
-          "space ", gp_space_length_scale,
-          "; time ", gp_time_length_scale,
-          "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
-          "; dispersion ",dispersion
-        );
-      }
-    }   
-
     // Forward simulate model and compute predictive probabilities
     if (Mforw > 0) {
       // Rollout stochasitc prediction of epidemic
@@ -705,17 +740,29 @@ generated quantities {
           for (t in 1:Tstep) {
             int i = (m-1) * Tstep + t;
             // Compute the infection pressure by adding on pressure from simulated counts
+            //print("forw_Rin ",max(forw_Rin[,m]));
+            //print("fluxproportions ",fluxproportions[m]);
             for (j in 1:N) 
-              convlik_forw[Mstep+m, j, t] = convforw[1,j,i] + 
-                  dot_product(Clatent[j,Tcur+1:Tcur+(i-1)], infprofile_rev[(Tip-i+2):Tip]);
+              convlik_forw[Mstep+m, j, t] = // convforw[1,j,i] + // YW EDITED
+                  dot_product(Clatent[j,Tcur+i-Tip:Tcur+i-1], infprofile_rev);
+            //print("convlik_forw ",max(convlik_forw[Mstep+m,,t]));
 
             // Compute flux
             if (DO_METAPOP && !DO_IN_OUT)
               convforwflux = in_compute_flux(convlik_forw[Mstep+m:Mstep+m, :, t:t],fluxt);
+            //print("convforwflux ",max(convforwflux[1,1,]));
 
             // Compute metapop effects
-            convlikout_forw[Mstep+m, :, t] = metapop(DO_METAPOP,DO_IN_OUT,
-                forw_Rin[,m:m],forw_Rout[,m:m],convlik_forw[Mstep+m:Mstep+m, :, t:t],convforwflux,fluxproportions[m:m],fluxt)[1,:,1];
+            convlikout_forw[Mstep+m, :, t] = metapop(
+              DO_METAPOP,DO_IN_OUT,
+              forw_Rin[,m:m],
+              forw_Rout[,m:m],
+              convlik_forw[Mstep+m:Mstep+m, :, t:t],
+              convforwflux,
+              fluxproportions[m:m], 
+              fluxt
+            )[1,:,1];
+            //print("convlikout_forw ",max(convlikout_forw[Mstep+m,,t]));
 
             // for (n in 1:N) {
             //   if (forw_Rin[n, m] > 10){
@@ -732,13 +779,22 @@ generated quantities {
             } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
               Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(convlikout_forw[Mstep+m, , t], convlikout_forw[Mstep+m, , t] / dispersion));
             } else if (OBSERVATION_MODEL == GAUSSIAN) {
-              Clatent[,Tcur+i] = to_vector(fabs(normal_rng(convlikout_forw[Mstep+m, , t], sqrt((1.0+dispersion)*convlikout_forw[Mstep+m, , t]))));
+              Clatent[,Tcur+i] = to_vector(fabs(
+                convlikout_forw[Mstep+m, , t] +
+                to_vector(normal_rng(rep_vector(0.0,N),rep_vector(1.0,N))) .*
+                sqrt((1.0+dispersion)*convlikout_forw[Mstep+m, , t])
+              ));
+              //print("Clatent ",Clatent[1,Tcur+i]);
             } else {
               reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
             }
           }
 
         }
+
+
+
+
         // Simulate observations based on the type data we are observing and compute predictive probabilities
         {
           // Cases where we only observe the latent epidemic
@@ -878,19 +934,20 @@ generated quantities {
 
   }
 
-  
-
-  { // print stats
-    if (uniform_rng(0.0,1.0)<0.1) {
-      print(
-        "space ", gp_space_length_scale,
-        "; time ", gp_time_length_scale,
-        "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
-        "; dispersion ",dispersion,
-        "; last Rt ", Rt_all[Mstep-1], ", ", Rt_all[Mstep]
-      );
+      { // print stats
+      if (uniform_rng(0.0,1.0)<1.0) {
+        print(
+          "space ", gp_space_length_scale,
+          "; time ", gp_time_length_scale,
+          "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
+          "; dispersion ",dispersion,
+          "; last Rt ", Rt_all[Mstep-1], ", ", Rt_all[Mstep], ", ", Rt_all[Mstep+Mforw],
+          "; last Rin ", Rin[1,Mstep-1], ", ", Rin[1,Mstep], ", ", Rin[1,Mstep+Mforw]
+        );
+      }
     }
-  }
+
+
 
 
 }

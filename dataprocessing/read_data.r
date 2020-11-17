@@ -59,12 +59,13 @@ Rmap_read_data = function(env) {
           row.names=1)
         Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
           row.names=1)
-        message(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
+        print(paste('Using samples from ',opt$clean_directory,'/Clatent_sample',sample_id,'.csv',sep=''))
       } else {
         # placeholder if not using cleaned data
         sample_id = 'mean'
         Clean_latent <- readclean('Clatent_mean', row.names=1)
         Clean_recon <- readclean('Crecon_median', row.names=1)
+        print(paste('Using samples from ',opt$clean_directory,'/Clatent_mean.csv',sep=''))
       }
     }
 

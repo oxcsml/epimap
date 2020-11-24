@@ -96,10 +96,86 @@ def apply_weekly(metric, sample):
     return [metric(s.predictions, s.truth) for s in sample.values()]
 
 
+def plot_all_areas(all_samples, metrics_dct):
+    """
+    Args:
+        all_samples (dict): dict area -> runs -> weeks -> sample
+        metrics_dct (dict): dict str -> func (the metric)
+    """
+    for area, sample_dct in tqdm(all_samples.items(), desc="Plotting all areas"):
+        fig, axarr = plt.subplots(
+            len(metrics_dct),
+            1,
+            figsize=(10, 3 * len(metrics_dct)),
+            constrained_layout=True,
+            sharex=True,
+        )
+        for ax, mname in zip(axarr, metrics_dct):
+            for run, samples in sample_dct.items():
+                ax.plot(
+                    list(samples.keys()),
+                    apply_weekly(metrics_dct[mname], samples),
+                    label=run,
+                )
+            ax.legend(fontsize=7, ncol=2)
+            ax.grid(alpha=0.25)
+            ax.set_ylabel(mname)
+
+        axarr[-1].set_xlabel("Weeks modelled from 1st June, 2020")
+        fig.suptitle(area)
+        yield fig
+        plt.close()
+
+
+def plot_aggregations(all_samples, metrics_dct):
+    """
+    Args:
+        all_samples (dict): dict runs -> area -> weeks -> sample
+        metrics_dct (dict): dict str -> func (the metric)
+    """
+    means = defaultdict(dict)
+    for run_name, sample_dct in tqdm(all_samples.items(), desc="Plotting aggregations"):
+        weeks = list(next(iter(sample_dct.values())).keys())
+        fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
+        for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
+            data = np.row_stack([apply_weekly(metric, s) for s in sample_dct.values()])
+            means[metric][run_name] = data.mean(0)
+            ax.violinplot(
+                np.log(data + 1), showmeans=True, showextrema=False, positions=weeks
+            )
+            ax.set_xticks(weeks)
+            ax.set_ylabel(f"log({mname} + 1)")
+            ax.grid(alpha=0.25)
+        ax.set_xlabel("Weeks modelled from 1st June, 2020")
+        fig.suptitle(f"{run_name}")
+        yield fig
+        plt.close()
+
+    fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
+    for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
+        for run_name, data in means[metric].items():
+            ax.plot(weeks, data, label=run_name)
+        ax.set_ylabel(f"log({mname} + 1)")
+        ax.grid(alpha=0.25)
+    ax.set_xlabel("Weeks modelled from 1st June, 2020")
+    axarr.flatten()[0].legend(loc="upper left", fontsize=7, ncol=2)
+    fig.suptitle(f"All runs")
+    yield fig
+    plt.close()
+
+
 if __name__ == "__main__":
     args = SimpleNamespace()
 
-    def cmd_args(uk_cases, backtests, output, pkl_load=None, pkl_dump=None):
+    def cmd_args(
+        uk_cases,
+        backtests,
+        output,
+        plot_all_areas=False,
+        plot_aggregations=True,
+        pkl_load=None,
+        pkl_dump=None,
+    ):
         """
         Args:
             uk_cases: path to uk_cases.csv
@@ -111,14 +187,14 @@ if __name__ == "__main__":
         args.outputs_dir = output
         args.pkl_load = pkl_load
         args.pkl_dump = pkl_dump
+        args.plot_all_areas = plot_all_areas
+        args.plot_aggregations = plot_aggregations
 
     fire.Fire(cmd_args)
 
-    uk_cases = load_uk_cases(args.uk_cases_pth)
-
-    # todo: just infer this from the files
+    # todo: just infer this from the filenames
     weeks = [4, 8, 12, 16]
-    backtest_dirs = [
+    run_names = [
         "latents_space_1_time_60",
         "latents_space_3_time_30",
         "latents_space_3_time_60",
@@ -135,8 +211,9 @@ if __name__ == "__main__":
         with open(args.pkl_load, "rb") as f:
             all_samples = pickle.load(f)
     else:
+        uk_cases = load_uk_cases(args.uk_cases_pth)
         all_samples = defaultdict(lambda: defaultdict(dict))
-        for folder, week in itertools.product(backtest_dirs, weeks):
+        for folder, week in itertools.product(run_names, weeks):
             projections = read_csv(
                 os.path.join(
                     args.backtests_dir,
@@ -157,29 +234,22 @@ if __name__ == "__main__":
         with open(args.pkl_dump, "wb") as f:
             pickle.dump(all_samples, f, pickle.HIGHEST_PROTOCOL)
 
-    m_dict = {"RMSE": rmse, "Rel RMSE": rel_rmse, "MAE": mae, "Rel MAE": rel_mae}
-    metrics = ["RMSE", "MAE"]  # "Rel RMSE", "Rel MAE"
+    metrics_dct = {"RMSE": rmse, "MAE": mae}  # "Rel RMSE", "Rel MAE"
 
-    deck = utils.PdfDeck()
-    for area, sample_dct in tqdm(all_samples.items(), desc="Plotting"):
-        fig, axarr = plt.subplots(
-            len(metrics),
-            1,
-            figsize=(10, 3 * len(metrics)),
-            constrained_layout=True,
-            sharex=True,
+    if args.plot_all_areas:
+        deck = utils.PdfDeck()
+        for fig in plot_all_areas(all_samples, metrics_dct):
+            deck.add_figure(fig)
+        print("Writing pdf...")
+        deck.make(os.path.join(args.outputs_dir, "backtest_evaluation_all_areas.pdf"))
+
+    if args.plot_aggregations:
+        all_samples = utils.swaplevel(all_samples)
+        deck = utils.PdfDeck()
+        for fig in plot_aggregations(all_samples, metrics_dct):
+            deck.add_figure(fig)
+        deck.figs.insert(0, deck.figs.pop(-1))  # put the aggregate one at the front
+        print("Writing pdf...")
+        deck.make(
+            os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf")
         )
-        for ax, metric in zip(axarr, metrics):
-            for run, samples in sample_dct.items():
-                ax.plot(
-                    weeks, apply_weekly(m_dict[metric], samples), label=run,
-                )
-            ax.legend(fontsize=7)
-            ax.set_ylabel(metric)
-
-        axarr[-1].set_xlabel("Weeks modelled from 1st June, 2020")
-        fig.suptitle(area)
-        deck.add_figure(fig)
-        plt.close()
-    print("Writing pdf...")
-    deck.make(os.path.join(args.outputs_dir, "backtest_evaluation.pdf"))

@@ -50,38 +50,22 @@ def group_samples(counts, preds, index, by, return_missing=False):
     return (all_samples, missing_from_predictions) if return_missing else all_samples
 
 
-def _rel(predictions, truth):
-    return predictions / (truth + 0.1 * np.std(truth) + 1e-2) - 1
-
-
 def rmse(predictions, truth):
     return np.sqrt(np.mean(np.power(predictions - truth, 2)))
-
-
-def std_err(predictions, truth):
-    return np.std(predictions - truth, ddof=1)
 
 
 def mae(predictions, truth):
     return np.mean(np.abs(predictions - truth))
 
 
-def mad_err(predictions, truth):
-    err = predictions - truth
-    return np.mean(np.abs(err - mae(predictions, truth)))
+def get_weekly_rmse(sample):
+    delta = np.power(sample.predictions - sample.truth, 2)
+    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean())
 
+def get_weekly_mae(sample):
+    delta = np.abs(sample.predictions - sample.truth, 2)
+    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean())
 
-def rel_mae(predictions, truth):
-    return np.mean(np.abs(_rel(predictions, truth)))
-
-
-def mad_rel_err(predictions, truth):
-    rel = _rel(predictions, truth)
-    return np.mean(np.abs(rel - rel_mae(predictions, truth)))
-
-
-def rel_rmse(predictions, truth):
-    return np.sqrt(np.mean(np.power(_rel(predictions, truth), 2)))
 
 
 def std_rel_err(predictions, truth):

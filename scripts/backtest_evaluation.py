@@ -271,7 +271,6 @@ if __name__ == "__main__":
         weekly_rmse = stack_table(utils.map_lowest(get_weekly_rmse, all_samples))
         weekly_mae = stack_table(utils.map_lowest(get_weekly_mae, all_samples))
 
-        import sys; sys.exit(0)
         def logmean_pretty(long_table):
             return (
                 np.log(long_table + 1)

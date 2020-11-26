@@ -141,9 +141,9 @@ def plot_aggregations(all_samples, metrics_dct):
         weeks = list(next(iter(sample_dct.values())).keys())
         fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
         for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
-            data = np.row_stack([apply_on_each(metric, s) for s in sample_dct.values()])
-            transdata = np.log(data + 1)
-            logmeans[metric][run_name] = transdata.mean(0)
+            # data = np.row_stack([apply_on_each(metric, s) for s in sample_dct.values()])
+            # transdata = np.log(data + 1)
+            # logmeans[metric][run_name] = transdata.mean(0)
             ax.violinplot(transdata, showmeans=True, showextrema=False, positions=weeks)
             ax.set_xticks(weeks)
             ax.set_ylabel(f"log({mname} + 1)")
@@ -219,6 +219,7 @@ if __name__ == "__main__":
         "reports_space_5_time_60",
     ]
 
+    # could thread...?
     if args.pkl_load is not None:
         with open(args.pkl_load, "rb") as f:
             all_samples = pickle.load(f)
@@ -235,36 +236,17 @@ if __name__ == "__main__":
                 )
             )
 
-            all_samples[folder][week] = group_samples(
-                counts=uk_cases, preds=projections, index="date", by="area"
-            )
+            all_samples[folder][week] = Sample(
+                    percentiles=projections,
+                    truth=uk_cases,
+                    pred_key="c_50"
+                )
 
-        all_samples = utils.swaplevel(
-            {k: utils.swaplevel(v) for k, v in all_samples.items()}
-        )
     if args.pkl_dump is not None:
         with open(args.pkl_dump, "wb") as f:
             pickle.dump(all_samples, f, pickle.HIGHEST_PROTOCOL)
 
-    metrics_dct = {"RMSE": rmse, "MAE": mae}  # "Rel RMSE", "Rel MAE"
-
-    if args.plot_all_areas:
-        deck = utils.PdfDeck()
-        for fig in plot_all_areas(all_samples, metrics_dct):
-            deck.add_figure(fig)
-        print("Writing pdf...")
-        deck.make(os.path.join(args.outputs_dir, "backtest_evaluation_all_areas.pdf"))
-
-    if args.plot_aggregations:
-        all_samples = utils.swaplevel(all_samples)
-        deck = utils.PdfDeck()
-        for fig in plot_aggregations(all_samples, metrics_dct):
-            deck.add_figure(fig)
-        deck.figs.insert(0, deck.figs.pop(-1))  # put the aggregate one at the front
-        print("Writing pdf...")
-        deck.make(
-            os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf")
-        )
+    metrics_dct = {"RMSE": rmse, "MAE": mae}
 
     if args.table:
         print("Making table...")
@@ -279,9 +261,11 @@ if __name__ == "__main__":
                 .unstack(level=-1)
                 .rename(columns=lambda x: f"W{x+1}")
             )
-
-        out_table = pd.concat(
-            {"RMSE": logmean_pretty(weekly_rmse), "MAE": logmean_pretty(weekly_mae)}, axis=1
-        )
-        out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))
-    
+    deck = utils.PdfDeck()
+    for fig in plot_aggregations(all_samples, metrics_dct):
+        deck.add_figure(fig)
+    deck.figs.insert(0, deck.figs.pop(-1))  # put the aggregate one at the front
+    print("Writing pdf...")
+    deck.make(
+        os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf")
+    )

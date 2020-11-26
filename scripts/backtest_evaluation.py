@@ -261,11 +261,8 @@ if __name__ == "__main__":
                 .unstack(level=-1)
                 .rename(columns=lambda x: f"W{x+1}")
             )
-    deck = utils.PdfDeck()
-    for fig in plot_aggregations(all_samples, metrics_dct):
-        deck.add_figure(fig)
-    deck.figs.insert(0, deck.figs.pop(-1))  # put the aggregate one at the front
-    print("Writing pdf...")
-    deck.make(
-        os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf")
-    )
+        out_table = pd.concat(
+            {"RMSE": logmean_pretty(weekly_rmse), "MAE": logmean_pretty(weekly_mae)}, axis=1
+        )
+        out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))
+

@@ -247,6 +247,7 @@ Rmap_run = function(env) {
 
     #########################################################
     # Main computation
+    print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
     Rmap_data <- list(
       N = N, 
       Mstep = Mstep,

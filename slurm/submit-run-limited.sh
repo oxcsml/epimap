@@ -16,7 +16,7 @@ options="\
     --observation_model gaussian \
     --clean_directory $clean_directory \
     --limit_area Oxford \
-    --limit_radius 0.8 \
+    --limit_radius 1.0 \
     --fixed_gp_space_length_scale 3 \
     --fixed_gp_time_length_scale 21 \
     --days_predicted 3 \

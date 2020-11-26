@@ -28,16 +28,14 @@ def load_uk_cases(pth):
 
 
 class Sample:
-    def __init__(self, percentiles, truth, pred_key="c_50", slicer=None):
+    def __init__(self, percentiles, truth, pred_key="c_50"):
         self._dates = pd.Index.intersection(percentiles.index, truth.index)
-        if slicer is not None:
-            self._dates = self._dates[slicer]
         self.percentiles = percentiles.reindex(index=self._dates)
         self.predictions = self.percentiles[pred_key]
         self.truth = truth.reindex(index=self._dates)
 
 
-def group_samples(counts, preds, index, by, return_missing=False, slicer=None):
+def group_samples(counts, preds, index, by, return_missing=False):
     grouped_preds = preds.set_index(index).groupby(by)
     all_samples = dict()
     missing_from_predictions = list()
@@ -48,9 +46,7 @@ def group_samples(counts, preds, index, by, return_missing=False, slicer=None):
             missing_from_predictions.append(area)
             continue
         else:
-            all_samples[area] = Sample(
-                pred.drop([by], axis=1), counts[area].squeeze(), slicer=slicer,
-            )
+            all_samples[area] = Sample(pred.drop([by], axis=1), counts[area].squeeze(),)
     return (all_samples, missing_from_predictions) if return_missing else all_samples
 
 

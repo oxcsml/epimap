@@ -3,6 +3,13 @@ import os
 from matplotlib.backends.backend_pdf import PdfPages
 
 
+def map_lowest(func, dct):
+    return {
+        k: map_lowest(func, v) if isinstance(v, dict) else func(v)
+        for k, v in dct.items()
+    }
+
+
 def swaplevel(dct_of_dct):
     keys = next(iter(dct_of_dct.values())).keys()
     return {in_k: {out_k: v[in_k] for out_k, v in dct_of_dct.items()} for in_k in keys}

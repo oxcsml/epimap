@@ -1,5 +1,6 @@
 from collections import defaultdict
 import itertools
+from functools import partial
 import os
 import pickle
 from types import SimpleNamespace
@@ -11,6 +12,19 @@ import pandas as pd
 from tqdm import tqdm
 
 import utils
+
+"""
+Note: 
+    Rather than making one sample per area, it would be better to just 
+    make one sample per run and take areas out for plotting...
+
+
+    If we use this code again we can make that change.
+    It would just mean replacing the call to group samples with
+    Sample(predictions=predictions, truth=uk_cases, ...)
+
+    The script will run a _lot_ faster like this!
+"""
 
 
 def read_csv(pth):
@@ -25,6 +39,19 @@ def load_uk_cases(pth):
     uk_cases.index.name = "date"
     uk_cases.columns.name = None
     return uk_cases
+
+
+def stack_table(dct, axis=0, stack_func=None):
+    "recursively concat dict of dict of ... of dataframes"
+    stacker = stack_func or partial(pd.concat, axis=axis)
+    return stacker(
+        {
+            k: stack_table(v)
+            if isinstance(next(iter(v.values())), dict)
+            else stacker(v)
+            for k, v in dct.items()
+        }
+    )
 
 
 class Sample:
@@ -60,20 +87,16 @@ def mae(predictions, truth):
 
 def get_weekly_rmse(sample):
     delta = np.power(sample.predictions - sample.truth, 2)
-    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean())
+    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean()).reset_index(drop=True)
+
 
 def get_weekly_mae(sample):
-    delta = np.abs(sample.predictions - sample.truth, 2)
-    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean())
+    delta = np.abs(sample.predictions - sample.truth)
+    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean()).reset_index(drop=True)
 
 
-
-def std_rel_err(predictions, truth):
-    return np.std(_rel(predictions, truth), ddof=1)
-
-
-def apply_weekly(metric, sample):
-    return [metric(s.predictions, s.truth) for s in sample.values()]
+def apply_on_each(metric, samples):
+    return [metric(s.predictions, s.truth) for s in samples.values()]
 
 
 def plot_all_areas(all_samples, metrics_dct):
@@ -94,7 +117,7 @@ def plot_all_areas(all_samples, metrics_dct):
             for run, samples in sample_dct.items():
                 ax.plot(
                     list(samples.keys()),
-                    apply_weekly(metrics_dct[mname], samples),
+                    apply_on_each(metrics_dct[mname], samples),
                     label=run,
                 )
             ax.legend(fontsize=7, ncol=2)
@@ -113,16 +136,15 @@ def plot_aggregations(all_samples, metrics_dct):
         all_samples (dict): dict runs -> area -> weeks -> sample
         metrics_dct (dict): dict str -> func (the metric)
     """
-    means = defaultdict(dict)
+    logmeans = defaultdict(dict)
     for run_name, sample_dct in tqdm(all_samples.items(), desc="Plotting aggregations"):
         weeks = list(next(iter(sample_dct.values())).keys())
         fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
         for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
-            data = np.row_stack([apply_weekly(metric, s) for s in sample_dct.values()])
-            means[metric][run_name] = data.mean(0)
-            ax.violinplot(
-                np.log(data + 1), showmeans=True, showextrema=False, positions=weeks
-            )
+            data = np.row_stack([apply_on_each(metric, s) for s in sample_dct.values()])
+            transdata = np.log(data + 1)
+            logmeans[metric][run_name] = transdata.mean(0)
+            ax.violinplot(transdata, showmeans=True, showextrema=False, positions=weeks)
             ax.set_xticks(weeks)
             ax.set_ylabel(f"log({mname} + 1)")
             ax.grid(alpha=0.25)
@@ -133,8 +155,16 @@ def plot_aggregations(all_samples, metrics_dct):
 
     fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
     for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
-        for run_name, data in means[metric].items():
-            ax.plot(weeks, data, label=run_name)
+        c1 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+        c2 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
+        for run_name, data in logmeans[metric].items():
+            style = (
+                dict(marker="s", color=next(c1), ls="-")
+                if run_name.startswith("latent")
+                else dict(marker="^", color=next(c2), ls=":")
+            )
+            ax.plot(weeks, data, label=run_name, **style)
+            ax.set_xticks(weeks)
         ax.set_ylabel(f"log({mname} + 1)")
         ax.grid(alpha=0.25)
     ax.set_xlabel("Weeks modelled from 1st June, 2020")
@@ -153,6 +183,7 @@ if __name__ == "__main__":
         output,
         plot_all_areas=False,
         plot_aggregations=True,
+        table=True,
         pkl_load=None,
         pkl_dump=None,
     ):
@@ -165,6 +196,7 @@ if __name__ == "__main__":
         args.uk_cases_pth = uk_cases
         args.backtests_dir = backtests
         args.outputs_dir = output
+        args.table = table
         args.pkl_load = pkl_load
         args.pkl_dump = pkl_dump
         args.plot_all_areas = plot_all_areas
@@ -233,3 +265,24 @@ if __name__ == "__main__":
         deck.make(
             os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf")
         )
+
+    if args.table:
+        print("Making table...")
+        weekly_rmse = stack_table(utils.map_lowest(get_weekly_rmse, all_samples))
+        weekly_mae = stack_table(utils.map_lowest(get_weekly_mae, all_samples))
+
+        import sys; sys.exit(0)
+        def logmean_pretty(long_table):
+            return (
+                np.log(long_table + 1)
+                .unstack(level=1)
+                .mean(axis=1)
+                .unstack(level=-1)
+                .rename(columns=lambda x: f"W{x+1}")
+            )
+
+        out_table = pd.concat(
+            {"RMSE": logmean_pretty(weekly_rmse), "MAE": logmean_pretty(weekly_mae)}, axis=1
+        )
+        out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))
+    

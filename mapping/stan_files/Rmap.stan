@@ -464,25 +464,27 @@ transformed parameters {
     // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
     { // AR1 process for GP temporal structure
-      real alpha = exp(-Tstep/gp_time_length_scale);
-      real delta = sqrt(1.0-alpha*alpha);
-      matrix[N,Mstep+Mforw] gp_eta = to_matrix(gp_eta_in,N,Mstep+Mforw);
-      matrix[N,Mstep+Mforw] gp_Zt;
-      row_vector[Mstep+Mforw] global_Zt;
-
-      gp_Zt[,1] = gp_eta[,1];
-      for (i in 2:(Mstep+Mforw))
-        gp_Zt[,i] = alpha * gp_Zt[,i-1] + delta * gp_eta[,i];
-
-      global_Zt[1] = global_eta_in[1];
-      for (i in 2:(Mstep+Mforw))
-        global_Zt[i] = alpha * global_Zt[i-1] + delta * global_eta_in[i];
+      if (0) {
+        real alpha = exp(-Tstep/gp_time_length_scale);
+        real delta = sqrt(1.0-alpha*alpha);
+        matrix[N,Mstep+Mforw] gp_eta = to_matrix(gp_eta_in,N,Mstep+Mforw);
+        matrix[N,Mstep+Mforw] gp_Zt;
+        row_vector[Mstep+Mforw] global_Zt;
+  
+        gp_Zt[,1] = gp_eta[,1];
+        for (i in 2:(Mstep+Mforw))
+          gp_Zt[,i] = alpha * gp_Zt[,i-1] + delta * gp_eta[,i];
+  
+        global_Zt[1] = global_eta_in[1];
+        for (i in 2:(Mstep+Mforw))
+          global_Zt[i] = alpha * global_Zt[i-1] + delta * global_eta_in[i];
+      }
 
       Rin = exp(
-        // (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
-        // + global_effect_in 
-        (gp_sigma * L_space * gp_Zt) 
-        + rep_matrix(global_sigma * global_Zt, N)
+        (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
+        + global_effect_in 
+        //(gp_sigma * L_space * gp_Zt) 
+        //+ rep_matrix(global_sigma * global_Zt, N)
         + local_effect_in
       );
       if (0) {
@@ -643,18 +645,18 @@ model {
           for (i in 1:Tstep) {
             real Xlatent = Clean_latent[j,Tcond+i+(k-1)*Tstep];
             real Elatent = convlikout[k,j,i];
-            real loglik1;
+            //real loglik1;
             real loglik2;
-            if (0) {
-              vector[2] loglik;
-              loglik[1] = normal_lpdf( Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-              loglik[2] = normal_lpdf( -Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
-              loglik1 = log_sum_exp(loglik);
-            }
-            if (1) { // below code may be faster?
+            //if (0) {
+            //  vector[2] loglik;
+            //  loglik[1] = normal_lpdf( Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+            //  loglik[2] = normal_lpdf( -Xlatent | Elatent, sqrt((1.0+dispersion)*Elatent) );
+            //  loglik1 = log_sum_exp(loglik);
+            //}
+            //if (1) { // below code may be faster?
               loglik2 = log(1.0+exp(-2.0*Xlatent/(1.0+dispersion))) +
                 normal_lpdf(Xlatent|Elatent,sqrt((1.0+dispersion)*Elatent));
-            }
+            //}
             //if (fabs(loglik1-loglik2)>1e-10)
             //  print(fabs(loglik1-loglik2));
             target += loglik2;

@@ -659,7 +659,8 @@ Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
 
-Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:(Mstep+Mproj)),each=Tstep)),]
+Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
+#Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
     quoted_areas, 
     days_all,

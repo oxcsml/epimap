@@ -613,12 +613,13 @@ function ready(data) {
         .domain(pExceedColorDomain);
 
     minCases = 1;
-    maxCases = MAX_CASES; // d3.max(nextWeekCaseProjPer100k.values().map(r=>r.caseProjMedian));
-    maxColorCases = d3.max(nextWeekCaseProjPer100k.values().map(r=>parseFloat(r.caseProjMedian)));
-    const logScale = d3.scaleLog().domain([minCases, maxCases]);
-    const caseLogScale = d3.scaleLog().domain([minCases, maxColorCases]).range([margin.left, margin.left + barWidth]);
-    const caseColorScale = d3.scaleSequential(v => d3.interpolateOrRd(logScale(v+1)));
-
+	maxCases = 400;
+    maxColorCases = 400;
+		
+	const caseColorDomain = [0, 100, maxCases];	
+	const caseColorScale = d3.scaleDiverging(t => d3.interpolateViridis(1 - t))
+        .domain(caseColorDomain);
+	
     const rtAxisScale = d3.scaleLinear()
         .range([margin.left, margin.left + barWidth])
         .domain(colorDomain);
@@ -637,8 +638,8 @@ function ready(data) {
         .tickSize(-barHeight);
 
     const caseAxisFn = () => d3.axisBottom(caseAxisScale)
-        .tickValues(logScale.ticks(2))
-        .tickFormat(d => d)
+        .tickValues(caseColorScale.ticks())
+        .tickFormat(caseColorScale.tickFormat())
         .tickSize(-barHeight);
 
     const pexceedAxisFn = () => d3.axisBottom(pExceedAxisScale)
@@ -751,11 +752,11 @@ function ready(data) {
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
 
-    caseGradient.selectAll("stop")
-        .data(logScale.ticks().map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
+    caseGradient.selectAll("stop")       
+		.data([1, 10, 50, 100, 200, 400].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
-        .attr("stop-color", d => d.color);
+        .attr("stop-color", d => d.color);		
 
     pExceedGradient.selectAll("stop")
         .data([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: pExceedColorScale(t) })))
@@ -838,7 +839,11 @@ function ready(data) {
         if (showRt.classed("active") || showPExceed.classed("active")) {
             map.attr("fill", caseFillFn(selectedDate));
             legend.style("fill", "url(#case-gradient)");
-            legendBar.call(d3.axisLeft(caseLogScale).tickFormat(d3.format(",.0f")));
+            legendBar.call(d3.axisLeft(
+                d3.scaleLinear()
+                    .range([margin.left, margin.left + barWidth])
+                    .domain([caseColorDomain[0], caseColorDomain[2]]))
+            );
             axisBottom.call(caseAxisFn)
                 .selectAll("text")
                 .attr("transform", "translate(-5, 15) rotate(-90)");

@@ -777,7 +777,7 @@ generated quantities {
             if (OBSERVATION_MODEL == POISSON) {
               Clatent[,Tcur+i] = to_vector(poisson_rng(convlikout_forw[Mstep+m, , t]));
             } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
-              Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(convlikout_forw[Mstep+m, , t], 1 / dispersion));
+              Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(convlikout_forw[Mstep+m, , t], 1.0 / dispersion));
             } else if (OBSERVATION_MODEL == NEG_BINOMIAL_3) {
               Clatent[,Tcur+i] = to_vector(neg_binomial_2_rng(convlikout_forw[Mstep+m, , t], convlikout_forw[Mstep+m, , t] / dispersion));
             } else if (OBSERVATION_MODEL == GAUSSIAN) {

@@ -39,10 +39,12 @@ Welcome to the UK Local Covid Map.
 This interactive map visualises the historical 
 and predicted future developments of the Covid-19 epidemic
 across local authorities in the UK.
-We hope it may be of use in informing policy makers, 
-health protection teams and the public, 
-with regards to the current and future states of the epidemic.
+You'll see statistical estimates for time-varying regional R numbers from case data.
 
+Note that no one knows the *exact R*, and we have to estimate it from data we do have.
+Different models to estimate R may therefore give slightly different estimates. Do also look at the larger regional estimates by the
+[MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/) 
+and the [CMMID] (https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
 <p>
 <div class="map-container">
@@ -52,6 +54,9 @@ with regards to the current and future states of the epidemic.
 </p>
 
 <!-- This text is below the map. -->
+In the map, we write "Rt" instead of just "R". The "t" indicates "time". We do it because the number is not constant but can go up or down over time.
+The map's future projections are made with the assumption that Rt stays fixed in the future.
+
 Definitions for terms in the map: 
 *   **Case** is an infected individual who has tested positive on the given date, 
 under either Pillar 1 or Pillar 2 of the UK's testing strategy.

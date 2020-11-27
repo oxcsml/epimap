@@ -1,6 +1,8 @@
+from functools import partial
 import os
 
 from matplotlib.backends.backend_pdf import PdfPages
+import pandas as pd
 
 
 def map_lowest(func, dct):
@@ -13,6 +15,19 @@ def map_lowest(func, dct):
 def swaplevel(dct_of_dct):
     keys = next(iter(dct_of_dct.values())).keys()
     return {in_k: {out_k: v[in_k] for out_k, v in dct_of_dct.items()} for in_k in keys}
+
+
+def stack_table(dct, axis=0, stack_func=None):
+    "recursively concat dict of dict of ... of dataframes"
+    stacker = stack_func or partial(pd.concat, axis=axis)
+    return stacker(
+        {
+            k: stack_table(v)
+            if isinstance(next(iter(v.values())), dict)
+            else stacker(v)
+            for k, v in dct.items()
+        }
+    )
 
 
 class PdfDeck:

@@ -1,9 +1,8 @@
 from collections import defaultdict
 import itertools
-from functools import partial
 import os
-import pickle
 from types import SimpleNamespace
+import re
 
 import fire
 import matplotlib.pyplot as plt
@@ -13,18 +12,12 @@ from tqdm import tqdm
 
 import utils
 
-"""
-Note: 
-    Rather than making one sample per area, it would be better to just 
-    make one sample per run and take areas out for plotting...
 
-
-    If we use this code again we can make that change.
-    It would just mean replacing the call to group samples with
-    Sample(predictions=predictions, truth=uk_cases, ...)
-
-    The script will run a _lot_ faster like this!
-"""
+def nicename(run_name):
+    name, hps = run_name.split("_", maxsplit=1)
+    space = re.search("space_([0-9]*)", hps).group(1)
+    time = re.search("time_([0-9]*)", hps).group(1)
+    return f"{name[0].upper()}({space},{time})"
 
 
 def read_csv(pth):
@@ -41,93 +34,51 @@ def load_uk_cases(pth):
     return uk_cases
 
 
-def stack_table(dct, axis=0, stack_func=None):
-    "recursively concat dict of dict of ... of dataframes"
-    stacker = stack_func or partial(pd.concat, axis=axis)
-    return stacker(
-        {
-            k: stack_table(v)
-            if isinstance(next(iter(v.values())), dict)
-            else stacker(v)
-            for k, v in dct.items()
-        }
-    )
+def align_dates_areas(projections, truth):
+    dates = truth.index.intersection(projections.date.unique())
+    areas = projections.area.unique()
+    return projections.reindex(index=dates), truth[areas].reindex(index=dates)
 
 
 class Sample:
     def __init__(self, percentiles, truth, pred_key="c_50"):
         self._dates = pd.Index.intersection(percentiles.index, truth.index)
         self.percentiles = percentiles.reindex(index=self._dates)
-        self.predictions = self.percentiles[pred_key]
+        self.predictions = self._get_predictions(self.percentiles, pred_key)
         self.truth = truth.reindex(index=self._dates)
 
-
-def group_samples(counts, preds, index, by, return_missing=False):
-    grouped_preds = preds.set_index(index).groupby(by)
-    all_samples = dict()
-    missing_from_predictions = list()
-    for area in counts.columns:
-        try:
-            pred = grouped_preds.get_group(area)
-        except KeyError:
-            missing_from_predictions.append(area)
-            continue
-        else:
-            all_samples[area] = Sample(pred.drop([by], axis=1), counts[area].squeeze(),)
-    return (all_samples, missing_from_predictions) if return_missing else all_samples
-
-
-def rmse(predictions, truth):
-    return np.sqrt(np.mean(np.power(predictions - truth, 2)))
-
-
-def mae(predictions, truth):
-    return np.mean(np.abs(predictions - truth))
-
-
-def get_weekly_rmse(sample):
-    delta = np.power(sample.predictions - sample.truth, 2)
-    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean()).reset_index(drop=True)
-
-
-def get_weekly_mae(sample):
-    delta = np.abs(sample.predictions - sample.truth)
-    return np.sqrt(delta.groupby(pd.Grouper(freq="1W")).mean()).reset_index(drop=True)
-
-
-def apply_on_each(metric, samples):
-    return [metric(s.predictions, s.truth) for s in samples.values()]
-
-
-def plot_all_areas(all_samples, metrics_dct):
-    """
-    Args:
-        all_samples (dict): dict area -> runs -> weeks -> sample
-        metrics_dct (dict): dict str -> func (the metric)
-    """
-    for area, sample_dct in tqdm(all_samples.items(), desc="Plotting all areas"):
-        fig, axarr = plt.subplots(
-            len(metrics_dct),
-            1,
-            figsize=(10, 3 * len(metrics_dct)),
-            constrained_layout=True,
-            sharex=True,
+    @staticmethod
+    def _get_predictions(percentiles, pred_key):
+        return (
+            projections.reset_index().set_index(["date", "area"])[pred_key].unstack(-1)
         )
-        for ax, mname in zip(axarr, metrics_dct):
-            for run, samples in sample_dct.items():
-                ax.plot(
-                    list(samples.keys()),
-                    apply_on_each(metrics_dct[mname], samples),
-                    label=run,
-                )
-            ax.legend(fontsize=7, ncol=2)
-            ax.grid(alpha=0.25)
-            ax.set_ylabel(mname)
 
-        axarr[-1].set_xlabel("Weeks modelled from 1st June, 2020")
-        fig.suptitle(area)
-        yield fig
-        plt.close()
+    @property
+    def delta(self):
+        return self.predictions - self.truth
+
+    def logmean_rmse(self, weekly=False):
+        return self._logmean_stat(
+            err=np.power(self.delta, 2), weekly=weekly, pipefunc=np.sqrt
+        )
+
+    def logmean_mae(self, weekly=False):
+        return self._logmean_stat(
+            err=np.abs(self.delta), weekly=weekly, pipefunc=lambda x: x
+        )
+
+    def _logmean_stat(self, err, weekly, pipefunc):
+        stat = (
+            err.groupby(pd.Grouper(freq="1W"))
+            .mean()
+            .pipe(pipefunc)
+            .reset_index(drop=True)
+            .rename(index=lambda x: f"W{x+1}")
+            .transpose()
+            if weekly
+            else err.mean(0)
+        )
+        return np.log(stat + 1)
 
 
 def plot_aggregations(all_samples, metrics_dct):
@@ -136,39 +87,41 @@ def plot_aggregations(all_samples, metrics_dct):
         all_samples (dict): dict runs -> area -> weeks -> sample
         metrics_dct (dict): dict str -> func (the metric)
     """
-    logmeans = defaultdict(dict)
-    for run_name, sample_dct in tqdm(all_samples.items(), desc="Plotting aggregations"):
-        weeks = list(next(iter(sample_dct.values())).keys())
+    means = defaultdict(dict)
+    for lookback, sample_dct in tqdm(all_samples.items(), desc="Plotting aggregations"):
         fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
         for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
-            # data = np.row_stack([apply_on_each(metric, s) for s in sample_dct.values()])
-            # transdata = np.log(data + 1)
-            # logmeans[metric][run_name] = transdata.mean(0)
-            ax.violinplot(transdata, showmeans=True, showextrema=False, positions=weeks)
-            ax.set_xticks(weeks)
+            data = pd.concat(utils.map_lowest(metric, sample_dct), axis=1)
+            ax.violinplot(data.T, showmeans=True, showextrema=False)
+            ax.set_xticks(np.arange(data.columns.shape[0]) + 1)
+            ax.set_xticklabels(data.columns, fontsize=7)
             ax.set_ylabel(f"log({mname} + 1)")
             ax.grid(alpha=0.25)
+            means[mname][lookback] = data.mean(0)
         ax.set_xlabel("Weeks modelled from 1st June, 2020")
-        fig.suptitle(f"{run_name}")
+        fig.suptitle(f"History: {lookback} weeks")
         yield fig
         plt.close()
+    means = {mname: pd.concat(v, axis=1).T for mname, v in means.items()}
 
-    fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
-    for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
+    fig, axarr = plt.subplots(len(means), 1, constrained_layout=True)
+    for ax, (mname, df) in zip(axarr.flatten(), means.items()):
         c1 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
         c2 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
-        for run_name, data in logmeans[metric].items():
+        for run_name, srs in df.items():
             style = (
                 dict(marker="s", color=next(c1), ls="-")
-                if run_name.startswith("latent")
+                if run_name.lower().startswith("l")
                 else dict(marker="^", color=next(c2), ls=":")
             )
-            ax.plot(weeks, data, label=run_name, **style)
-            ax.set_xticks(weeks)
+            ax.plot(srs.index, srs, label=run_name, **style)
+        ax.set_xticks(weeks)
         ax.set_ylabel(f"log({mname} + 1)")
         ax.grid(alpha=0.25)
     ax.set_xlabel("Weeks modelled from 1st June, 2020")
-    axarr.flatten()[0].legend(loc="upper left", fontsize=7, ncol=2)
+    axarr.flatten()[0].legend(
+        loc="upper left", fontsize=7, ncol=2, title="Lookback History (weeks)"
+    )
     fig.suptitle(f"All runs")
     yield fig
     plt.close()
@@ -177,16 +130,7 @@ def plot_aggregations(all_samples, metrics_dct):
 if __name__ == "__main__":
     args = SimpleNamespace()
 
-    def cmd_args(
-        uk_cases,
-        backtests,
-        output,
-        plot_all_areas=False,
-        plot_aggregations=True,
-        table=True,
-        pkl_load=None,
-        pkl_dump=None,
-    ):
+    def cmd_args(uk_cases, backtests, output):
         """
         Args:
             uk_cases: path to uk_cases.csv
@@ -196,11 +140,6 @@ if __name__ == "__main__":
         args.uk_cases_pth = uk_cases
         args.backtests_dir = backtests
         args.outputs_dir = output
-        args.table = table
-        args.pkl_load = pkl_load
-        args.pkl_dump = pkl_dump
-        args.plot_all_areas = plot_all_areas
-        args.plot_aggregations = plot_aggregations
 
     fire.Fire(cmd_args)
 
@@ -219,50 +158,47 @@ if __name__ == "__main__":
         "reports_space_5_time_60",
     ]
 
-    # could thread...?
-    if args.pkl_load is not None:
-        with open(args.pkl_load, "rb") as f:
-            all_samples = pickle.load(f)
-    else:
-        uk_cases = load_uk_cases(args.uk_cases_pth)
-        all_samples = defaultdict(lambda: defaultdict(dict))
-        for folder, week in itertools.product(run_names, weeks):
-            projections = read_csv(
-                os.path.join(
-                    args.backtests_dir,
-                    folder,
-                    f"map_start_2020-06-01_weeks_{week}",
-                    "merged_Cproj.csv",
-                )
+    uk_cases = load_uk_cases(args.uk_cases_pth)
+    all_samples = defaultdict(dict)
+    for folder, week in itertools.product(run_names, weeks):
+        projections = read_csv(
+            os.path.join(
+                args.backtests_dir,
+                folder,
+                f"map_start_2020-06-01_weeks_{week}",
+                "merged_Cproj.csv",
             )
-
-            all_samples[folder][week] = Sample(
-                    percentiles=projections,
-                    truth=uk_cases,
-                    pred_key="c_50"
-                )
-
-    if args.pkl_dump is not None:
-        with open(args.pkl_dump, "wb") as f:
-            pickle.dump(all_samples, f, pickle.HIGHEST_PROTOCOL)
-
-    metrics_dct = {"RMSE": rmse, "MAE": mae}
-
-    if args.table:
-        print("Making table...")
-        weekly_rmse = stack_table(utils.map_lowest(get_weekly_rmse, all_samples))
-        weekly_mae = stack_table(utils.map_lowest(get_weekly_mae, all_samples))
-
-        def logmean_pretty(long_table):
-            return (
-                np.log(long_table + 1)
-                .unstack(level=1)
-                .mean(axis=1)
-                .unstack(level=-1)
-                .rename(columns=lambda x: f"W{x+1}")
-            )
-        out_table = pd.concat(
-            {"RMSE": logmean_pretty(weekly_rmse), "MAE": logmean_pretty(weekly_mae)}, axis=1
         )
-        out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))
 
+        all_samples[week][nicename(folder)] = Sample(
+            *align_dates_areas(projections, uk_cases), pred_key="c_50"
+        )
+
+    metrics_dct = {
+        "RMSE": lambda x: x.logmean_rmse(weekly=False),
+        "MAE": lambda x: x.logmean_mae(weekly=False),
+    }
+
+    deck = utils.PdfDeck()
+    for fig in plot_aggregations(all_samples, metrics_dct):
+        deck.add_figure(fig)
+    deck.figs.insert(0, deck.figs.pop(-1))  # put the average over areas one at the front
+    print("Writing pdf...")
+    deck.make(os.path.join(args.outputs_dir, "backtest_evaluation_aggregations.pdf"))
+
+    print("Making table...")
+    weekly_rmse = utils.map_lowest(
+        lambda x: x.logmean_rmse(weekly=True).mean(0), all_samples
+    )
+    weekly_mae = utils.map_lowest(
+        lambda x: x.logmean_mae(weekly=True).mean(0), all_samples
+    )
+
+    out_table = pd.concat(
+        {
+            "RMSE": utils.stack_table(weekly_rmse).unstack(-1),
+            "MAE": utils.stack_table(weekly_mae).unstack(-1),
+        },
+        axis=1,
+    ).rename_axis(index=["lookback", "counts(time,space)"])
+    out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))

@@ -44,7 +44,7 @@ You'll see statistical estimates for time-varying regional R numbers from case d
 Note that no one knows the *exact R*, and we have to estimate it from data we do have.
 Different models to estimate R may therefore give slightly different estimates. Do also look at the larger regional estimates by the
 [MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/) 
-and the [CMMID] (https://epiforecasts.io/covid/posts/national/united-kingdom/).
+and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
 <p>
 <div class="map-container">

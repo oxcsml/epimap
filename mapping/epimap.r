@@ -661,6 +661,7 @@ Rt = t(apply(Rt_samples,2,quantile,
 ))
 
 Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
+#Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
     quoted_areas, 
     days_all,

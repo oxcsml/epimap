@@ -27,8 +27,8 @@ Rmap_options = function(
   days_ignored         = NULL,
   days_per_step        = 7,
   days_predicted       = 2,
-  steps_ignored_stage2 = 0,
-  num_steps_forecasted = 4,
+  steps_ignored_stage2 = 1,
+  num_steps_forecasted = 3,
 
   thinning             = 10,
   chains               = 1,
@@ -257,7 +257,7 @@ Rmap_run = function(env) {
       Mproj = Mproj,
       Tpred = Tpred,
 
-      Count = AllCount,
+      Ct = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
       geodist = geodist,
@@ -300,7 +300,8 @@ Rmap_run = function(env) {
         gp_sigma = .25,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
-        dispersion = 1.0
+        infection_dispersion = 1.0,
+        case_dispersion = 1.0
       ))
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
@@ -333,7 +334,8 @@ Rmap_run = function(env) {
       "gp_sigma",
       "gp_space_length_scale",
       "gp_time_length_scale",
-      "dispersion",
+      "infection_dispersion",
+      "case_dispersion",
       "coupling_rate",
       "flux_probs",
       "Rt",
@@ -371,7 +373,8 @@ Rmap_run = function(env) {
           "gp_time_length_scale",
           "global_sigma",
           "local_scale",
-          "dispersion",
+          "infection_dispersion",
+          "case_dispersion",
           "Rt_all",
           "coupling_rate",
           "flux_probs"

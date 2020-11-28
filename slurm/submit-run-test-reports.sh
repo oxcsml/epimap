@@ -6,8 +6,8 @@ options=" \
     --clean_directory fits/clean-1109 \
     --observation_data latent_reports \
     --observation_model negative_binomial_2 \
-    --limit_area Oxford \
-    --limit_radius 0.8 \
 "
+    #--limit_area Oxford \
+    #--limit_radius 0.8 \
 slurm/submit-run-generic.sh $results_directory $options
 

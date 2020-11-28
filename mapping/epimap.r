@@ -13,8 +13,8 @@ Rmap_options = function(
   gp_space_decay_scale = .1,
   gp_time_scale        = 60.0, # units of 1 day
   gp_time_decay_scale  = .1,
-  fixed_gp_space_length_scale = -1.0,
-  fixed_gp_time_length_scale = -1.0,
+  fixed_gp_space_length_scale = 3.0,
+  fixed_gp_time_length_scale = 100.0,
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
@@ -22,17 +22,17 @@ Rmap_options = function(
   cleaned_sample_id    = 0, 
 
   first_day_modelled   = "2020-08-01",
-  last_day_modelled    = "2020-10-31",
+  last_day_modelled    = NULL,
   weeks_modelled       = NULL,
-  days_ignored         = NULL,
-  days_per_step        = 7,
+  days_ignored         = 7,
   days_predicted       = 2,
-  steps_ignored_stage2 = 0,
-  num_steps_forecasted = 4,
+  days_per_step        = 7,
+  steps_ignored_stage2 = 1,
+  num_steps_forecasted = 3,
 
   thinning             = 10,
   chains               = 1,
-  iterations           = 4000, 
+  iterations           = 3000, 
 
   data_directory       = "data/",
   clean_directory      = "fits/clean", 
@@ -257,7 +257,7 @@ Rmap_run = function(env) {
       Mproj = Mproj,
       Tpred = Tpred,
 
-      Count = AllCount,
+      Ct = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
       geodist = geodist,
@@ -300,7 +300,8 @@ Rmap_run = function(env) {
         gp_sigma = .25,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
-        dispersion = 1.0
+        infection_dispersion = 1.0,
+        case_dispersion = 1.0
       ))
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
@@ -333,7 +334,8 @@ Rmap_run = function(env) {
       "gp_sigma",
       "gp_space_length_scale",
       "gp_time_length_scale",
-      "dispersion",
+      "infection_dispersion",
+      "case_dispersion",
       "coupling_rate",
       "flux_probs",
       "Rt",
@@ -371,7 +373,8 @@ Rmap_run = function(env) {
           "gp_time_length_scale",
           "global_sigma",
           "local_scale",
-          "dispersion",
+          "infection_dispersion",
+          "case_dispersion",
           "Rt_all",
           "coupling_rate",
           "flux_probs"

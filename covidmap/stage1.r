@@ -13,9 +13,9 @@ covidmap_stage1_options = function(
   fixed_gp_time_length_scale = -1.0,
 
   first_day_modelled = "2020-08-01",
-  last_day_modelled  = "2020-10-31",
+  last_day_modelled  = NULL,
   weeks_modelled     = NULL,
-  days_ignored       = NULL,
+  days_ignored       = 7,
   days_per_step      = 7,
   num_steps_forecasted = ceiling(21/days_per_step),
 

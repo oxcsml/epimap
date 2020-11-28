@@ -6,8 +6,8 @@ options=" \
     --clean_directory fits/clean-1109 \
     --observation_data cleaned_latent_sample \
     --observation_model gaussian \
-    --limit_area Oxford \
-    --limit_radius 0.8 \
 "
+    #--limit_area Oxford \
+    #--limit_radius 0.8 \
 slurm/submit-run-generic.sh $results_directory $options
 

@@ -225,6 +225,7 @@ data {
   int<lower=0,upper=1> DO_IN_OUT;
   int<lower=1,upper=4> OBSERVATION_DATA;
   int<lower=1,upper=4> OBSERVATION_MODEL;
+  int<lower=0,upper=1> CONSTANT_FORWARD_RT;
 }
 
 transformed data {
@@ -527,6 +528,13 @@ transformed parameters {
       );
     } else {
       Rout = rep_matrix(1.0,N,Mstep+Mforw);
+    }
+
+    if (CONSTANT_FORWARD_RT) {
+      for (m in (Mstep+1):(Mstep+Mforw)) {
+        Rin[:,m] = Rin[,Mstep];
+        Rout[:,m] = Rout[,Mstep];
+      }
     }
 
     // metapopulation infection rate model

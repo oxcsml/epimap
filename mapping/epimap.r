@@ -15,6 +15,7 @@ Rmap_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = 3.0,
   fixed_gp_time_length_scale = 100.0,
+  constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
@@ -284,6 +285,7 @@ Rmap_run = function(env) {
       DO_IN_OUT = DO_IN_OUT,
       OBSERVATION_DATA = OBSERVATION_DATA,
       OBSERVATION_MODEL = OBSERVATION_MODEL,
+      CONSTANT_FORWARD_RT = opt$constant_forward_rt,
 
       Tip = Tip, 
       infprofile = infprofile,
@@ -292,7 +294,7 @@ Rmap_run = function(env) {
       F = F,
       flux = flux
     )
-
+    
     #########################################################
     Rmap_init = lapply(1:numchains, function(i) {
       env = list2env(list(
@@ -864,6 +866,12 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
           "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
           "default = ", opt$metapop
       )
+    ),
+    make_option(
+      c("--constant_forward_rt"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Use a the Rt from the last modelled week to predict forward; default =", opt$constant_forward_rt)
     ),
     make_option(
       c("-v", "--observation_data"),

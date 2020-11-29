@@ -16,11 +16,7 @@ options="\
     --observation_model gaussian \
     --clean_directory $clean_directory \
     --limit_area Oxford \
-    --limit_radius 1.0 \
-    --fixed_gp_space_length_scale 3 \
-    --fixed_gp_time_length_scale 21 \
-    --days_predicted 3 \
-    --num_steps_forecasted 4 \
+    --limit_radius 1.0
 "
 slurm/submit-run-generic.sh $results_directory $options
 

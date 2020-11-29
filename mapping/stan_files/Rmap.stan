@@ -574,7 +574,7 @@ model {
 
 
   gp_space_decay ~ normal(0.0,gp_space_decay_scale);
-  gp_time_decay ~ normal(0.0,gp_steptime_decay_scale);
+  gp_time_decay ~ normal(0.0,gp_time_decay_scale);
   gp_sigma ~ normal(0.0, 0.5);
   global_sigma ~  normal(0.0, 0.5);
   local_scale ~ normal(0.0, 0.2);
@@ -892,36 +892,36 @@ generated quantities {
                 }
               }
             }
+          }
           // Cases where we observe case reports
-          } else if (OBSERVATION_DATA == CLEANED_LATENT || OBSERVATION_DATA == INFECTION_REPORTS) {
-            //*** TODO Build in more observation model options, and rename OBSERVATION_MODEL to INFECTION_MODEL? ***//
-            { // posterior predictive expected counts
-              for (t in Tcond+1:Tcur) {
-                int s = t-Tcond;
-                Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                // Draw sample from observation model
-                Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
-              }
+        } else if (OBSERVATION_DATA == CLEANED_LATENT || OBSERVATION_DATA == INFECTION_REPORTS) {
+          //*** TODO Build in more observation model options, and rename OBSERVATION_MODEL to INFECTION_MODEL? ***//
+          { // posterior predictive expected counts
+            for (t in Tcond+1:Tcur) {
+              int s = t-Tcond;
+              Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
             }
-            { // forecasting expected counts given parameters
-              for (t in Tcur+1:Tcur+Tproj) {
-                int s = t-Tcur;
-                Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                // Draw sample from observation model
-                Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
-              }
+          }
+          { // forecasting expected counts given parameters
+            for (t in Tcur+1:Tcur+Tproj) {
+              int s = t-Tcur;
+              Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
             }
-            // Compute predictive likelihood of observed future case observations
-            {
-              for (t in Tcur+1:Tcur+Tpred) {
-                int i = t-Tcur;
-                vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                for (j in 1:N) {
-                  Ppred[j,i] = exp(neg_binomial_2_lpmf(Ct[j,t] |
-                      cc[j],
-                      cc[j] / case_dispersion //*** TODO use better estimated dispersion ***//
-                  )); 
-                }
+          }
+          // Compute predictive likelihood of observed future case observations
+          {
+            for (t in Tcur+1:Tcur+Tpred) {
+              int i = t-Tcur;
+              vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              for (j in 1:N) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Ct[j,t] |
+                    cc[j],
+                    cc[j] / case_dispersion //*** TODO use better estimated dispersion ***//
+                )); 
               }
             }
           }

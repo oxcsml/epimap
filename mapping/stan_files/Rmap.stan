@@ -226,6 +226,7 @@ data {
   int<lower=1,upper=4> OBSERVATION_DATA;
   int<lower=1,upper=4> OBSERVATION_MODEL;
   int<lower=0,upper=1> CONSTANT_FORWARD_RT;
+  int<lower=0,upper=1> FULL_CASES_DISTRIBUTION;
 }
 
 transformed data {
@@ -909,7 +910,9 @@ generated quantities {
               int s = t-Tcond;
               Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
               // Draw sample from observation model
-              Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
+              if (FULL_CASES_DISTRIBUTION) {
+                Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
+              }
             }
           }
           { // forecasting expected counts given parameters
@@ -917,7 +920,9 @@ generated quantities {
               int s = t-Tcur;
               Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
               // Draw sample from observation model
-              Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
+              if (FULL_CASES_DISTRIBUTION) {
+                Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
+              }
             }
           }
           // Compute predictive likelihood of observed future case observations

@@ -16,6 +16,7 @@ Rmap_options = function(
   fixed_gp_space_length_scale = 3.0,
   fixed_gp_time_length_scale = 100.0,
   constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
+  full_cases_distribution = 0,
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
@@ -286,6 +287,7 @@ Rmap_run = function(env) {
       OBSERVATION_DATA = OBSERVATION_DATA,
       OBSERVATION_MODEL = OBSERVATION_MODEL,
       CONSTANT_FORWARD_RT = opt$constant_forward_rt,
+      FULL_CASES_DISTRIBUTION = opt$full_cases_distribution,
 
       Tip = Tip, 
       infprofile = infprofile,
@@ -294,7 +296,7 @@ Rmap_run = function(env) {
       F = F,
       flux = flux
     )
-    
+
     #########################################################
     Rmap_init = lapply(1:numchains, function(i) {
       env = list2env(list(
@@ -872,6 +874,12 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       type="integer",
       default=opt$constant_forward_rt,
       help=paste("Use a the Rt from the last modelled week to predict forward; default =", opt$constant_forward_rt)
+    ),
+    make_option(
+      c("--full_cases_distribution"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Return the full distribution of cases, not just the distribution of the mean; default =", opt$full_cases_distribution)
     ),
     make_option(
       c("-v", "--observation_data"),

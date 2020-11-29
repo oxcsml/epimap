@@ -27,6 +27,7 @@ Rmap_options = function(
   last_day_modelled    = NULL,
   weeks_modelled       = NULL,
   days_ignored         = 7,
+  days_per_step        = 7,
   days_predicted       = 2,
   days_per_step        = 7,
   steps_ignored_stage2 = 1,
@@ -738,8 +739,10 @@ Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
-# ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-# Cweekly <- cbind(Cweekly,ignoredweek)
+stopifnot(Tcur+Tstep<=length(AllCount))
+
+ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+Cweekly <- cbind(Cweekly,ignoredweek)
 
 projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
     probs=c(.5)

@@ -21,7 +21,7 @@ Rmap_options = function(
   observation_model    = "gaussian",
   cleaned_sample_id    = 0,
 
-  first_day_modelled   = "2020-08-03",
+  first_day_modelled   = "2020-08-01",
   last_day_modelled    = NULL,
   weeks_modelled       = NULL,
   days_ignored         = 7,

@@ -21,7 +21,7 @@ Rmap_options = function(
   observation_model    = "gaussian",
   cleaned_sample_id    = 0,
 
-  first_day_modelled   = "2020-08-01",
+  first_day_modelled   = "2020-08-03",
   last_day_modelled    = NULL,
   weeks_modelled       = NULL,
   days_ignored         = 7,
@@ -32,7 +32,7 @@ Rmap_options = function(
 
   thinning             = 1,
   chains               = 1,
-  iterations           = 4000, 
+  iterations           = 4000,
 
   data_directory       = "data/",
   clean_directory      = "fits/clean",
@@ -321,7 +321,7 @@ Rmap_run = function(env) {
               'gp_eta_in','gp_eta_out',
               'global_eta_in','global_eta_out',
               'local_eta_in','local_eta_out'
-            ), 
+            ),
             function(par) {
               setval(par, rnorm(1,0,1) , l)
             }
@@ -359,10 +359,10 @@ Rmap_run = function(env) {
     #########################################################
     fit <- stan(
       file = 'mapping/stan_files/Rmap.stan',
-      data = Rmap_data, 
+      data = Rmap_data,
       init = Rmap_init,
       pars = Rmap_pars,
-      iter = numiters, 
+      iter = numiters,
       chains = numchains,
       control = list(adapt_delta = .9)
     )
@@ -445,9 +445,7 @@ Rmap_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
-    print('yo')
     save_samples("Rt_region", N_sites=N_region)
-    print('bo')
     save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {

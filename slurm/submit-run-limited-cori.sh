@@ -11,9 +11,14 @@ results_directory=$1
 clean_directory=$2
 options="\
     --iterations 6000 \
-    --observation_data cleaned_latent_sample \
-    --observation_model gaussian \
+    --observation_data count \
+    --observation_model poisson \
     --clean_directory $clean_directory \
+    --spatialkernel none \
+    --temporalkernel none \
+    --globalkernel none \
+    --metapop none \
+    --constant_forward_rt 1 \
     --limit_area Oxford \
     --limit_radius 0.5 \
     --last_day_modelled 2020-11-08 \

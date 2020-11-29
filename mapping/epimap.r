@@ -29,7 +29,6 @@ Rmap_options = function(
   days_ignored         = 7,
   days_per_step        = 7,
   days_predicted       = 2,
-  days_per_step        = 7,
   steps_ignored_stage2 = 1,
   num_steps_forecasted = 3,
 
@@ -77,7 +76,9 @@ Rmap_setup = function(opt = Rmap_options()) {
     Mproj = opt$num_steps_forecasted
     Tproj = Tstep*Mproj           # number of days to project forward
 
+    message("Tcur: ", Tcur, ", length Clean_latent: ", length(Clean_latent))
     stopifnot(Tcur == length(Clean_latent))
+      message("Tcur: ", Tcur, ", length Clean_recon: ", length(Clean_recon))
     stopifnot(Tcur == length(Clean_recon))
 
     days_likelihood = dates[(Tcond+1):Tcur]
@@ -664,6 +665,12 @@ days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj)
 #################################################################
 # Rt posterior
 Rt_samples = load_samples('Rt')
+# TODO: we get very infrequent Nas in the cori model
+# if (any(is.na(Rt_samples))) {
+#   message("WARNING: NAs in Rt samples")
+#   Rt_samples = Rt_samples[complete.cases(Rt_samples),]
+# }
+
 Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
@@ -687,6 +694,7 @@ message('done Rt')
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
 numsamples = numruns * floor(numiters/2 / opt$thinning)
+# numsamples = dim(env$Rt_samples)[1] 
 Rt <- as.matrix(Rt_samples)
 dim(Rt) <- c(numsamples,Mstep+Mproj,N)
 Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))

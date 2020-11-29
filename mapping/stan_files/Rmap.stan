@@ -677,13 +677,29 @@ model {
       );
     }
   } else if (OBSERVATION_DATA == COUNTS) {
-    reject("Currently invalid - needs refactor to daily likelihoods");
-    // if (OBSERVATION_MODEL == POISSON) {
-    //   for (k in 1:Mstep) 
-    //     for (j in 1:N) 
-    //       Ct[k,j] ~ poisson(
-    //           EXt_reduced[k,j,1] 
-    //       );
+    if (OBSERVATION_MODEL == POISSON) {
+      for (k in 1:Mstep) {
+        // Compute infinatly divisible weekly likelihood
+        vector[N] EXt_weekly = rep_vector(0.0, N);
+        int weekly_cases[N] = rep_array(0, N);
+
+        for (s in 1:Tstep) {
+          int t = Tcond + Tstep*(k-1)+s;
+          EXt_weekly += Xt[,t-Tdp+1:t] * delayprofile_rev;
+          for (j in 1:N) {
+            weekly_cases[j] += Ct[j,t];
+          }
+        }
+
+        for (j in 1:N) {
+          weekly_cases[j] ~ poisson(
+              EXt_weekly[j]
+          );
+        }
+      }
+    } else {
+      reject("Currently invalid - needs refactor to daily likelihoods");
+    }
     // } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
     //   for (k in 1:Mstep) 
     //     for (j in 1:N) 

@@ -11,7 +11,7 @@ results_directory=$1
 clean_directory=$2
 options="\
     --iterations 6000 \
-    --observation_data cleaned_latent_sample \
+    --observation_data latent_reports \
     --observation_model gaussian \
     --clean_directory $clean_directory \
     --limit_area Oxford \

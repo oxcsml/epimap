@@ -14,6 +14,9 @@ options="\
     --observation_data cleaned_latent_sample \
     --observation_model gaussian \
     --clean_directory $clean_directory \
+    --spatialkernel none \
+    --temporalkernel none \
+    --constant_forward_rt 1 \
     --limit_area Oxford \
     --limit_radius 0.5 \
     --last_day_modelled 2020-11-08 \

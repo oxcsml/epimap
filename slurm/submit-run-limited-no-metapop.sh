@@ -14,9 +14,10 @@ options="\
     --observation_data cleaned_latent_sample \
     --observation_model gaussian \
     --clean_directory $clean_directory \
+    --metapop none \
     --limit_area Oxford \
     --limit_radius 0.5 \
-    --last_day_modelled 2020-11-08 \
+    --last_day_modelled 2020-11-08
     --weeks_modelled 15 \
     --days_predicted 14 \
     --num_steps_forecasted 4 \

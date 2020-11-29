@@ -1036,7 +1036,7 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .duration(500)
         .attr("d", projectedCasesLine);
 
-    caseChartXAxis.call(d3.axisBottom(caseX));
+    caseChartXAxis.call(d3.axisBottom(caseX).tickFormat(d3.timeFormat("%b")));
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
     caseChartTitle.text(`Covid-19 Cases for ${area}`);
 
@@ -1169,7 +1169,7 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
         .append("line")
         .attr("x2", chartWidth);
 
-    rtChartXAxis.call(d3.axisBottom(rtX));
+    rtChartXAxis.call(d3.axisBottom(rtX).tickFormat(d3.timeFormat("%b")));
     rtChartYAxis.call(d3.axisLeft(y).ticks(5));
     rtChartTitle.text(`Estimated Rt ${area}`);
 

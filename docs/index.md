@@ -8,29 +8,23 @@
 layout: home
 ---
 
-
-
 <style>
 .map-container {
-    position: relative;
-    width: 1050px;
-    height: 675px;
-    overflow: visible;
-    border: 1px solid black;
     margin: auto;
+    width: 95%;
+    height: 100%;
+    border: 1px solid black;
+}
+
+@media (min-width: 40rem) {
+    .map-frame{
+        height: 700px !important;
+    }    
 }
 .map-frame{
-    position: relative;
-    /*
-    This height value is a bit of a hack!
-    It is there to let the search box overflow into the post
-    Not sure what the correct thing to do in this case is
-    */
-    height: 1000px;
-    width: 1100px;
-    overflow: visible;
-    margin: auto;
-    border: 0;
+    width: 100%;
+    height: 1500px;
+    border: none;
 }
 </style>
 

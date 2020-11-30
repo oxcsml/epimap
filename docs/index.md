@@ -8,25 +8,23 @@
 layout: home
 ---
 
-<style>
-.map-container {
-    margin: auto;
-    width: 95%;
-    height: 100%;
-    border: 1px solid black;
-}
+<head>
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v5.js"></script>
+    <script src="https://d3js.org/topojson.v1.min.js"></script>	
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+    <script src="https://unpkg.com/d3-simple-slider"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.20/lodash.min.js"></script>
 
-@media (min-width: 40rem) 
-{    .map-frame{
-        height: 700px !important;
-    }    
-}
-.map-frame{
-    width: 100%;
-    height: 1500px;
-    border: none;
-}
-</style>
+    <!--<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">-->
+    <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">-->
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.0/milligram.css">
+    <link rel="stylesheet" href="assets/css/main.css"/>
+
+</head>
+
 
 <!-- This text is above the map. -->
 ### **Welcome to the UK Local Covid Map!**
@@ -41,11 +39,70 @@ Different models to estimate R may therefore give slightly different estimates. 
 [MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/) 
 and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
+
 <p>
 <div class="map-container">
-<iframe class="map-frame" src="{{ '/map.html' | prepend: site.baseurl}}" allow="fullscreen">
-</iframe>
+<svg id="map" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet" border="1px solid black"> </svg>
+
+<div class="row">
+<div class="column" width="100%">
+<div class="area-search-container">
+ <svg class="search-icon" xmlns="http://www.w3.org/2000/svg"
+ fill="none" width="24" height="24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round"
+    stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
+<input id="areaSearch" class="search-input" tabindex="1" width="100%" placeholder="Find Local Authority">
 </div>
+</div>
+</div>
+
+<h1 id="data-heading">Select an area in the map...</h1>
+<div id="sub-heading">Data shown for England, Wales and Scotland</div>
+<div class="row">
+    <div class="column">
+        <h3 id="cases-title">Cases</h3>
+        <div class="info-row">
+            <span class="info-heading">Week ending </span>
+            <span id="last7-end-date"></span><span class="info-heading">: </span>
+            <span id="cases-last7-info"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-heading">Week ending </span>
+            <span id="last7-end-date2"></span><span class="info-heading"> per 100k: </span>
+            <span id="cases-last7-per-info"></span>
+        </div>
+        <h3><span class="info-heading">Total cases: </span><span id="cases-total-info"></span></h3>
+    </div>
+    <div class="column">
+        <h3 id="estimates-title">Projected Cases</h3>
+        <div class="info-row">
+            <span class="info-heading">Week starting </span>
+            <span id="case-proj-start-date"></span><span class="info-heading">: </span>						
+            <span id="case-proj-info"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-heading">Week starting</span>
+            <span id="case-proj-start-date2"></span><span class="info-heading"> per 100k: </span>						
+            <span id="case-proj-per100k-info"></span></div>
+        <h3><span class="info-heading">Rt: </span><span id="rt-info"></span></h3>
+    </div>
+</div>
+        
+<div id="chart-container">
+<svg id="chart" viewBox="0 0 500 200"
+preserveAspectRatio="xMidYMid meet" ></svg>
+</div>
+
+<div id="chart-container">
+<svg id="rt-chart" viewBox="0 0 500 200" 
+preserveAspectRatio="xMidYMid meet" ></svg>
+</div>
+
+</div>
+<script src="assets/js/auto-complete.min.js"></script>
+<script src="assets/js/map.js"></script>
+
 </p>
 
 <!-- This text is below the map. -->

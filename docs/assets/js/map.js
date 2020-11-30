@@ -70,8 +70,8 @@ const sliderRightPath = sliderRightG.append("path")
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
 const caseChartSvg = d3.select("#chart");
 // Note: Assuming the two charts are the same size! 
-const chartWidth = +caseChartSvg.attr("width") - chartMargin.left - chartMargin.right;
-const chartHeight = +caseChartSvg.attr("height") - chartMargin.top - chartMargin.bottom;
+const chartWidth = Math.max(500+caseChartSvg.attr("width") - chartMargin.left - chartMargin.right, 0);
+const chartHeight = Math.max(200+caseChartSvg.attr("height") - chartMargin.top - chartMargin.bottom, 0);
 
 const chartG = caseChartSvg.append("g")
     .attr("transform", "translate(" + chartMargin.left + "," + chartMargin.top + ")");
@@ -181,8 +181,8 @@ const caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
 // Map and projection
 const projection = d3.geoMercator()
-    .center([-3.5, 54])
-    .scale(3250)
+    .center([-9, 57])
+    .scale(3000)
     .translate([width / 2, height / 2]);
 const path = d3.geoPath().projection(projection);
 

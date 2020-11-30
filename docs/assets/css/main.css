@@ -4,12 +4,6 @@
     margin: 0;
 }
 
-.container {
-    max-width: none;
-    margin-top: 2em;
-}
-
-
 .background {
     fill: none;
     pointer-events: all;
@@ -132,10 +126,10 @@ div.tooltip span.header {
     stroke-dasharray: 5;
 }
 
-#chart {
-    margin-top:2em;
-}
-
+/*#slider-svg{*/
+    /*height: 10px;*/
+    /*width: 500px;*/
+/*}*/
 .slider-button {
     width: 20px;
     height: 20px;
@@ -180,12 +174,13 @@ h3 small {
 
 .column {
     margin-top: 0em;
-    width: 250px;
+    width: 50%;
 }
 
 .row {
     margin-top: 0em;
-    width: 520px;
+    /*width: 520px;*/
+    display: flex;
 }
 
 #sub-heading {
@@ -263,3 +258,21 @@ h3 small {
 .autocomplete-suggestion.selected { 
     background: #f0f0f0; 
 }
+
+
+.map-container { 
+	position: relative;
+	width: 100%;
+	vertical-align: middle; 
+    margin: auto;
+    overflow: hidden; 
+    max-width: 1000px;
+    border: 1px solid black;
+}
+
+.chart-container {
+    max-height: 200px;
+    width: 100%;
+    margin: auto;
+}
+

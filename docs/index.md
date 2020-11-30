@@ -16,8 +16,8 @@ layout: home
     border: 1px solid black;
 }
 
-@media (min-width: 40rem) {
-    .map-frame{
+@media (min-width: 40rem) 
+{    .map-frame{
         height: 700px !important;
     }    
 }
@@ -29,7 +29,8 @@ layout: home
 </style>
 
 <!-- This text is above the map. -->
-Welcome to the UK Local Covid Map. 
+### **Welcome to the UK Local Covid Map!**
+
 This interactive map visualises the historical 
 and predicted future developments of the Covid-19 epidemic
 across local authorities in the UK.
@@ -48,14 +49,16 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 </p>
 
 <!-- This text is below the map. -->
-In the map, we write "Rt" instead of just "R". The "t" indicates "time". We do it because the number is not constant but can go up or down over time.
-The map's future projections are made with the assumption that Rt stays fixed in the future.
+The R number roughly measures how fast Covid-19 is spreading in society. In the map, we write "Rt" instead of just "R". The "t" indicates "time". We do this because the number is not constant but can go up or down over time, depending on how fast Covid-19 is spreading at a given time.
 
-Definitions for terms in the map: 
+You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of Covid-19 cases historically over time along with the corresponding estimate for Rt. The red parts of the graphs are predictions made by the model.
+
+Definitions for terms used in the map: 
 *   **Case** is an infected individual who has tested positive on the given date, 
 under either Pillar 1 or Pillar 2 of the UK's testing strategy.
-*   **Rt** denotes the reproduction number: how many secondary cases a single primary case will result in on average. 
-**Rt** greater than 1 implies the size of the epidemic is increasing exponentially, and less than 1 means it is shrinking. 
-*   **Cases (Per 100k)** denotes either the historical weekly reported number of cases under Pillars 1+2, normalised by population size, or the predicted number in the future weeks.
-*   **P(Rt>1)** denotes the probability that Rt is larger than 1 given the observed case counts.
+*   **Rt** denotes the reproduction number at a given point in time: how many secondary cases a single primary case will result in on average. 
+**Rt** greater than 1 means that the size of the epidemic is increasing exponentially, and less than 1 means it is shrinking. 
+*   **Cases (per 100k)** denotes the weekly number of cases per 100,000 population size. For past weeks, this number comes from historical weekly reported number of cases under Pillars 1+2. For future weeks, this is predicted by the model.
+*   **P(Rt>1)** denotes the probability (assigned by the model) that Rt is larger than 1 given the observed case counts.
+
 

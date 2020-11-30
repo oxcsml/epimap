@@ -13,14 +13,9 @@ clean_directory=$1
 echo "clean_directory = $clean_directory"
 
 options="\
-  --weeks_modelled 15 \
   --produce_plots TRUE \
   --clean_directory $clean_directory \
-  --last_day_modelled 2020-11-08 \
-  --weeks_modelled 15 \
-  --days_predicted 14 \
-  --num_steps_forecasted 4 \
-  "
+"
 
 mkdir -p $clean_directory
 mkdir -p $clean_directory/pdfs
@@ -44,6 +39,7 @@ sbatch --wait \
     --array=1-348 \
     --wrap \
     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
+
 wait
 
 echo submit-clean: combining areas
@@ -59,6 +55,7 @@ sbatch --wait \
     --cpus-per-task=1 \
     --wrap \
     "Rscript covidmap/stage1_combine.r $options && echo combine_areas: DONE"
+
 wait
 
 echo submit-clean: DONE

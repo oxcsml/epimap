@@ -184,11 +184,11 @@ generated quantities {
       c = max(outlier_count_threshold,neg_binomial_2_rng(Ec,psi));
       Noutliers += 1;
     }
+    Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
+    Cpred[s] = sum(Precon);
     if (c==0) continue;
     denomdelay += c;
     if (reconstruct_infections) {
-      Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
-      Cpred[s] = sum(Precon);
       Precon /= sum(Precon);
       Crecon_t = multinomial_rng(Precon,c);
       for (i in 1:Ttdp) {

@@ -12,13 +12,13 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = "2020-08-01",
+  first_day_modelled = NULL,
   last_day_modelled  = NULL,
-  weeks_modelled     = NULL,
+  weeks_modelled     = 15,
   days_ignored       = 7,
-  days_predicted     = 2,
   days_per_step      = 7,
-  num_steps_forecasted = ceiling(21/days_per_step),
+  days_predicted     = 2,
+  num_steps_forecasted = 4,
 
   num_samples        = 20,
   num_iterations     = 3000,

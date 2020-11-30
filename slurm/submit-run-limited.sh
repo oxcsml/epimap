@@ -16,10 +16,6 @@ options="\
     --clean_directory $clean_directory \
     --limit_area Oxford \
     --limit_radius 0.5 \
-    --last_day_modelled 2020-11-08 \
-    --weeks_modelled 15 \
-    --days_predicted 14 \
-    --num_steps_forecasted 4 \
 "
 slurm/submit-run-generic.sh $results_directory $options
 

@@ -23,14 +23,14 @@ Rmap_options = function(
   observation_model    = "gaussian",
   cleaned_sample_id    = 0, 
 
-  first_day_modelled   = "2020-08-01",
+  first_day_modelled   = NULL,
   last_day_modelled    = NULL,
-  weeks_modelled       = NULL,
+  weeks_modelled       = 15,
   days_ignored         = 7,
   days_per_step        = 7,
   days_predicted       = 2,
   steps_ignored_stage2 = 1,
-  num_steps_forecasted = 3,
+  num_steps_forecasted = 4,
 
   thinning             = 10,
   chains               = 1,

@@ -34,6 +34,13 @@ Rmap_read_data = function(env) {
     geoloc <- df[,1:2]
     population <- df[,3]
 
+    # NHS region data
+    sparse_region <- df[,4:12]
+    N_region <- ncol(sparse_region)
+    region_df <- readdata("nhs_regions", row.names=1)
+    regions <- rownames(region_df)
+    quoted_regions <- sapply(regions,function(s) paste('"',s,'"',sep=''))
+
     geodist <- readdata("distances",row.names=1)
     colnames(geodist) <- areas
 

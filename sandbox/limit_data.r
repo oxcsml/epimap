@@ -3,6 +3,13 @@ limit_data_by_distance <- function(env,area,distance) {
   env$N <- sum(ind)
   env$areas <- env$areas[ind]
   env$quoted_areas <- env$quoted_areas[ind]
+  
+  env$sparse_region <- env$sparse_region[ind,]
+  region_ind <- colSums(env$sparse_region != 0) !=0
+  env$sparse_region <- env$sparse_region[,region_ind]
+  env$N_region <- ncol(env$sparse_region)
+  env$quoted_regions <- env$quoted_regions[region_ind]
+
   env$geoloc <- env$geoloc[ind,]
   env$geodist <- env$geodist[ind,ind]
   env$AllCount <- env$AllCount[ind,]

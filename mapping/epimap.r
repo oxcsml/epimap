@@ -21,7 +21,7 @@ Rmap_options = function(
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
-  cleaned_sample_id    = 0, 
+  cleaned_sample_id    = 0,
 
   first_day_modelled   = NULL,
   last_day_modelled    = NULL,
@@ -32,7 +32,7 @@ Rmap_options = function(
   steps_ignored_stage2 = 1,
   num_steps_forecasted = 4,
 
-  thinning             = 10,
+  thinning             = 1,
   chains               = 1,
   iterations           = 3000, 
 
@@ -50,7 +50,7 @@ Rmap_options = function(
 
 ##########################################################################
 ##########################################################################
-Rmap_setup = function(opt = Rmap_options()) { 
+Rmap_setup = function(opt = Rmap_options()) {
   env = new.env(parent=globalenv())
   env$opt = opt
   Rmap_read_data(env)
@@ -96,13 +96,13 @@ Rmap_setup = function(opt = Rmap_options()) {
     if (is.null(opt$results_directory)) {
       opt$results_directory = paste(
         'fits/',
-        as.character(Sys.time(),format='%Y%m%d'), 
-        '-',as.character(days_likelihood[length(days_likelihood)],format='%Y%m%d'), 
-        '-',opt$spatialkernel,  
-        '-',opt$temporalkernel,  
-        '-',opt$localkernel,  
-        '-',opt$globalkernel,  
-        '-',opt$metapop,  
+        as.character(Sys.time(),format='%Y%m%d'),
+        '-',as.character(days_likelihood[length(days_likelihood)],format='%Y%m%d'),
+        '-',opt$spatialkernel,
+        '-',opt$temporalkernel,
+        '-',opt$localkernel,
+        '-',opt$globalkernel,
+        '-',opt$metapop,
         '-',opt$observation_data,
         '-',opt$observation_model,
         sep=''
@@ -125,7 +125,7 @@ Rmap_setup = function(opt = Rmap_options()) {
 
 ##########################################################################
 ##########################################################################
-Rmap_run = function(env) { 
+Rmap_run = function(env) {
   with(env, {
 
     start_time <- Sys.time()
@@ -253,7 +253,7 @@ Rmap_run = function(env) {
     # Main computation
     print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
     Rmap_data <- list(
-      N = N, 
+      N = N,
       Mstep = Mstep,
       Tall = Tall,
       Tcur = Tcur,
@@ -291,12 +291,15 @@ Rmap_run = function(env) {
       CONSTANT_FORWARD_RT = opt$constant_forward_rt,
       FULL_CASES_DISTRIBUTION = opt$full_cases_distribution,
 
-      Tip = Tip, 
+      Tip = Tip,
       infprofile = infprofile,
       Tdp = Tdp,
       delayprofile = testdelayprofile,
       F = F,
-      flux = flux
+      flux = flux,
+
+      N_region = N_region,
+      sparse_region = sparse_region
     )
 
     #########################################################
@@ -322,7 +325,7 @@ Rmap_run = function(env) {
               'gp_eta_in','gp_eta_out',
               'global_eta_in','global_eta_out',
               'local_eta_in','local_eta_out'
-            ), 
+            ),
             function(par) {
               setval(par, rnorm(1,0,1) , l)
             }
@@ -347,9 +350,11 @@ Rmap_run = function(env) {
       "flux_probs",
       "Rt",
       "Rt_all",
+      "Rt_region",
       "Ppred",
       "Cpred",
-      "Cproj"
+      "Cproj",
+      "Cproj_region"
     )
     Rmap_control = list(
       # max_treedepth = 3, # testing only
@@ -360,10 +365,10 @@ Rmap_run = function(env) {
     #########################################################
     fit <- stan(
       file = 'mapping/stan_files/Rmap.stan',
-      data = Rmap_data, 
+      data = Rmap_data,
       init = Rmap_init,
       pars = Rmap_pars,
-      iter = numiters, 
+      iter = numiters,
       chains = numchains,
       control = list(adapt_delta = .9)
     )
@@ -373,7 +378,7 @@ Rmap_run = function(env) {
 
     #########################################################
     # Summary of fit
-    print(summary(fit, 
+    print(summary(fit,
         pars=c(
           "gp_space_length_scale",
           "gp_sigma",
@@ -385,7 +390,7 @@ Rmap_run = function(env) {
           "Rt_all",
           "coupling_rate",
           "flux_probs"
-        ), 
+        ),
         probs=c(.025,0.5,.975)
     )$summary)
 
@@ -409,7 +414,7 @@ Rmap_run = function(env) {
 
 ##########################################################################
 ##########################################################################
-Rmap_load = function(env) { 
+Rmap_load = function(env) {
   with(env, {
     fit = readRDS(paste(runname,'stanfit.rds',sep=''))
   })
@@ -427,16 +432,16 @@ Rmap_postprocess = function(env) {
     }
 
     # save raw samples
-    save_samples = function(pars,areafirst=FALSE) {
+    save_samples = function(pars,N_sites=N,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
-      samples = samples[seq(numchains,by=numchains*opt$thinning,to=numiters/2),,,drop=FALSE]
-      ns = floor(numiters/2/opt$thinning)
-      np = dim(samples)[3]/N
+      samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=FALSE]
+      ns = numiters/2
+      np = dim(samples)[3]/N_sites
       parnames = dimnames(samples)[[3]]
-      dim(samples) = c(ns,np*N)
+      dim(samples) = c(ns,np*N_sites)
       colnames(samples) = parnames
       if (areafirst) {
-        ind = N*(rep(1:np,N)-1) + rep(1:N,each=np) 
+        ind = N_sites*(rep(1:np,N_sites)-1) + rep(1:N_sites,each=np)
         samples = samples[,ind,drop=FALSE]
       } else {
         samples = samples[,,drop=FALSE]
@@ -447,7 +452,8 @@ Rmap_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
- 
+    save_samples("Rt_region", N_sites=N_region)
+    save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
       numareas <- length(areas)
@@ -483,7 +489,7 @@ Rmap_postprocess = function(env) {
     Rt <- Rt[sapply(1:(N*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
     message(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas, 
+      quoted_areas,
       days_all,
       provenance,
       format(round(Rt,2),nsmall=2),
@@ -492,7 +498,7 @@ Rmap_postprocess = function(env) {
         "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
     )
     writeresults(df, 'Rt', row.names=FALSE, quote=FALSE)
-  
+
 
     #################################################################
     # Rt exceedance probabilities
@@ -513,7 +519,7 @@ Rmap_postprocess = function(env) {
     Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
     dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
     df <- area_date_dataframe(
-        quoted_areas, 
+        quoted_areas,
         days_all,
         provenance,
         format(round(Pexceedance,2),nsmall=2),
@@ -607,7 +613,7 @@ Rmap_postprocess = function(env) {
     #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
     #pairs(fit, pars=c(
     #    "gp_space_length_scale","gp_sigma","gp_time_length_scale",
-    #    "global_sigma","local_scale","precision")) 
+    #    "global_sigma","local_scale","precision"))
     #dev.off()
 
     ####################################################################
@@ -617,7 +623,7 @@ Rmap_postprocess = function(env) {
 ##########################################################################
 ##########################################################################
 
-Rmap_merge = function(env,cleaned_sample_ids) { 
+Rmap_merge = function(env,cleaned_sample_ids) {
 env$cleaned_sample_ids = cleaned_sample_ids
 with(env, {
 
@@ -678,7 +684,7 @@ Rt = t(apply(Rt_samples,2,quantile,
 Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
 #Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
-    quoted_areas, 
+    quoted_areas,
     days_all,
     provenance,
     format(round(Rt,2),nsmall=2),
@@ -709,7 +715,7 @@ Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
 Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
 dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
 df <- area_date_dataframe(
-    quoted_areas, 
+    quoted_areas,
     days_all,
     provenance,
     format(round(Pexceedance,2),nsmall=2),
@@ -789,7 +795,39 @@ df <- area_date_dataframe(
 )
 writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
 message('done Cproj')
+# Rt_region posterior
+Rt_region_samples = load_samples('Rt_region')
+Rt_region = t(apply(Rt_region_samples,2,quantile,
+    probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+))
 
+Rt_region = Rt_region[sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
+df <- area_date_dataframe(
+    quoted_regions,
+    days_all,
+    provenance,
+    format(round(Rt_region,2),nsmall=2),
+    #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
+    c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+      "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
+)
+writemergedresults(df, 'Rt_region', row.names=FALSE, quote=FALSE)
+message('done Rt_region')
+# Cproj_region posterior predictive
+Cproj_region_samples = load_samples('Cproj_region')
+Cproj_region = t(apply(Cproj_region_samples,2,quantile,
+    probs=c(.025,.25,.5,.75,.975)
+))
+df <- area_date_dataframe(
+    quoted_regions,
+    seq(dates[Tcur]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    format(round(Cproj_region,1),nsmall=1),
+    #c("C_2_5","C_25","C_50","C_75","C_97_5")
+    c("C_025","C_25","C_50","C_75","C_975")
+)
+writemergedresults(df, 'Cproj_region', row.names=FALSE, quote=FALSE)
+message('done Cproj_region')
 })
 }
 
@@ -799,8 +837,8 @@ message('done Cproj')
 epimap_cmdline_options = function(opt = Rmap_options()) {
   list(
     make_option(
-      c("-s", "--spatialkernel"), 
-      type="character", 
+      c("-s", "--spatialkernel"),
+      type="character",
       default=opt$spatialkernel,
       help=paste(
           "Use spatial kernel (matern12/matern32/matern52/exp_quad/none);",
@@ -808,8 +846,8 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       )
     ),
     make_option(
-      c("-p", "--temporalkernel"), 
-      type="character", 
+      c("-p", "--temporalkernel"),
+      type="character",
       default=opt$temporalkernel,
       help=paste(
           "Use temporal kernel (matern12/matern32/matern52/exp_quad/none);",
@@ -817,8 +855,8 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       )
     ),
     make_option(
-      c("--gp_space_scale"), 
-      type="double", 
+      c("--gp_space_scale"),
+      type="double",
       default=opt$gp_space_scale,
       help=paste(
           "If given and positive, set minimum space length scale to the value;",
@@ -827,8 +865,8 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
     ),
 
     make_option(
-      c("--gp_time_scale"), 
-      type="double", 
+      c("--gp_time_scale"),
+      type="double",
       default=opt$gp_time_scale,
       help=paste(
           "If given and positive, set minimum time length scale to the value;",
@@ -838,8 +876,8 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
 
 
     make_option(
-      c("--fixed_gp_space_length_scale"), 
-      type="double", 
+      c("--fixed_gp_space_length_scale"),
+      type="double",
       default=opt$fixed_gp_space_length_scale,
       help=paste(
           "If given and positive, fix the space length scale to the value;",
@@ -849,8 +887,8 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
 
 
     make_option(
-      c("--fixed_gp_time_length_scale"), 
-      type="double", 
+      c("--fixed_gp_time_length_scale"),
+      type="double",
       default=opt$fixed_gp_time_length_scale,
       help=paste(
           "If given and positive, fix the time length scale to the value;",
@@ -860,12 +898,12 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
 
     make_option(
       c("-l", "--localkernel"),
-      type="character", 
+      type="character",
       default=opt$localkernel,
       help=paste("Use local kernel (local/none); default =", opt$localkernel)
     ),
     make_option(
-      c("-g", "--globalkernel"),  
+      c("-g", "--globalkernel"),
       type="character",
       default=opt$globalkernel,
       help=paste("Use global kernel (global/none); default =", opt$globalkernel)
@@ -996,7 +1034,7 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       default=opt$limit_radius, 
       help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
     )
-  ) 
+  )
 }
 
 epimap_get_cmdline_options = function(opt=Rmap_options()) {
@@ -1008,6 +1046,3 @@ epimap_get_cmdline_options = function(opt=Rmap_options()) {
   }
   opt
 }
-
-
-

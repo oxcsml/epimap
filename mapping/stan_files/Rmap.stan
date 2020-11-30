@@ -200,6 +200,8 @@ data {
   int F;
   matrix[N,N] flux[F];      // fluxes for radiation metapopulation model
 
+  int<lower=1> N_region;               // number of regions
+  matrix[N,N_region] sparse_region; 
 
   matrix[N,N] geodist;      // distance between locations
   matrix[Mstep+Mproj,Mstep+Mproj] timedist;     // distance between time samples
@@ -761,9 +763,11 @@ model {
 generated quantities {
   real Rt_all[Mstep+Mproj];
   vector[N] Rt[Mstep+Mproj];
+  vector[N_region] Rt_region[Mstep+Mproj];
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Mproj*Tstep] Cproj;
+  matrix[N_region,Mproj*Tstep] Cproj_region;
 
   {
     matrix[N,Tcur+Tforw] Clatent;     // Latent epidemic values
@@ -989,9 +993,10 @@ generated quantities {
       for (m in 1:(Mstep+Mforw)) {
         Rt_all[m] = sum(EXt_forw_reduced[m]) / sum(EXt_one_reduced[m]);
         Rt[m] = (EXt_forw_reduced[m] * oneT) ./ (EXt_one_reduced[m] * oneT);
-        // for(n in 1:N) {
-        //   Rt[m, n] = Rin[n, m];
-        // }
+        for (n in 1:N_region) {
+          matrix[N,1] region_slice = block(sparse_region, 1, n, N, 1);
+          Rt_region[m,n] = sum(EXt_forw_reduced[m] .* region_slice) / sum(EXt_forw_reduced[m] .* region_slice);
+        }
       }
     }
 

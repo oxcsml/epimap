@@ -1276,12 +1276,15 @@ function selectArea(selectedArea) {
     plotCaseChart(chartData, projectionData, predictionData, area);
     plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
 
-	// Set the last and next days:
-	casesEndDateInfo.text(projectionDate.getDate()+' '+MONTHS[projectionDate.getMonth()]);
-	casesEndDateInfo2.text(projectionDate.getDate()+' '+MONTHS[projectionDate.getMonth()]);
+	// Set the last and next days.
+	// TODO. This should be cleaner; no -8 or -7 hardcoded here.
+	var casesWeekAgo = new Date();
+	casesWeekAgo.setDate(projectionDate.getDate() - 8);		
+	casesEndDateInfo.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
+	casesEndDateInfo2.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
 		
 	var projectionDatePlusOne = new Date();
-	projectionDatePlusOne.setDate(projectionDate.getDate() + 1);	
+	projectionDatePlusOne.setDate(projectionDate.getDate() - 7);	
 	casesProjStartDateInfo.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
 	casesProjStartDateInfo2.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
 

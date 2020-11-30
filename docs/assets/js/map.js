@@ -11,8 +11,7 @@ const CASE_PREDICTION_PATH = "Cpred.csv";
 const CASE_WEEKLY_PATH = "Cweekly.csv";
 const PEXCEED_PATH = "Pexceed.csv";
 
-// Set up dimensions for map
-const MAX_CASES = 50;
+const MONTHS = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
 
 const map_svg = d3.select("#map"),
     width = +map_svg.attr("width"),
@@ -169,10 +168,14 @@ const rtChartTitle = rtChartSvg.append("text")
     .attr("text-anchor", "middle")
     .style("font-size", "16px");
 
+const casesEndDateInfo = d3.select("#last7-end-date");
+const casesEndDateInfo2 = d3.select("#last7-end-date2");
 const casesLast7Info = d3.select("#cases-last7-info");
 const casesLast7PerInfo = d3.select("#cases-last7-per-info");
 const casesTotalInfo = d3.select("#cases-total-info");
 const rtInfo = d3.select("#rt-info");
+const casesProjStartDateInfo = d3.select("#case-proj-start-date");
+const casesProjStartDateInfo2 = d3.select("#case-proj-start-date2");
 const caseProjInfo = d3.select("#case-proj-info");
 const caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
@@ -1023,7 +1026,6 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .duration(500)
         .attr("d", predictedCasesLine);
 
-
     projectedArea
         .datum(projectionData)
         .transition()
@@ -1273,6 +1275,15 @@ function selectArea(selectedArea) {
 
     plotCaseChart(chartData, projectionData, predictionData, area);
     plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
+
+	// Set the last and next days:
+	casesEndDateInfo.text(projectionDate.getDate()+' '+MONTHS[projectionDate.getMonth()]);
+	casesEndDateInfo2.text(projectionDate.getDate()+' '+MONTHS[projectionDate.getMonth()]);
+		
+	var projectionDatePlusOne = new Date();
+	projectionDatePlusOne.setDate(projectionDate.getDate() + 1);	
+	casesProjStartDateInfo.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
+	casesProjStartDateInfo2.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
 
     const caseHistory = getCaseHistoryForArea(area);
     casesLast7Info.text(caseHistory.casesLast7Day);

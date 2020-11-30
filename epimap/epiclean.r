@@ -16,6 +16,7 @@ library(plyr)
 #' @param Tcond Initial number of days that are not modelled (but are conditioned on)
 #' @param Nstep Number of AR1 time steps to model 
 #' @param Nproj Number of AR1 time steps to forecast
+#' @param Tpred Number of days after the period used for the liklehood to compute the predictive likelihood for 
 #' @param Tstep Number of days per AR1 time step; default 1
 #' @param infprofile Infection profile (generation interval distribution)
 #' @param testdelayprofile Distribution of delay between infection and getting tested
@@ -45,6 +46,7 @@ epiclean = function(
   Tcond,
   Nstep,
   Nproj,
+  Tpred,
   Tstep = 1, 
   infprofile,
   testdelayprofile,
@@ -88,6 +90,7 @@ epiclean = function(
     Tstep = Tstep, 
     Nstep = Nstep,
     Nproj = Nproj,
+    Tpred = Tpred,
     Tip = length(infprofile),
     Ttdp = length(testdelayprofile),
     Trdp = length(resultdelayalpha),

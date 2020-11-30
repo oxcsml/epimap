@@ -56,6 +56,26 @@ Rmap_read_data = function(env) {
     colnames(AllCount) <- dates
     rownames(AllCount) <- areas
 
+    if (identical(opt$stage, "map")) {
+      if (opt$cleaned_sample_id>0 && (
+        opt$observation_data == 'cleaned_latent_sample' ||
+        opt$observation_data == 'cleaned_recon_sample' ||
+        opt$observation_data == 'latent_reports')) {
+        sample_id = opt$cleaned_sample_id
+        Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''), 
+          row.names=1)
+        Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
+          row.names=1)
+        print(paste('Using samples from ',opt$clean_directory,'/Clatent_sample',sample_id,'.csv',sep=''))
+      } else {
+        # placeholder if not using cleaned data
+        sample_id = 'mean'
+        Clean_latent <- readclean('Clatent_mean', row.names=1)
+        Clean_recon <- readclean('Crecon_median', row.names=1)
+        print(paste('Using samples from ',opt$clean_directory,'/Clatent_mean.csv',sep=''))
+      }
+    }
+
     #########################################################
     radiation_length_scales <- c(.1,.2,.5)
     radiation_flux <- array(0,dim=c(N,N,length(radiation_length_scales)))
@@ -94,6 +114,12 @@ Rmap_read_data = function(env) {
     }
 
   })
+  if (!is.null(env$opt$limit_area) && !is.null(env$opt$limit_radius)) {
+    source("sandbox/limit_data.r")
+    limit_data_by_distance(env, env$opt$limit_area, env$opt$limit_radius)
+    print("Limited data to areas:")
+    print(env$areas)
+  }
   env
 }# Rmap_read_data
 ##########################################################################

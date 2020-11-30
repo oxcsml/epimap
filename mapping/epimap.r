@@ -13,30 +13,37 @@ Rmap_options = function(
   gp_space_decay_scale = .1,
   gp_time_scale        = 60.0, # units of 1 day
   gp_time_decay_scale  = .1,
-  fixed_gp_space_length_scale = -1.0,
-  fixed_gp_time_length_scale = -1.0,
+  fixed_gp_space_length_scale = 3.0,
+  fixed_gp_time_length_scale = 100.0,
+  constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
+  full_cases_distribution = 0,
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
   cleaned_sample_id    = 1, 
 
-  first_day_modelled   = "2020-08-01",
+  first_day_modelled   = NULL,
   last_day_modelled    = NULL,
-  weeks_modelled       = NULL,
+  weeks_modelled       = 15,
   days_ignored         = 7,
   days_per_step        = 7,
   days_predicted       = 2,
-  steps_ignored_stage2 = 0,
+  steps_ignored_stage2 = 1,
   num_steps_forecasted = 4,
 
   thinning             = 1,
   chains               = 1,
-  iterations           = 4000,
+  iterations           = 3000, 
 
   data_directory       = "data/",
-  clean_directory      = "fits/clean",
-  results_directory    = NULL
+  clean_directory      = "fits/clean", 
+  results_directory    = NULL,
+
+  limit_area           = NULL,
+  limit_radius         = NULL,
+
+  stage                = "map"
 ) {
   as.list(environment())
 }
@@ -69,11 +76,19 @@ Rmap_setup = function(opt = Rmap_options()) {
     Mproj = opt$num_steps_forecasted
     Tproj = Tstep*Mproj           # number of days to project forward
 
+    message("Tcur: ", Tcur, ", length Clean_latent: ", length(Clean_latent))
     stopifnot(Tcur == length(Clean_latent))
+      message("Tcur: ", Tcur, ", length Clean_recon: ", length(Clean_recon))
     stopifnot(Tcur == length(Clean_recon))
 
     days_likelihood = dates[(Tcond+1):Tcur]
     days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
+    days_proj = seq(dates[Tcur+1],by=1,length.out=Tproj)
+    days_forward = seq(dates[Tcur+1],by=1,length.out=max(Tproj, Tpred))
+    days = c(days_likelihood, days_forward)
+    # days = c(days_likelihood)
+    # Mproj = 0
+
 
     message("Days used for held out likelihood = ",
       days_pred_held_out[1],"...",days_pred_held_out[Tpred])
@@ -213,29 +228,30 @@ Rmap_run = function(env) {
 
     #########################################################
     # time steps
-    times = 1:Mstep
-    timedist = matrix(0, Mstep, Mstep)
-    for (i in 1:Mstep) {
-      for (j in 1:Mstep) {
+    times = 1:(Mstep+Mproj)
+    timedist = matrix(0, Mstep+Mproj, Mstep+Mproj)
+    for (i in 1:(Mstep+Mproj)) {
+      for (j in 1:(Mstep+Mproj)) {
         timedist[i, j] = abs(times[i] - times[j]) * Tstep
       }
     }
 
     # precompute lockdown cutoff kernel
     lockdown_day = as.Date("2020-03-23")
-    days_lik_start = days_likelihood[seq(1, length(days_likelihood), Tstep)]
-    days_lik_start = vapply(days_lik_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
-    day_pre_lockdown = vapply(days_lik_start, (function (day) day < lockdown_day), logical(1))
-
-    time_corellation_cutoff = matrix(0,Mstep,Mstep)
-    for (i in 1:Mstep) {
-      for (j in 1:Mstep) {
+    days_period_start = days[seq(1, length(days), Tstep)]
+    days_period_start = vapply(days_period_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
+    day_pre_lockdown = vapply(days_period_start, (function (day) day < lockdown_day), logical(1))
+    
+    time_corellation_cutoff = matrix(0,Mstep+Mproj,Mstep+Mproj)
+    for (i in 1:(Mstep+Mproj)) {
+      for (j in 1:(Mstep+Mproj)) {
         time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
       }
     }
 
     #########################################################
     # Main computation
+    print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
     Rmap_data <- list(
       N = N,
       Mstep = Mstep,
@@ -244,10 +260,9 @@ Rmap_run = function(env) {
       Tstep = Tstep,
       Mignore = opt$steps_ignored_stage2,
       Mproj = Mproj,
-      Tproj = Tproj,
       Tpred = Tpred,
 
-      Count = AllCount,
+      Ct = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
       geodist = geodist,
@@ -260,6 +275,11 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
+      coupling_mu_loc = -2.19, # centre at .1
+      coupling_mu_scale = 0.25, # set mean of process to be 0.1, 1 std = 0.024-0.33
+      coupling_sigma_scale = 0.25,
+      coupling_alpha_scale = 1-exp(-Tstep/28),
+      
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
       LOCAL_KERNEL = LOCAL_KERNEL,
@@ -268,6 +288,8 @@ Rmap_run = function(env) {
       DO_IN_OUT = DO_IN_OUT,
       OBSERVATION_DATA = OBSERVATION_DATA,
       OBSERVATION_MODEL = OBSERVATION_MODEL,
+      CONSTANT_FORWARD_RT = opt$constant_forward_rt,
+      FULL_CASES_DISTRIBUTION = opt$full_cases_distribution,
 
       Tip = Tip,
       infprofile = infprofile,
@@ -288,12 +310,13 @@ Rmap_run = function(env) {
         gp_sigma = .25,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
-        dispersion = 1.0
+        infection_dispersion = 1.0,
+        case_dispersion = 1.0
       ))
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
       }
-      lapply(1:Mstep, function(k) {
+      lapply(1:(Mstep+Mproj), function(k) {
         lapply(1:N, function(j) {
           l = j+(k-1)*N;
           setval('local_exp', 1.0, j, k);
@@ -313,6 +336,7 @@ Rmap_run = function(env) {
       lapply(1:F, function(f) setval('flux_probs', 1/F, f))
       as.list(env)
     })
+    # print(Rmap_init)
     # message(Rmap_init[[1]])
     Rmap_pars = c(
       "global_sigma",
@@ -320,7 +344,8 @@ Rmap_run = function(env) {
       "gp_sigma",
       "gp_space_length_scale",
       "gp_time_length_scale",
-      "dispersion",
+      "infection_dispersion",
+      "case_dispersion",
       "coupling_rate",
       "flux_probs",
       "Rt",
@@ -361,7 +386,8 @@ Rmap_run = function(env) {
           "gp_time_length_scale",
           "global_sigma",
           "local_scale",
-          "dispersion",
+          "infection_dispersion",
+          "case_dispersion",
           "Rt_all",
           "coupling_rate",
           "flux_probs"
@@ -456,8 +482,8 @@ Rmap_postprocess = function(env) {
     Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
     #s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
     #Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
-
-    times = rep(c(1:Mstep,rep(Mstep,Mproj)), N)
+    
+    times = rep(c(1:(Mstep+Mproj)), N)
     places = rep(1:N, each=Mstep+Mproj)
     indicies = places + (N)*(times-1)
     Rt = Rt[indicies,]
@@ -482,16 +508,16 @@ Rmap_postprocess = function(env) {
     numthresholds = length(thresholds)
     numsamples = numchains*numiters/2
     Rt <- as.matrix(fit, pars="Rt")
-    dim(Rt) <- c(numsamples,Mstep,N)
-    Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
-    for (k in 1:Mstep) {
+    dim(Rt) <- c(numsamples,Mstep+Mproj,N)
+    Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
+    for (k in 1:(Mstep+Mproj)) {
       for (i in 1:N) {
         for (x in 1:numthresholds) {
           Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
         }
       }
     }
-    Pexceedance = Pexceedance[c(1:Mstep,rep(Mstep,Mproj)),,]
+    Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
     Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
     dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
     df <- area_date_dataframe(
@@ -529,13 +555,13 @@ Rmap_postprocess = function(env) {
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
-    ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-    Cweekly <- cbind(Cweekly,ignoredweek)
+    # ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+    # Cweekly <- cbind(Cweekly,ignoredweek)
 
     s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
     projectedweeks <- as.matrix(s[,"50%"])
     dim(projectedweeks) <- c(Tstep,Mproj,N)
-    projectedweeks <- projectedweeks[,2:Mproj,,drop=FALSE]
+    projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
     projectedweeks <- apply(projectedweeks,c(2,3),sum)
     projectedweeks <- t(projectedweeks)
     Cweekly <- cbind(Cweekly,projectedweeks)
@@ -647,11 +673,18 @@ days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj)
 #################################################################
 # Rt posterior
 Rt_samples = load_samples('Rt')
+# TODO: we get very infrequent Nas in the cori model
+# if (any(is.na(Rt_samples))) {
+#   message("WARNING: NAs in Rt samples")
+#   Rt_samples = Rt_samples[complete.cases(Rt_samples),]
+# }
+
 Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
 
-Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
+Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
+#Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
     quoted_areas,
     days_all,
@@ -669,17 +702,18 @@ message('done Rt')
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
 numsamples = numruns * floor(numiters/2 / opt$thinning)
+# numsamples = dim(env$Rt_samples)[1] 
 Rt <- as.matrix(Rt_samples)
-dim(Rt) <- c(numsamples,Mstep,N)
-Pexceedance = array(0.0,dim=c(Mstep,N,numthresholds))
-for (k in 1:Mstep) {
+dim(Rt) <- c(numsamples,Mstep+Mproj,N)
+Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
+for (k in 1:(Mstep+Mproj)) {
   for (i in 1:N) {
     for (x in 1:numthresholds) {
       Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
     }
   }
 }
-Pexceedance = Pexceedance[c(1:Mstep,rep(Mstep,Mproj)),,]
+Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
 Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
 dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
 df <- area_date_dataframe(
@@ -730,7 +764,7 @@ projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
     probs=c(.5)
 ))
 dim(projectedweeks) <- c(Tstep,Mproj,N)
-projectedweeks <- projectedweeks[,2:Mproj,,drop=FALSE]
+projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
 projectedweeks <- apply(projectedweeks,c(2,3),sum)
 projectedweeks <- t(projectedweeks)
 Cweekly <- cbind(Cweekly,projectedweeks)
@@ -902,6 +936,18 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       )
     ),
     make_option(
+      c("--constant_forward_rt"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Use a the Rt from the last modelled week to predict forward; default =", opt$constant_forward_rt)
+    ),
+    make_option(
+      c("--full_cases_distribution"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Return the full distribution of cases, not just the distribution of the mean; default =", opt$full_cases_distribution)
+    ),
+    make_option(
       c("-v", "--observation_data"),
       type="character",
       default=opt$observation_data,
@@ -998,6 +1044,18 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       type="integer",
       default=0,
       help="Task ID for Slurm usage. By default, turned off [0]."
+    ),
+    make_option(
+      c("--limit_area"), 
+      type="character", 
+      default=opt$limit_area, 
+      help=paste("If not NULL, center the radius of regions on this region",opt$limit_area)
+    ),
+    make_option(
+      c("--limit_radius"), 
+      type="double", 
+      default=opt$limit_radius, 
+      help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
     )
   )
 }

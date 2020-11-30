@@ -767,6 +767,7 @@ generated quantities {
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
   matrix[N,Mproj*Tstep] Cproj;
+  matrix[N_region,Mstep*Tstep] Cpred_region;
   matrix[N_region,Mproj*Tstep] Cproj_region;
 
   {
@@ -866,12 +867,16 @@ generated quantities {
             for (t in Tcond+1:Tcur) {
               int s = t-Tcond;
               Cpred[,s] = Clatent[,t];
+              for (n in 1:N_region)
+                Cpred_region[n,s] = sum(Cpred[,s] .* sparse_region[,n]);
             }
           }
           { // Projections are exactly the forward simulated model
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
               Cproj[,s] = Clatent[,t];
+              for (n in 1:N_region)
+                Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
             }
             // Compute predictive likelihood of observed latent epidemic
             {
@@ -939,19 +944,20 @@ generated quantities {
               if (FULL_CASES_DISTRIBUTION) {
                 Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
+              for (n in 1:N_region)
+                Cpred_region[n,s] = sum(Cpred[,s] .* sparse_region[,n]);
             }
           }
           { // forecasting expected counts given parameters
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
               Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-              for (n in 1:N_region)
-                Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {
                 Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
-                Cproj_region[,s] = to_vector(neg_binomial_2_rng(Cproj_region[,s], Cproj_region[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
+              for (n in 1:N_region)
+                Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
             }
           }
           // Compute predictive likelihood of observed future case observations

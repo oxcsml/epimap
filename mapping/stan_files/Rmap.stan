@@ -945,9 +945,12 @@ generated quantities {
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
               Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              for (n in 1:N_region)
+                Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {
                 Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
+                Cproj_region[,s] = to_vector(neg_binomial_2_rng(Cproj_region[,s], Cproj_region[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
             }
           }

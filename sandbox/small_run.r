@@ -2,6 +2,9 @@ source('mapping/epimap.r')
 source('sandbox/limit_data.r')
 
 opt = Rmap_options(
+    first_day_modelled = "2020-08-01",
+    last_day_modelled = "2020-10-30",
+    days_ignored=NULL,
     iterations=4000,
     cleaned_sample_id = 1,
     observation_data='latent_reports', #'cleaned_latent_sample',

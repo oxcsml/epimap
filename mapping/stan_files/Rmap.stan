@@ -347,7 +347,7 @@ parameters {
   real<lower=0.0,upper=0.632> gp_space_decay;
   real<lower=0.0,upper=0.632> gp_time_decay;
     
-  matrix<lower=0.0>[N,Mstep+Mforw] local_exp;
+  matrix<lower=0.0>[LOCAL_KERNEL ? N : 1,LOCAL_KERNEL ? Mstep+Mforw : 1] local_exp;
   real<lower=0.0> local_scale;
   real<lower=0.0> global_sigma;
 
@@ -362,7 +362,6 @@ parameters {
 
   real<lower=0.0> infection_dispersion;
   real<lower=0.0> case_dispersion;
-  // real<lower=0> Ravg;
 
   real coupling_mu_eta; // prior mean for sigmoid^-1(coupling_rate) 
   real<lower=0> coupling_sigma; // prior scale for sigmoid^-1(coupling_rate) 
@@ -379,8 +378,6 @@ transformed parameters {
   matrix[N,Tstep] EXt[Mstep];
   real gp_space_length_scale;
   real gp_time_length_scale;
-  matrix[N,N] L_space;
-  matrix[Mstep+Mforw,Mstep+Mforw] L_time;
   real coupling_alpha = 1.0-coupling_alpha1; // autocorrelation for sigmoid^-1(coupling_rate) 
   real coupling_rate[Mstep+Mforw];
 
@@ -409,6 +406,9 @@ transformed parameters {
     }
   }
 
+  { // Prior on Rt
+  matrix[N,N] L_space;
+  matrix[Mstep+Mforw,Mstep+Mforw] L_time;
   if (fixed_gp_space_length_scale <= 0.0) {
     matrix[N,N] K_space;
 
@@ -529,9 +529,12 @@ transformed parameters {
       Rout = rep_matrix(1.0,N,Mstep+Mforw);
     }
 
+  }
+  }
+
     // metapopulation infection rate model
-    EXt = metapop(DO_METAPOP,DO_IN_OUT,
-        block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),Zt,FZt,fluxproportions[1:Mstep],fluxt);
+  EXt = metapop(DO_METAPOP,DO_IN_OUT,
+      block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),Zt,FZt,fluxproportions[1:Mstep],fluxt);
     // print("Testing infered Rts: ")
     // for (m in 1:Mstep){
     //   for (i in 1:N) {
@@ -556,7 +559,6 @@ transformed parameters {
     //     }
     //   }
     // }
-  }
 }
 
 model {
@@ -574,13 +576,17 @@ model {
 
 
   gp_space_decay ~ normal(0.0,gp_space_decay_scale);
-  gp_time_decay ~ normal(0.0,gp_steptime_decay_scale);
+  gp_time_decay ~ normal(0.0,gp_time_decay_scale);
   gp_sigma ~ normal(0.0, 0.5);
   global_sigma ~  normal(0.0, 0.5);
   local_scale ~ normal(0.0, 0.2);
-  for (j in 1:(Mstep+Mforw))
-    for (i in 1:N) 
-      local_exp[i, j] ~ exponential(1.0);
+  if (LOCAL_KERNEL) {
+    for (j in 1:(Mstep+Mforw))
+      for (i in 1:N) 
+        local_exp[i, j] ~ exponential(1.0);
+  } else {
+    local_exp[1,1] ~ exponential(1.0);
+  }
   
 
   

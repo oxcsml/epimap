@@ -348,7 +348,8 @@ Rmap_run = function(env) {
       "Ppred",
       "Cpred",
       "Cproj",
-      "Cproj_region"
+      "Cproj_region",
+      "Cpred_region"
     )
     Rmap_control = list(
       # max_treedepth = 3, # testing only
@@ -446,6 +447,7 @@ Rmap_postprocess = function(env) {
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
     save_samples("Rt_region", N_sites=N_region)
+    save_samples("Cpred_region", N_sites=N_region, areafirst=TRUE)
     save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
@@ -813,6 +815,21 @@ df <- area_date_dataframe(
 )
 writemergedresults(df, 'Cproj_region', row.names=FALSE, quote=FALSE)
 message('done Cproj_region')
+# Cpred_region posterior predictive
+Cpred_region_samples = load_samples('Cpred_region')
+Cpred_region = t(apply(Cpred_region_samples,2,quantile,
+    probs=c(.025,.25,.5,.75,.975)
+))
+df <- area_date_dataframe(
+    quoted_regions,
+    seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
+    rep('inferred',Tlik),
+    format(round(Cpred_region,1),nsmall=1),
+    #c("C_2_5","C_25","C_50","C_75","C_97_5")
+    c("C_025","C_25","C_50","C_75","C_975")
+)
+writemergedresults(df, 'Cpred_region', row.names=FALSE, quote=FALSE)
+message('done Cpred_region')
 })
 }
 

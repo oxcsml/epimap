@@ -48,7 +48,7 @@ for (i in 1:N) {
     geoloc[i, 2] = latitudes[j[l]]
     population[i] = metadata$POPULATION[j[l]]
 
-    nhs_row = (nhs_regions_unique == nhs_regions[i])
+    nhs_row = (nhs_regions_unique == nhs_regions[j[l]])
     nhs_regions_to_areas[i,] = nhs_row
   } else {
     print(sprintf("Cannot find area '%s'",area))

@@ -649,6 +649,7 @@ generated quantities {
 
   matrix[N,Tpred] Ppred;
   matrix[N,Mstep*Tstep] Cpred;
+  matrix[N_region,Mstep*Tstep] Cpred_region;
   matrix[N,Tproj] Cproj; 
   matrix[N_region,Tproj] Cproj_region;
 
@@ -803,6 +804,8 @@ generated quantities {
         for (t in Tcond+1:Tcur) {
           int s = t-Tcond;
           Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+          for (n in 1:N_region)
+            Cpred_region[n,s] = sum(Cpred[,s] .* sparse_region[,n]);
         }
       }
       { // forecasting expected counts given parameters

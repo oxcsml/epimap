@@ -15,6 +15,8 @@ Rmap_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_space_length_scale = 3.0,
   fixed_gp_time_length_scale = 100.0,
+  constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
+  full_cases_distribution = 0,
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
@@ -25,8 +27,8 @@ Rmap_options = function(
   last_day_modelled    = NULL,
   weeks_modelled       = NULL,
   days_ignored         = 7,
-  days_predicted       = 2,
   days_per_step        = 7,
+  days_predicted       = 2,
   steps_ignored_stage2 = 1,
   num_steps_forecasted = 3,
 
@@ -74,7 +76,9 @@ Rmap_setup = function(opt = Rmap_options()) {
     Mproj = opt$num_steps_forecasted
     Tproj = Tstep*Mproj           # number of days to project forward
 
+    message("Tcur: ", Tcur, ", length Clean_latent: ", length(Clean_latent))
     stopifnot(Tcur == length(Clean_latent))
+      message("Tcur: ", Tcur, ", length Clean_recon: ", length(Clean_recon))
     stopifnot(Tcur == length(Clean_recon))
 
     days_likelihood = dates[(Tcond+1):Tcur]
@@ -247,6 +251,7 @@ Rmap_run = function(env) {
 
     #########################################################
     # Main computation
+    print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
     Rmap_data <- list(
       N = N, 
       Mstep = Mstep,
@@ -283,6 +288,8 @@ Rmap_run = function(env) {
       DO_IN_OUT = DO_IN_OUT,
       OBSERVATION_DATA = OBSERVATION_DATA,
       OBSERVATION_MODEL = OBSERVATION_MODEL,
+      CONSTANT_FORWARD_RT = opt$constant_forward_rt,
+      FULL_CASES_DISTRIBUTION = opt$full_cases_distribution,
 
       Tip = Tip, 
       infprofile = infprofile,
@@ -658,6 +665,12 @@ days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj)
 #################################################################
 # Rt posterior
 Rt_samples = load_samples('Rt')
+# TODO: we get very infrequent Nas in the cori model
+# if (any(is.na(Rt_samples))) {
+#   message("WARNING: NAs in Rt samples")
+#   Rt_samples = Rt_samples[complete.cases(Rt_samples),]
+# }
+
 Rt = t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
 ))
@@ -681,6 +694,7 @@ message('done Rt')
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
 numsamples = numruns * floor(numiters/2 / opt$thinning)
+# numsamples = dim(env$Rt_samples)[1] 
 Rt <- as.matrix(Rt_samples)
 dim(Rt) <- c(numsamples,Mstep+Mproj,N)
 Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
@@ -733,8 +747,10 @@ Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
-# ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-# Cweekly <- cbind(Cweekly,ignoredweek)
+stopifnot(Tcur+Tstep<=length(AllCount))
+
+ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+Cweekly <- cbind(Cweekly,ignoredweek)
 
 projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
     probs=c(.5)
@@ -863,6 +879,18 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
           "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
           "default = ", opt$metapop
       )
+    ),
+    make_option(
+      c("--constant_forward_rt"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Use a the Rt from the last modelled week to predict forward; default =", opt$constant_forward_rt)
+    ),
+    make_option(
+      c("--full_cases_distribution"),  
+      type="integer",
+      default=opt$constant_forward_rt,
+      help=paste("Return the full distribution of cases, not just the distribution of the mean; default =", opt$full_cases_distribution)
     ),
     make_option(
       c("-v", "--observation_data"),

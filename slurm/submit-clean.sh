@@ -12,7 +12,15 @@ fi
 clean_directory=$1
 echo "clean_directory = $clean_directory"
 
-options="--weeks_modelled 15 --produce_plots TRUE --clean_directory $clean_directory"
+options="\
+  --weeks_modelled 15 \
+  --produce_plots TRUE \
+  --clean_directory $clean_directory \
+  --last_day_modelled 2020-11-08 \
+  --weeks_modelled 15 \
+  --days_predicted 14 \
+  --num_steps_forecasted 4 \
+  "
 
 mkdir -p $clean_directory
 mkdir -p $clean_directory/pdfs

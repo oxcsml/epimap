@@ -78,4 +78,5 @@ local-cleaned/*.pdf
 local-cleaned/*.stanfit
 simulation/doc/model.pdf
 docs/vendor
-docs/assets/data/test-*
+docs/assets/data
+data/evaluation

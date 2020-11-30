@@ -2,6 +2,7 @@ data {
   int<lower=1> Tall;  //
   int<lower=1> Tcond;  //
   int<lower=1> Tstep; // length of step (7 days = 1 week)
+  int<lower=0> Tpred; // number of days to compute prediction likelihood for
   int<lower=1> Nstep; // number of steps
   int<lower=0> Nproj;
   int Count[1,Tall];
@@ -154,12 +155,18 @@ model {
 
 generated quantities {
   int Crecon[Tcur];
+  vector[Tstep*Nstep] Cpred;
   int Noutliers = 0;
   real meandelay = 0.0;
   real denomdelay = 0.0;
   vector[Tstep*Nproj] Xt_proj;
   vector[Tstep*Nproj] Count_proj;
+  vector[Tpred] Ppred;
   real gp_time_length_scale = -Tstep/log(alpha);
+
+  for (t in 1:(Tstep*Nstep)) {
+    Cpred[t] = 0.0;
+  }
 
   for (t in 1:Tcond)
     Crecon[t] = Count[1,t];
@@ -181,6 +188,7 @@ generated quantities {
     denomdelay += c;
     if (reconstruct_infections) {
       Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
+      Cpred[s] = sum(Precon);
       Precon /= sum(Precon);
       Crecon_t = multinomial_rng(Precon,c);
       for (i in 1:Ttdp) {
@@ -218,6 +226,19 @@ generated quantities {
         );
     } } 
     Xt_proj = xlatent[Tcur+1:Tcur+Tstep*Nproj];
+
+    for (m in 1:Nproj) {
+      for (t in 1:Tstep) {
+        int i = (m-1) * Tstep + t;
+        if (i > Tpred) {
+          break;
+        }
+        Ppred[i] = exp(neg_binomial_2_lpmf(Count[1, Tcur + i] |
+            Count_proj[i],
+            1.0 / phi_observed
+        ));
+      }
+    }
   }
 
 

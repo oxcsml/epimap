@@ -225,6 +225,8 @@ data {
   int<lower=0,upper=1> DO_IN_OUT;
   int<lower=1,upper=4> OBSERVATION_DATA;
   int<lower=1,upper=4> OBSERVATION_MODEL;
+  int<lower=0,upper=1> CONSTANT_FORWARD_RT;
+  int<lower=0,upper=1> FULL_CASES_DISTRIBUTION;
 }
 
 transformed data {
@@ -532,6 +534,13 @@ transformed parameters {
   }
   }
 
+  if (CONSTANT_FORWARD_RT) {
+    for (m in (Mstep+1):(Mstep+Mforw)) {
+      Rin[:,m] = Rin[,Mstep];
+      Rout[:,m] = Rout[,Mstep];
+    }
+  }
+
     // metapopulation infection rate model
   EXt = metapop(DO_METAPOP,DO_IN_OUT,
       block(Rin, 1, 1, N, Mstep),block(Rout, 1, 1, N, Mstep),Zt,FZt,fluxproportions[1:Mstep],fluxt);
@@ -674,13 +683,29 @@ model {
       );
     }
   } else if (OBSERVATION_DATA == COUNTS) {
-    reject("Currently invalid - needs refactor to daily likelihoods");
-    // if (OBSERVATION_MODEL == POISSON) {
-    //   for (k in 1:Mstep) 
-    //     for (j in 1:N) 
-    //       Ct[k,j] ~ poisson(
-    //           EXt_reduced[k,j,1] 
-    //       );
+    if (OBSERVATION_MODEL == POISSON) {
+      for (k in 1:Mstep) {
+        // Compute infinatly divisible weekly likelihood
+        vector[N] EXt_weekly = rep_vector(0.0, N);
+        int weekly_cases[N] = rep_array(0, N);
+
+        for (s in 1:Tstep) {
+          int t = Tcond + Tstep*(k-1)+s;
+          EXt_weekly += Xt[,t-Tdp+1:t] * delayprofile_rev;
+          for (j in 1:N) {
+            weekly_cases[j] += Ct[j,t];
+          }
+        }
+
+        for (j in 1:N) {
+          weekly_cases[j] ~ poisson(
+              EXt_weekly[j]
+          );
+        }
+      }
+    } else {
+      reject("Currently invalid - needs refactor to daily likelihoods");
+    }
     // } else if (OBSERVATION_MODEL == NEG_BINOMIAL_2) {
     //   for (k in 1:Mstep) 
     //     for (j in 1:N) 
@@ -755,6 +780,7 @@ generated quantities {
     }
 
     // Forward simulate model and compute predictive probabilities
+    // Rollout stochasitc prediction of epidemic
     if (Mforw > 0) {
       // Rollout stochasitc prediction of epidemic
       {
@@ -824,27 +850,24 @@ generated quantities {
               reject("Invalid combination of OBSERVATION_DATA, OBSERVATION_MODEL found: ", OBSERVATION_DATA, ", ", OBSERVATION_MODEL);
             }
           }
-
         }
 
+      }
 
-
-
-        // Simulate observations based on the type data we are observing and compute predictive probabilities
-        {
-          // Cases where we only observe the latent epidemic
-          if (OBSERVATION_DATA == COUNTS || OBSERVATION_DATA == CLEANED_RECON){
-            { // Predictions are exactly the forward simulated model
-              for (t in Tcond+1:Tcur) {
-                int s = t-Tcond;
-                Cpred[,s] = Clatent[,t];
-              }
+      // Simulate observations based on the type data we are observing and compute predictive probabilities
+      {
+        // Cases where we only observe the latent epidemic
+        if (OBSERVATION_DATA == COUNTS || OBSERVATION_DATA == CLEANED_RECON){
+          { // Predictions are exactly the forward simulated model
+            for (t in Tcond+1:Tcur) {
+              int s = t-Tcond;
+              Cpred[,s] = Clatent[,t];
             }
-            { // Projections are exactly the forward simulated model
-              for (t in Tcur+1:Tcur+Tproj) {
-                int s = t-Tcur;
-                Cproj[,s] = Clatent[,t];
-              }
+          }
+          { // Projections are exactly the forward simulated model
+            for (t in Tcur+1:Tcur+Tproj) {
+              int s = t-Tcur;
+              Cproj[,s] = Clatent[,t];
             }
             // Compute predictive likelihood of observed latent epidemic
             {
@@ -895,40 +918,45 @@ generated quantities {
                       }
                       
                     }
+                    
                   }
                 }
               }
             }
+          }
           // Cases where we observe case reports
-          } else if (OBSERVATION_DATA == CLEANED_LATENT || OBSERVATION_DATA == INFECTION_REPORTS) {
-            //*** TODO Build in more observation model options, and rename OBSERVATION_MODEL to INFECTION_MODEL? ***//
-            { // posterior predictive expected counts
-              for (t in Tcond+1:Tcur) {
-                int s = t-Tcond;
-                Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                // Draw sample from observation model
+        } else if (OBSERVATION_DATA == CLEANED_LATENT || OBSERVATION_DATA == INFECTION_REPORTS) {
+          //*** TODO Build in more observation model options, and rename OBSERVATION_MODEL to INFECTION_MODEL? ***//
+          { // posterior predictive expected counts
+            for (t in Tcond+1:Tcur) {
+              int s = t-Tcond;
+              Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              if (FULL_CASES_DISTRIBUTION) {
                 Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
             }
-            { // forecasting expected counts given parameters
-              for (t in Tcur+1:Tcur+Tproj) {
-                int s = t-Tcur;
-                Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                // Draw sample from observation model
+          }
+          { // forecasting expected counts given parameters
+            for (t in Tcur+1:Tcur+Tproj) {
+              int s = t-Tcur;
+              Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              // Draw sample from observation model
+              if (FULL_CASES_DISTRIBUTION) {
                 Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
             }
-            // Compute predictive likelihood of observed future case observations
-            {
-              for (t in Tcur+1:Tcur+Tpred) {
-                int i = t-Tcur;
-                vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
-                for (j in 1:N) {
-                  Ppred[j,i] = exp(neg_binomial_2_lpmf(Ct[j,t] |
-                      cc[j],
-                      cc[j] / case_dispersion //*** TODO use better estimated dispersion ***//
-                  )); 
-                }
+          }
+          // Compute predictive likelihood of observed future case observations
+          {
+            for (t in Tcur+1:Tcur+Tpred) {
+              int i = t-Tcur;
+              vector[N] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              for (j in 1:N) {
+                Ppred[j,i] = exp(neg_binomial_2_lpmf(Ct[j,t] |
+                    cc[j],
+                    cc[j] / case_dispersion //*** TODO use better estimated dispersion ***//
+                )); 
               }
             }
           }

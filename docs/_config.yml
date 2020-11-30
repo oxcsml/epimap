@@ -15,8 +15,8 @@ plugins:
 
 #remote_theme: lawrennd/proceedings
 
-baseurl: '/Rmap'
-#url: http://rs-delve.github.io
+#baseurl: '/Rmap'
+url: http://localcovid.info
 
 timezone: UTC
 encoding: utf-8

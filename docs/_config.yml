@@ -16,7 +16,7 @@ plugins:
 #remote_theme: lawrennd/proceedings
 
 baseurl: '/'
-url: http://localcovid.info
+url: https://localcovid.info
 
 timezone: UTC
 encoding: utf-8

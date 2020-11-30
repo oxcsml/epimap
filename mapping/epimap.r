@@ -19,7 +19,7 @@ Rmap_options = function(
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
-  cleaned_sample_id    = 0,
+  cleaned_sample_id    = 1, 
 
   first_day_modelled   = "2020-08-01",
   last_day_modelled    = NULL,
@@ -55,25 +55,6 @@ Rmap_setup = function(opt = Rmap_options()) {
 
     options(mc.cores = min(numchains,parallel::detectCores()))
     rstan_options(auto_write = TRUE)
-
-
-    #########################################################
-    if (opt$cleaned_sample_id>0 && (
-        opt$observation_data == 'cleaned_latent_sample' ||
-        opt$observation_data == 'cleaned_recon_sample' ||
-        opt$observation_data == 'latent_reports')) {
-      sample_id = opt$cleaned_sample_id
-      Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''),
-        row.names=1)
-      Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''),
-        row.names=1)
-      message(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-    } else {
-      # placeholder if not using cleaned data
-      sample_id = 'mean'
-      Clean_latent <- readclean('Clatent_mean', row.names=1)
-      Clean_recon <- readclean('Crecon_median', row.names=1)
-    }
 
     #########################################################
     list[Mstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
@@ -1004,7 +985,13 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       c("-r", "--clean_directory"),
       type="character",
       default=opt$clean_directory,
-      help="If specified, store outputs in directory, otherwise use a unique directory"
+      help="Directory from which to load cleaned epidemic samples"
+    ),
+    make_option(
+      c("--data_directory"),
+      type="character",
+      default=opt$data_directory,
+      help="Directory from which to load data about regions and raw cases"
     ),
     make_option(
       c("-t", "--task_id"),

@@ -1014,9 +1014,5 @@ generated quantities {
       );
     }
   }
-
-
-
-
 }
 

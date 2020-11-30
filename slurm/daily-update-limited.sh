@@ -43,6 +43,6 @@ cd docs/assets/data/ && ln -s $today/ default && cd -
 git add docs/assets/data/$today/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
-git add data/*
+git add -f data/*
 git commit -m "daily update $today"
 git push

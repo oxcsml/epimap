@@ -4,7 +4,7 @@ title: People
 weight: 2
 ---
 
-This website and the method behind it was developed by an [OxCLML](http://csml.stats.ox.ac.uk/) team at the University of Oxford's Department of Statistics.
+This website and the method behind it were developed by an [OxCSML](http://csml.stats.ox.ac.uk/) team at the University of Oxford's Department of Statistics.
 The project was incubated in the [Royal Society DELVE Initiative](https://rs-delve.github.io). People involved are:
 * [Yee Whye Teh](https://www.stats.ox.ac.uk/~teh/), Department of Statistics, University of Oxford
 * [Avishkar Bhoopchand](https://www.linkedin.com/in/avishkarbhoopchand), DeepMind, on secondment to Oxford Statistics

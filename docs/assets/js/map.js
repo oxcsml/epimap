@@ -639,7 +639,10 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-    selectDate(d3.max(availableDates));
+    const modelledDates = casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date);
+    console.log(d3.max(modelledDates);
+    selectDate(d3.max(modelledDates));
+    // selectDate(d3.max(availableDates));
 
     rtFillFn = date => {
         const idx = bisectDate(availableDates, date, 1);
@@ -884,7 +887,7 @@ function ready(data) {
         .displayValue(false);
     
     sliderG.call(timeSlider);
-    sliderValueLabel.text(dateFormat(d3.max(availableDates)));
+    sliderValueLabel.text(dateFormat(d3.max(availableDates))); // YW
 
     changeSlider = (changeFn) => {
         timeSlider

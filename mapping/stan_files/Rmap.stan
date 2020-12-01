@@ -42,19 +42,6 @@ functions {
     return none_kernel(dist, gp_sigma, gp_length_scale);
   }
 
-  real local_var(real local_sigma2) {
-    return local_sigma2;
-  }
-
-  real global_var(real global_sigma2) {
-    return global_sigma2;
-  }
-
-  real none_var(real param) {
-    return 0.000000001; // a small but positive number for numerical stability
-  }
-
-
   // Meta-population infection rate model choices
 
   matrix[] none_metapop(matrix Rin, matrix[] convlik) {
@@ -175,6 +162,23 @@ functions {
       - log(2 * modified_bessel_second_kind(p, sqrt(a * b)))
       + (p - 1) * log(x)
       - (a * x + b / x) * 0.5;
+  }
+
+  matrix cholupdate(matrix L, vector x) {
+    int n = rows(L);
+    matrix[n,n] O = L;
+    vector[n] y = x;
+    for (k in 1:n) {
+      real r = sqrt(O[k, k]^2 + y[k]^2);
+      real c = r / O[k, k];
+      real s = y[k] / O[k, k];
+      O[k, k] = r;
+      if (k < n) {
+          O[(k+1):n, k] = (O[(k+1):n, k] + s * y[(k+1):n]) / c;
+          y[(k+1):n] = c * y[(k+1):n] - s * O[(k+1):n, k];
+      }
+    }
+    return O;
   }
 }
 
@@ -355,8 +359,8 @@ parameters {
   real<lower=0.0> local_scale;
   real<lower=0.0> global_sigma;
 
-  row_vector[(Mstep+Mforw)] global_eta_in;
-  row_vector[(DO_METAPOP && DO_IN_OUT) ? (Mstep+Mforw) : 1] global_eta_out;
+  // row_vector[(Mstep+Mforw)] global_eta_in;
+  // row_vector[(DO_METAPOP && DO_IN_OUT) ? (Mstep+Mforw) : 1] global_eta_out;
 
   vector[N*(Mstep+Mforw)] gp_eta_in;
   vector[(DO_METAPOP && DO_IN_OUT) ? N*(Mstep+Mforw) : 1] gp_eta_out;
@@ -420,10 +424,12 @@ transformed parameters {
     
     K_space = kernel(SPATIAL_KERNEL,geodist, 1.0, gp_space_length_scale,
         NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+    if (GLOBAL_KERNEL) 
+      K_space = square(gp_sigma)*K_space + rep_matrix(square(global_sigma),N,N);
     L_space = cholesky_decompose(K_space);
   } else {
     gp_space_length_scale = fixed_gp_space_length_scale;
-    L_space = fixed_L_space;
+    L_space = cholupdate(gp_sigma*fixed_L_space, rep_vector(global_sigma,N));
   }
 
   if (fixed_gp_time_length_scale <= 0.0) {
@@ -442,14 +448,14 @@ transformed parameters {
   }
 
   {
-    matrix[N, Mstep+Mforw] global_effect_in;
+    // matrix[N, Mstep+Mforw] global_effect_in;
     matrix[N, Mstep+Mforw] local_effect_in;
     // Noise kernel (reshaped from (N*Mstep, N*Mstep) to (N,Mstep) since diagonal)
-    if (GLOBAL_KERNEL) {
-      global_effect_in = rep_matrix(global_sigma * global_eta_in * L_time, N);
-    } else {
-      global_effect_in = rep_matrix(0.0,N,Mstep+Mforw);
-    }
+    // if (GLOBAL_KERNEL) {
+    //   global_effect_in = rep_matrix(global_sigma * global_eta_in * L_time, N);
+    // } else {
+    //   global_effect_in = rep_matrix(0.0,N,Mstep+Mforw);
+    // }
     if (LOCAL_KERNEL) {
       matrix[N, Mstep+Mforw] local_sigma = sqrt((2.0 * square(local_scale)) * local_exp);
       local_effect_in = local_sigma .* to_matrix(local_eta_in, N, Mstep+Mforw);
@@ -460,64 +466,66 @@ transformed parameters {
     // Compute (K_time (*) K_space) * eta via efficient kronecker trick. 
     // Don't reshape back to vector for convinience.
     // Add on the location-time dependant noise as well
-    if (0) { // AR1 process for GP temporal structure
-      real alpha = exp(-Tstep/gp_time_length_scale);
-      real delta = sqrt(1.0-alpha*alpha);
-      matrix[N,Mstep+Mforw] gp_eta = to_matrix(gp_eta_in,N,Mstep+Mforw);
-      matrix[N,Mstep+Mforw] gp_Yt;
-      row_vector[Mstep+Mforw] global_Yt;
-
-      gp_Yt[,1] = gp_eta[,1];
-      for (i in 2:(Mstep+Mforw))
-        gp_Yt[,i] = alpha * gp_Yt[,i-1] + delta * gp_eta[,i];
-
-      global_Yt[1] = global_eta_in[1];
-      for (i in 2:(Mstep+Mforw))
-        global_Yt[i] = alpha * global_Yt[i-1] + delta * global_eta_in[i];
+    // if (0) { // AR1 process for GP temporal structure
+    //   real alpha = exp(-Tstep/gp_time_length_scale);
+    //   real delta = sqrt(1.0-alpha*alpha);
+    //   matrix[N,Mstep+Mforw] gp_eta = to_matrix(gp_eta_in,N,Mstep+Mforw);
+    //   matrix[N,Mstep+Mforw] gp_Yt;
+    //   row_vector[Mstep+Mforw] global_Yt;
+    // 
+    //   gp_Yt[,1] = gp_eta[,1];
+    //   for (i in 2:(Mstep+Mforw))
+    //     gp_Yt[,i] = alpha * gp_Yt[,i-1] + delta * gp_eta[,i];
+    // 
+    //   global_Yt[1] = global_eta_in[1];
+    //   for (i in 2:(Mstep+Mforw))
+    //     global_Yt[i] = alpha * global_Yt[i-1] + delta * global_eta_in[i];
+    //   Rin = exp(
+    //     (gp_sigma * L_space * gp_Yt) 
+    //     + rep_matrix(global_sigma * global_Yt, N)
+    //     + local_effect_in
+    //   );
+    //   if (0) {
+    //     print("Rin ", 
+    //       max(Rin[,Mstep-1]), ", ", 
+    //       max(Rin[,Mstep]), ", ", 
+    //       max(Rin[,Mstep+Mforw])
+    //     );
+    //     print("gp_Yt ", 
+    //       max(gp_Yt[,Mstep-1]), ", ", 
+    //       max(gp_Yt[,Mstep]), ", ", 
+    //       max(gp_Yt[,Mstep+Mforw])
+    //     );
+    //     print("global_Yt ", 
+    //       (global_Yt[Mstep-1]), ", ", 
+    //       (global_Yt[Mstep]), ", ", 
+    //       (global_Yt[Mstep+Mforw])
+    //     );
+    //     print("local_Yt ", 
+    //       max(local_effect_in[,Mstep-1]), ", ", 
+    //       max(local_effect_in[,Mstep]), ", ", 
+    //       max(local_effect_in[,Mstep+Mforw])
+    //     );
+    //   }
+    // } else { // Kronecker decomposition
+    { // Kronecker decomposition
       Rin = exp(
-        (gp_sigma * L_space * gp_Yt) 
-        + rep_matrix(global_sigma * global_Yt, N)
-        + local_effect_in
-      );
-      if (0) {
-        print("Rin ", 
-          max(Rin[,Mstep-1]), ", ", 
-          max(Rin[,Mstep]), ", ", 
-          max(Rin[,Mstep+Mforw])
-        );
-        print("gp_Yt ", 
-          max(gp_Yt[,Mstep-1]), ", ", 
-          max(gp_Yt[,Mstep]), ", ", 
-          max(gp_Yt[,Mstep+Mforw])
-        );
-        print("global_Yt ", 
-          (global_Yt[Mstep-1]), ", ", 
-          (global_Yt[Mstep]), ", ", 
-          (global_Yt[Mstep+Mforw])
-        );
-        print("local_Yt ", 
-          max(local_effect_in[,Mstep-1]), ", ", 
-          max(local_effect_in[,Mstep]), ", ", 
-          max(local_effect_in[,Mstep+Mforw])
-        );
-      }
-    } else { // Kronecker decomposition
-      Rin = exp(
-        (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
-        + global_effect_in 
+        // (gp_sigma * L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
+        (L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) 
+        // + global_effect_in 
         + local_effect_in
       );
     }
 
     if (DO_METAPOP && DO_IN_OUT) {
-      matrix[N, Mstep+Mforw] global_effect_out;
+      // matrix[N, Mstep+Mforw] global_effect_out;
       matrix[N, Mstep+Mforw] local_effect_out;
       // Noise kernel (reshaped from (N*Mstep, N*Mstep) to (N,Mstep) since diagonal)
-      if (GLOBAL_KERNEL) {
-        global_effect_out = rep_matrix(global_sigma * global_eta_out * L_time, N);
-      } else {
-        global_effect_out = rep_matrix(0.0,N,Mstep+Mforw);
-      }
+      // if (GLOBAL_KERNEL) {
+      //   global_effect_out = rep_matrix(global_sigma * global_eta_out * L_time, N);
+      // } else {
+      //   global_effect_out = rep_matrix(0.0,N,Mstep+Mforw);
+      // }
       if (LOCAL_KERNEL) {
         matrix[N, Mstep+Mforw] local_sigma = sqrt((2.0 * square(local_scale)) * local_exp);
         local_effect_out = local_sigma .* to_matrix(local_eta_out, N, Mstep+Mforw);
@@ -526,7 +534,7 @@ transformed parameters {
       }
       Rout = exp(
         (gp_sigma * L_space * to_matrix(gp_eta_out, N, Mstep+Mforw) * L_time) 
-        + global_effect_out 
+        // + global_effect_out 
         + local_effect_out
       );
     } else {
@@ -582,8 +590,8 @@ model {
   gp_eta_out ~ std_normal();
   local_eta_in ~ std_normal();
   local_eta_out ~ std_normal();
-  global_eta_in ~ std_normal();
-  global_eta_out ~ std_normal();
+  // global_eta_in ~ std_normal();
+  // global_eta_out ~ std_normal();
 
 
   gp_space_decay ~ normal(0.0,gp_space_decay_scale);

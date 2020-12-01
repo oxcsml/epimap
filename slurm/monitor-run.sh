@@ -34,7 +34,7 @@ for i in {1..10}; do
        sleep 10; \
      done" C-m
 done
-tmux select-pane -t 11 && tmux send-keys "swatch" C-m
+tmux select-pane -t 11 && tmux send-keys "swatch Rmap" C-m
 
 # && tmux kill-window
 

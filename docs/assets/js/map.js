@@ -232,7 +232,10 @@ const rtData = d3.map();
 const caseTimeseries = d3.map();          // The real historical cases
 const caseProjTimeseries = d3.map();
 const casePredTimeseries = d3.map();
-const caseWeeklyTimeseries = d3.map();    // Inferred and projected cases: plotted.
+const caseWeeklyTimeseries = d3.map();    // Actual and projected cases: plotted.
+                                          // TODO: The data in CASE_WEEKLY_PATH give the provenance of the weekly cases as `inferred`
+                                          // and `projected`. However, epimap.r takes data from the Count (observed) matrix. The labels
+                                          // should be corrected.
 const pexceedData = d3.map();
 const nextWeekCaseProj = d3.map();
 const nextWeekCaseProjPer100k = d3.map();

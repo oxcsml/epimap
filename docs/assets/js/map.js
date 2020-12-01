@@ -168,14 +168,14 @@ const rtChartTitle = rtChartSvg.append("text")
     .attr("text-anchor", "middle")
     .style("font-size", "16px");
 
+const casesStartDateInfo = d3.select("#last7-start-date");
 const casesEndDateInfo = d3.select("#last7-end-date");
-const casesEndDateInfo2 = d3.select("#last7-end-date2");
 const casesLast7Info = d3.select("#cases-last7-info");
 const casesLast7PerInfo = d3.select("#cases-last7-per-info");
 const casesTotalInfo = d3.select("#cases-total-info");
 const rtInfo = d3.select("#rt-info");
 const casesProjStartDateInfo = d3.select("#case-proj-start-date");
-const casesProjStartDateInfo2 = d3.select("#case-proj-start-date2");
+const casesProjEndDateInfo = d3.select("#case-proj-end-date");
 const caseProjInfo = d3.select("#case-proj-info");
 const caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
@@ -222,7 +222,7 @@ d3.select("#zoom_out").on("click", function () {
 
 const dateFormat = d3.timeFormat("%Y-%m-%d");
 const tooltipDateFormat = d3.timeFormat("%d %b")
-const oneDays = (24*60*60*1000) * 1;
+const oneDay = (24*60*60*1000) * 1;
 const sixDays = (24*60*60*1000) * 6;
 const sevenDays = (24*60*60*1000) * 7;
 const eightDays = (24*60*60*1000) * 8;
@@ -232,7 +232,7 @@ const rtData = d3.map();
 const caseTimeseries = d3.map();          // The real historical cases
 const caseProjTimeseries = d3.map();
 const casePredTimeseries = d3.map();
-const caseWeeklyTimeseries = d3.map();
+const caseWeeklyTimeseries = d3.map();    // Inferred and projected cases: plotted.
 const pexceedData = d3.map();
 const nextWeekCaseProj = d3.map();
 const nextWeekCaseProjPer100k = d3.map();
@@ -438,7 +438,7 @@ const loadCaseWeeklyAndPopulation = Promise.all([
 ]).then(() => {
     caseWeeklyTimeseries.each((series, area) => {
         series.forEach(c => {
-            c.C_weekly = (c.C_weekly / getPopulation(area)) * 100000;
+            c.C_weekly_100k = (c.C_weekly / getPopulation(area)) * 100000;
         });
     });
 })
@@ -549,7 +549,7 @@ function getPExceedForArea(area, availableDates) {
     return `${pRtOver1}`;
 }
 
-function getCaseWeeklyForArea(area, availableDates) {
+function getCaseWeeklyForArea(area, availableDates, someDate) {
     if (!caseWeeklyTimeseries.has(area)) {
         return "Unknown";
     }
@@ -557,7 +557,7 @@ function getCaseWeeklyForArea(area, availableDates) {
 
     let caseWeekly = null;
     if (availableDates) {
-        const idx = bisectDate(availableDates, selectedDate, 1);
+        const idx = bisectDate(availableDates, someDate, 1);
         caseWeekly = caseWeeklySeries[idx];
     }
     else {
@@ -565,8 +565,9 @@ function getCaseWeeklyForArea(area, availableDates) {
     }
 
     const cases = caseWeekly.C_weekly.toFixed(1);
+    const cases100k = caseWeekly.C_weekly_100k.toFixed(1);
 
-    return `${cases}`;
+    return [`${cases}`, `${cases100k}`];
 }
 
 function getCaseProjPer100kForArea(area) {
@@ -695,7 +696,7 @@ function ready(data) {
                 return "#ccc";
             }
             const cases = caseSeries[idx];
-            return caseColorScale(cases.C_weekly);
+            return caseColorScale(cases.C_weekly_100k);
         }
     }
 
@@ -721,7 +722,7 @@ function ready(data) {
 			startDate.setTime(selectedDate.getTime() - sixDays);
             tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
-            tooltip_info3.text(`Cases/100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info3.text(`Cases/100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates, selectedDate)[1]}`);
             tooltip_info4.text(`P(Rt>1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
 
             tooltip_div
@@ -999,7 +1000,6 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .x(function (d) { return caseX(d.Date); })
         .y0(function (d) { return y(d.C_lower); })
         .y1(function (d) { return y(d.C_upper); });
-
 
     const projectedCasesLine = d3.line()
         .x(function (d) { return caseX(d.Date); })
@@ -1284,21 +1284,35 @@ function selectArea(selectedArea) {
     plotCaseChart(chartData, projectionData, predictionData, area);
     plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
 
+	function formatdate(date) {
+		return date.getDate()+' '+MONTHS[date.getMonth()]
+	}
 	// Set the last and next days.
 	// TODO. This should be cleaner; no -8 or -7 hardcoded here.
-	var casesWeekAgo = new Date(projectionDate.getTime() - eightDays);
-	casesEndDateInfo.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
-	casesEndDateInfo2.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
-		
-	var projectionDatePlusOne = new Date(projectionDate.getTime() - sevenDays);
-	casesProjStartDateInfo.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
-	casesProjStartDateInfo2.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
+	const casesWeekAgoStart = new Date(projectionDate.getTime() - sevenDays - sevenDays);		
+	const casesWeekAgoEnd = new Date(projectionDate.getTime() - eightDays);
+	casesStartDateInfo.text('('+formatdate(casesWeekAgoStart));
+	casesEndDateInfo.text(formatdate(casesWeekAgoEnd)+')');
+
+	const projectionThisWeekStart = new Date(projectionDate.getTime() - sevenDays);
+	const projectionThisWeekEnd = new Date(projectionDate.getTime() - oneDay);	
+	casesProjStartDateInfo.text('('+formatdate(projectionThisWeekStart));
+	casesProjEndDateInfo.text(formatdate(projectionThisWeekEnd)+')');
+
+	// Change in code here: instead of showing the true cases, we write the inferred cases,
+	// so that it is consistent with the data in the map.
+	// TODO The 'available dates' should be picked up from cases; it just happens to coincide now.
+	const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
+	const caseHist = getCaseWeeklyForArea(area, availableDates, casesWeekAgoEnd)
+	casesLast7Info.text(caseHist[0]);
+	casesLast7PerInfo.text(caseHist[1]);
 
     const caseHistory = getCaseHistoryForArea(area);
-    casesLast7Info.text(caseHistory.casesLast7Day);
-    casesTotalInfo.text(caseHistory.casesTotal);
-    const caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
-    casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day.toFixed(1));
+    // casesLast7Info.text(caseHistory.casesLast7Day);
+    // const caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
+    // casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day.toFixed(1));		
+    casesTotalInfo.text(caseHistory.casesTotal);	
+	
     rtInfo.text(getRtForArea(area));
     caseProjInfo.text(getCaseProjForArea(area));
     caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));

@@ -222,19 +222,22 @@ d3.select("#zoom_out").on("click", function () {
 
 const dateFormat = d3.timeFormat("%Y-%m-%d");
 const tooltipDateFormat = d3.timeFormat("%d %b")
+const oneDays = (24*60*60*1000) * 1;
+const sixDays = (24*60*60*1000) * 6;
 const sevenDays = (24*60*60*1000) * 7;
+const eightDays = (24*60*60*1000) * 8;
 
 // Data containers
 const rtData = d3.map();
-const caseTimeseries = d3.map();
+const caseTimeseries = d3.map();          // The real historical cases
 const caseProjTimeseries = d3.map();
 const casePredTimeseries = d3.map();
 const caseWeeklyTimeseries = d3.map();
 const pexceedData = d3.map();
 const nextWeekCaseProj = d3.map();
 const nextWeekCaseProjPer100k = d3.map();
-const caseHistory = d3.map();
-const caseHistoryPer100k = d3.map();
+const caseHistory = d3.map();             // The real historical cases: casesLast7Day is the very last week's cases; the cases not used in modeling.
+const caseHistoryPer100k = d3.map();      // The real historical cases
 const groupedAreaMap = d3.map();
 const groupedAreaConstituents = d3.map();
 const populations = d3.map();
@@ -710,7 +713,12 @@ function ready(data) {
 
             tooltip_header.text(d.properties.lad20nm);
             const startDate = new Date();
-            startDate.setTime(selectedDate.getTime() - sevenDays);
+            // startDate.setTime(selectedDate.getTime() - sevenDays);
+			// Comment: The tooltip_info is a bisect and takes the index of the selected (end) date
+			// to look up Rt, weekly cases and probability. The start date is only used for display
+			// purposes. It's set to 6 days prior as we include the selected day; the tool tip text
+			// will then say (e.g.) 1 Dec - 7 Dec, instead of an 8-day week =)
+			startDate.setTime(selectedDate.getTime() - sixDays);
             tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
             tooltip_info3.text(`Cases/100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates)}`);
@@ -1278,13 +1286,11 @@ function selectArea(selectedArea) {
 
 	// Set the last and next days.
 	// TODO. This should be cleaner; no -8 or -7 hardcoded here.
-	var casesWeekAgo = new Date();
-	casesWeekAgo.setDate(projectionDate.getDate() - 8);		
+	var casesWeekAgo = new Date(projectionDate.getTime() - eightDays);
 	casesEndDateInfo.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
 	casesEndDateInfo2.text(casesWeekAgo.getDate()+' '+MONTHS[casesWeekAgo.getMonth()]);
 		
-	var projectionDatePlusOne = new Date();
-	projectionDatePlusOne.setDate(projectionDate.getDate() - 7);	
+	var projectionDatePlusOne = new Date(projectionDate.getTime() - sevenDays);
 	casesProjStartDateInfo.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
 	casesProjStartDateInfo2.text(projectionDatePlusOne.getDate()+' '+MONTHS[projectionDatePlusOne.getMonth()]);
 

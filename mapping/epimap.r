@@ -30,9 +30,9 @@ Rmap_options = function(
   days_per_step        = 7,
   days_predicted       = 2,
   steps_ignored_stage2 = 1,
-  num_steps_forecasted = 4,
+  num_steps_forecasted = 3,
 
-  thinning             = 1,
+  thinning             = 10,
   chains               = 1,
   iterations           = 3000, 
 
@@ -342,8 +342,8 @@ Rmap_run = function(env) {
       "global_sigma",
       "local_scale",
       "gp_sigma",
-      "gp_space_length_scale",
-      "gp_time_length_scale",
+      # "gp_space_length_scale",
+      # "gp_time_length_scale",
       "infection_dispersion",
       "case_dispersion",
       "coupling_rate",
@@ -360,7 +360,7 @@ Rmap_run = function(env) {
     Rmap_control = list(
       # max_treedepth = 3, # testing only
       adapt_delta = .9,
-      max_treedepth = 8
+      max_treedepth = 7
     )
 
     #########################################################
@@ -381,9 +381,9 @@ Rmap_run = function(env) {
     # Summary of fit
     print(summary(fit,
         pars=c(
-          "gp_space_length_scale",
+          #"gp_space_length_scale",
           "gp_sigma",
-          "gp_time_length_scale",
+          #"gp_time_length_scale",
           "global_sigma",
           "local_scale",
           "infection_dispersion",

@@ -183,6 +183,13 @@ h3 small {
     display: flex;
 }
 
+@media (min-width: 40rem)
+.row {
+    flex-direction: row;
+    margin-left: -1.0rem;
+    width: calc(100% + 2.0rem);
+}
+
 #sub-heading {
     font-size: 0.9em;
     margin-left: 0.25em;
@@ -211,6 +218,18 @@ h3 small {
 .area-search-container {
     width: 450px;
     position: relative;
+}
+
+.search-input {
+    background-color: transparent;
+    border: 0.1rem solid #d1d1d1;
+    border-radius: .4rem;
+    box-shadow: none;
+    box-sizing: inherit;
+    height: 3.8rem;
+    padding: .6rem 1.0rem .7rem;
+    width: 100%;
+    margin-bottom: 1.5rem;
 }
 
 .current-date-line {
@@ -260,6 +279,10 @@ h3 small {
 }
 
 
+.map-outer-container {
+    border: 1px solid black;
+}
+
 .map-container { 
 	position: relative;
 	width: 100%;
@@ -267,7 +290,7 @@ h3 small {
     margin: auto;
     overflow: hidden; 
     max-width: 1000px;
-    border: 1px solid black;
+    margin-top: 2em;
 }
 
 .chart-container {

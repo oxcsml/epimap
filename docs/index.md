@@ -42,19 +42,21 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
 <p>
 <div class="map-container">
-<svg id="map" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet" border="1px solid black"> </svg>
-
 <div class="row">
-<div class="column" width="100%">
+<div class="column" width="50%">
+<svg id="slider-svg" viewBox="0 0 500 50" preserveAspectRatio="xMidYMid meet"></svg>
+<svg id="map" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet"> </svg>
+</div>
+
+<div class="column" width="50%">
+
 <div class="area-search-container">
  <svg class="search-icon" xmlns="http://www.w3.org/2000/svg"
  fill="none" width="24" height="24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round"
     stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
-<input id="areaSearch" class="search-input" tabindex="1" width="100%" placeholder="Find Local Authority">
-</div>
-</div>
+<input id="areaSearch" class="search-input" tabindex="1" placeholder="Find Local Authority">
 </div>
 
 <h1 id="data-heading">Select an area in the map...</h1>
@@ -88,7 +90,7 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
         <h3><span class="info-heading">Rt: </span><span id="rt-info"></span></h3>
     </div>
 </div>
-        
+
 <div id="chart-container">
 <svg id="chart" viewBox="0 0 500 200"
 preserveAspectRatio="xMidYMid meet" ></svg>
@@ -100,8 +102,11 @@ preserveAspectRatio="xMidYMid meet" ></svg>
 </div>
 
 </div>
+</div>
+        
 <script src="assets/js/auto-complete.min.js"></script>
 <script src="assets/js/map.js"></script>
+</div>
 
 </p>
 

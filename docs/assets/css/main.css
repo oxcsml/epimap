@@ -170,25 +170,9 @@ h3 small {
 .info-row {
     font-size: 14px;
     width: 250px;
+    font-size: 1vw;
 }
 
-.column {
-    margin-top: 0em;
-    width: 50%;
-}
-
-.row {
-    margin-top: 0em;
-    /*width: 520px;*/
-    display: flex;
-}
-
-@media (min-width: 40rem)
-.row {
-    flex-direction: row;
-    margin-left: -1.0rem;
-    width: calc(100% + 2.0rem);
-}
 
 #sub-heading {
     font-size: 0.9em;
@@ -299,3 +283,22 @@ h3 small {
     margin: auto;
 }
 
+.map-container h1 {
+    font-size: 2vw;
+}
+
+.map-container h3 {
+    font-size: 1.5vw;
+}
+
+#zoom_in {
+    font-size: 1.5vw;
+}
+
+#zoom_out {
+    font-size: 2vw;
+}
+
+#areaSearch {
+    font-size: 1.1vw;
+}

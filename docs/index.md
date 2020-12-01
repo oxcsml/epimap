@@ -20,7 +20,7 @@ layout: home
     <!--<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">-->
     <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">-->
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.0/milligram.css">
+    
     <link rel="stylesheet" href="assets/css/main.css"/>
 
 </head>
@@ -43,19 +43,19 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 <p>
 <div class="map-container">
 <div class="row">
-<div class="column" width="50%">
+<div class="column">
 <svg id="slider-svg" viewBox="0 0 500 50" preserveAspectRatio="xMidYMid meet"></svg>
 <svg id="map" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet"> </svg>
 </div>
 
-<div class="column" width="50%">
+<div class="column">
 
 <div class="area-search-container">
  <svg class="search-icon" xmlns="http://www.w3.org/2000/svg"
  fill="none" width="24" height="24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round"
     stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-    </svg>
+</svg>
 <input id="areaSearch" class="search-input" tabindex="1" placeholder="Find Local Authority">
 </div>
 

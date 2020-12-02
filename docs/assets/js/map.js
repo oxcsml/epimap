@@ -13,17 +13,15 @@ const PEXCEED_PATH = "Pexceed.csv";
 
 const MONTHS = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
 
-const map_svg = d3.select("#map"),
-    width = +map_svg.attr("width"),
-    height = +map_svg.attr("height");
+const map_svg = d3.select("#map");
 
 const barHeight = 20;
 const sliderWidth = 260;
-const barWidth = Math.floor(height / 3);
+const barWidth = 180;
 const margin = ({ top: 20, right: 40, bottom: 30, left: 40 });
 const g = map_svg.append("g");
 
-const sliderLeft = Math.round((width - margin.left - margin.right - sliderWidth) / 2) + 30;
+const sliderLeft = 75;
 const sliderSvg = d3.select("#slider-svg").style("display", "block");
 const sliderG = sliderSvg.append("g")
     .attr('transform', `translate(${sliderLeft},10)`);
@@ -70,8 +68,8 @@ const sliderRightPath = sliderRightG.append("path")
 const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
 const caseChartSvg = d3.select("#chart");
 // Note: Assuming the two charts are the same size! 
-const chartWidth = +caseChartSvg.attr("width") - chartMargin.left - chartMargin.right;
-const chartHeight = +caseChartSvg.attr("height") - chartMargin.top - chartMargin.bottom;
+const chartWidth = Math.max(500+caseChartSvg.attr("width") - chartMargin.left - chartMargin.right, 0);
+const chartHeight = Math.max(200+caseChartSvg.attr("height") - chartMargin.top - chartMargin.bottom, 0);
 
 const chartG = caseChartSvg.append("g")
     .attr("transform", "translate(" + chartMargin.left + "," + chartMargin.top + ")");
@@ -181,31 +179,31 @@ const caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
 // Map and projection
 const projection = d3.geoMercator()
-    .center([-3.5, 54])
-    .scale(3250)
-    .translate([width / 2, height / 2]);
+    .center([-7, 58.4])
+    .scale(3000)
+    .translate([0, 0]);
 const path = d3.geoPath().projection(projection);
 
 // Zooming
 const zoomIn = map_svg.append("g").append("text")
-    .attr("x", width - barHeight / 2)
-    .attr("y", Math.floor(height / 3) + margin.top + 70)
+    .attr("x", 480)
+    .attr("y", 290)
     .attr("width", 20)
-    .attr("height", 20)
+    .attr("height", 25)
     .attr("text-anchor", "middle")
     .attr("id", "zoom_in")
     .style("cursor", "pointer")
     .text("+");
 
 const zoomOut = map_svg.append("g").append("text")
-    .attr("x", width - barHeight / 2)
-    .attr("y", Math.floor(height / 3) + margin.top + 90)
+    .attr("x", 480)
+    .attr("y", 330)
     .attr("width", 20)
     .attr("height", 20)
     .attr("text-anchor", "middle")
     .attr("id", "zoom_out")
     .style("cursor", "pointer")
-    .text("-");
+    .text("\u2013");
 
 let zoom = d3.zoom()
     .on("zoom", () => g.selectAll("path").attr("transform", d3.event.transform));
@@ -659,7 +657,7 @@ function ready(data) {
 
     const axisBottom = map_svg.append("g")
         .attr("class", `x-axis`)
-        .attr("transform", `translate(${width - barHeight},${margin.top}) rotate(90)`)
+        .attr("transform", `translate(470, ${margin.top}) rotate(90)`)
         .call(rtAxisFn)
         .selectAll("text")
         .attr("transform", "translate(-5, 15) rotate(-90)");
@@ -780,7 +778,7 @@ function ready(data) {
         .attr("stop-color", d => d.color);
 
     const legend = map_svg.append('g')
-        .attr("transform", `translate(${width},${barHeight}) rotate(90)`)
+        .attr("transform", `translate(500,${barHeight}) rotate(90)`)
         .append("rect")
         .attr('transform', `translate(${margin.left}, 0)`)
         .attr("width", barWidth)
@@ -788,7 +786,7 @@ function ready(data) {
         .style("fill", "url(#rt-gradient)");
 
     legendText = map_svg.append("text")
-        .attr("x", width - barHeight / 2)
+        .attr("x", 480)
         .attr("y", margin.top + 30)
         .attr("text-anchor", "middle")
         .style("font-size", "12px")
@@ -801,7 +799,7 @@ function ready(data) {
     );
         
     legendBar = map_svg.append("g")
-        .attr("transform", `translate(${width - barHeight},${margin.top})`)
+        .attr("transform", `translate(470,${margin.top})`)
         .attr("width", barHeight)
         .attr("height", barWidth)
         .call(legendAxis);

@@ -107,7 +107,7 @@ preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
 <!-- This text is below the map. -->
 The R number roughly measures how fast Covid-19 is spreading in society. In the map, we write "Rt" instead of just "R". The "t" indicates "time". We do this because the number is not constant but can go up or down over time, depending on how fast Covid-19 is spreading at a given time.
 
-You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of Covid-19 cases historically over time along with the corresponding estimate for Rt. The red parts of the graphs are predictions made by the model.
+You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of Covid-19 cases historically over time along with the corresponding estimate for Rt. The red parts of the graphs are predictions made by the model. For predictions, the notation X \[Y,Z\] means that the median is X while Y and Z gives the lower and upper endpoints of the 95\% credible interval, that is the model believes that with 95\% chance the quantity will fall between Y and Z.
 
 Definitions for terms used in the map: 
 *   **Case** is an infected individual who has tested positive on the given date, 

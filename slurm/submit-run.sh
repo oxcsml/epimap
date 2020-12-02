@@ -14,7 +14,5 @@ options="\
     --observation_data cleaned_latent_sample \
     --observation_model gaussian \
     --clean_directory $clean_directory \
-    --fixed_gp_space_length_scale 3 \
-    --fixed_gp_time_length_scale 21 \
 "
 slurm/submit-run-generic.sh $results_directory $options

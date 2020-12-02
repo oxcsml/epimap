@@ -640,7 +640,7 @@ function ready(data) {
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
     const modelledDates = casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date);
-    console.log(d3.max(modelledDates);
+    console.log(d3.max(modelledDates));
     selectDate(d3.max(modelledDates));
     // selectDate(d3.max(availableDates));
 

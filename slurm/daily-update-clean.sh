@@ -6,6 +6,9 @@ umask 000
 
 trap 'echo daily-update-clean: Failed before finishing with exit code $? && exit $?' ERR
 
+rm -rf map-*/*.rds
+rm -rf clean-/**/*.rds
+
 # Update this repo
 git pull
 
@@ -46,6 +49,6 @@ cd docs/assets/data/ && ln -s $today default && cd -
 git add docs/assets/data/$today/*
 git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
-git add data/*
+git add docs/assets/data/site_data.csv
 git commit -m "daily update $today"
 git push

@@ -7,46 +7,12 @@ if [ $# -ne 2 ]; then
   exit 1
 fi
 
-echo submit-run: Inferring for each cleaned sample
-
 results_directory=$1
-echo results_directory = $results_directory
-echo clean_directory = $clean_directory
-
+clean_directory=$2
 options="\
-    --time_steps 15 \
     --iterations 6000 \
-    --observation cleaned_recon_sample \
-    --results_directory $results_directory \
-    --clean_directory $clean_directory"
-
-sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=Rmap_run \
-    --output=slurm/output/run_%A_%a.out \
-    --partition=ziz-large \
-    --ntasks=1 \
-    --cpus-per-task=1 \
-    --mem-per-cpu=20G \
-    --array=1-10 \
-    --wrap \
-    "Rscript mapping/run.r $options \
-        --cleaned_sample_id \$SLURM_ARRAY_TASK_ID \
-        && echo run: DONE"
-
-echo submit-run: Merging results
-
-sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=Rmap_merge \
-    --output=slurm/output/merge_%A_%a.out \
-    --partition=ziz-large \
-    --ntasks=1 \
-    --cpus-per-task=1 \
-    --mem-per-cpu=30G \
-    --wrap \
-    "Rscript mapping/merge_results.r $options && echo merge: DONE"
-
-echo submit-run: DONE
+    --observation_data cleaned_latent_sample \
+    --observation_model gaussian \
+    --clean_directory $clean_directory \
+"
+slurm/submit-run-generic.sh $results_directory $options

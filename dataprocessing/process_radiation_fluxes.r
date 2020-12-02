@@ -2,11 +2,7 @@
 # compute fluxes for radiation model.
 # relax radiation model by adding noise to distance with sd 10km, and bootstrapping
 
-source('dataprocessing/read_data.r')
-
-numrep <- 100000
-
-for (radiation_length_scale in c(.1,.2,.5)) {
+compute_radiation_fluxes = function(numrep, radiation_length_scale, population, geodist) {
   flux <- array(0, dim=c(N, N))
   flux_var <-  array(0, dim=c(N, N))
   for (r in 1:numrep) {
@@ -34,6 +30,5 @@ for (radiation_length_scale in c(.1,.2,.5)) {
   flux_sd[flux_sd<0]=0
   flux_sd = sqrt(flux_sd)/sqrt(numrep)
 
-  write.matrix.csv(flux,sprintf('data/radiation_flux_ls=%1.1f.csv',radiation_length_scale))
-  write.matrix.csv(flux_sd,sprintf('data/radiation_flux_sd_ls=%1.1f.csv',radiation_length_scale))
+  list("flux"=flux, "flux_sd"=flux_sd)
 }

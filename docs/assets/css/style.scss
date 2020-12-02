@@ -3,9 +3,12 @@
 ---
 $grey-color:       #828282;
 
+$content-width: 1000px;
+
 @import
   "minima/skins/{{ site.minima.skin | default: 'classic' }}",
   "minima/initialize";
+
 
 a.site-title {
   font-size: 1.5em !important;

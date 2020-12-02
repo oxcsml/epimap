@@ -1,7 +1,7 @@
 *{
     box-sizing: border-box;
-    padding: 0;
-    margin: 0;
+    /* padding: 0;
+    margin: 0; */
 }
 
 .background {
@@ -171,11 +171,6 @@ h3 small {
     width: 100%;
 }
 
-
-#sub-heading {
-    font-size: max(0.7em, 1.5vw);
-}
-
 .overlay {
     fill: none;
     pointer-events: all;
@@ -205,12 +200,6 @@ h3 small {
     margin-bottom: 1em;
 }
 
-.text-row {
-    display: flex;
-    padding-bottom: 4em;
-    margin: auto;
-    font-size: max(1vw, 0.5em);
-}
 
 .text-column {
     width: 50%
@@ -293,28 +282,11 @@ h3 small {
     overflow: hidden; 
 }
 
-.map-container { 
-    border: 1px solid black;
-    padding: 1rem;
-	position: relative;
-	width: 100%;
-	vertical-align: middle; 
-    margin: auto;
-    overflow: hidden; 
-}
 
 #chart-container {
     width: 100%;
     margin: auto;
     /*margin-bottom: -2em;*/
-}
-
-.map-container h1 {
-    font-size: max(1em, 2vw);
-}
-
-.map-container h3 {
-    font-size: max(1em, 1.5vw);
 }
 
 #zoom_in {

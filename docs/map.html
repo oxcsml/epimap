@@ -21,61 +21,74 @@
     </head>
 
     <body>
-        <div class="container">
-            <div class="row">
-                <div class="column">
-                    <svg id="slider-svg" width="500" height="50"></svg>
-                    <svg id="map" width="500" height="550"></svg>
-                </div>
-                <div class="column" width="500">
-                    <div class="search-container">
-                        <div class="area-search-container">
-                            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" width="24" height="24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                            <input id="areaSearch" class="search-input" tabindex="1" placeholder="Find Local Authority">
-                        </div>
-                        
-                    </div>
-                    <h1 id="data-heading">Select an area in the map...</h1>
-                    <div id="sub-heading">Data shown for England, Wales and Scotland</div>
-                    <div class="row">
-                        <div class="column" width="40%">
-                            <h3 id="cases-title">Last week</h3>
-                            <div class="info-row">
-								<span id="last7-start-date"></span><span class="info-heading"> - </span><span id="last7-end-date"></span>
-							</div>							
-                            <div class="info-row">
-								<span class="info-heading">Cases: </span><span id="cases-last7-info"></span>
-							</div>
-                            <div class="info-row">
-								<span class="info-heading">Cases per 100k: </span><span id="cases-last7-per-info"></span>
-							</div>
-                            <h3><span class="info-heading">Total cases: </span><span id="cases-total-info"></span></h3>
-                        </div>
-                        <div class="column" width="60%">
-                            <h3 id="estimates-title">This week</h3>
-                            <div class="info-row">
-								<span id="case-proj-start-date"></span><span class="info-heading"> - </span><span id="case-proj-end-date"></span>
-							</div>												
-                            <div class="info-row">
-								<span class="info-heading">Projected cases: </span><span id="case-proj-info"></span>
-							</div>
-                            <div class="info-row">
-								<span class="info-heading">Proj cases/100k: </span><span id="case-proj-per100k-info"></span>
-							</div>
-                            <h3><span class="info-heading">Rt: </span><span id="rt-info"></span></h3>
-                        </div>
-                    </div>
-                    
-                    <svg id="chart" width="500" height="200"></svg>
-                    <svg id="rt-chart" width="500" height="200"></svg>
-                </div>
-            </div>
-        </div>
+<div class="standalone-map-border">
+<div class="standalone-map-container">
+<div class="row">
+<div class="column">
+<svg id="slider-svg" viewBox="0 0 500 50" preserveAspectRatio="xMidYMid meet"></svg>
+<svg id="map" viewBox="0 0 500 550" preserveAspectRatio="xMidYMid meet"> </svg>
+</div>
 
-        <script src="assets/js/auto-complete.min.js"></script>
-        <script src="assets/js/map.js"></script>
+<div class="column">
+
+<div class="area-search-container">
+ <svg class="search-icon" xmlns="http://www.w3.org/2000/svg"
+ fill="none" width="24" height="24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round"
+    stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+</svg>
+<input id="areaSearch" class="search-input" tabindex="1" placeholder="Find Local Authority">
+</div>
+
+<h1 id="data-heading">Select an area in the map...</h1>
+<div id="sub-heading">Data shown for England, Wales and Scotland</div>
+<div class="text-row">
+    <div class="text-column">
+        <h3 id="cases-title">Cases</h3>
+        <div class="info-row">
+            <span class="info-heading">Week ending </span>
+            <span id="last7-end-date"></span><span class="info-heading">: </span>
+            <span id="cases-last7-info"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-heading">Week ending </span>
+            <span id="last7-end-date2"></span><span class="info-heading"> per 100k: </span>
+            <span id="cases-last7-per-info"></span>
+        </div>
+        <h3><span class="info-heading">Total cases: </span><span id="cases-total-info"></span></h3>
+    </div>
+    <div class="text-column">
+        <h3 id="estimates-title">Projected Cases</h3>
+        <div class="info-row">
+            <span class="info-heading">Week starting </span>
+            <span id="case-proj-start-date"></span><span class="info-heading">: </span>						
+            <span id="case-proj-info"></span>
+        </div>
+        <div class="info-row">
+            <span class="info-heading">Week starting</span>
+            <span id="case-proj-start-date2"></span><span class="info-heading"> per 100k: </span>						
+            <span id="case-proj-per100k-info"></span></div>
+        <h3><span class="info-heading">Rt: </span><span id="rt-info"></span></h3>
+    </div>
+</div>
+
+<div id="chart-container">
+<svg id="chart" viewBox="0 0 500 200"
+preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
+</div>
+
+<div id="chart-container">
+<svg id="rt-chart" viewBox="0 0 500 200" 
+preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
+</div>
+
+</div>
+</div>
+        
+<script src="assets/js/auto-complete.min.js"></script>
+<script src="assets/js/map.js"></script>
+</div>
+</div>
 
     </body>
 

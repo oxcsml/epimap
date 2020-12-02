@@ -275,9 +275,22 @@ h3 small {
     background: #f0f0f0; 
 }
 
-
 .map-outer-container {
     border: 1px solid black;
+}
+
+.standalone-map-border {
+    border: 10px solid black;
+    margin: auto;
+	vertical-align: middle; 
+	position: relative;
+	width: 80%;
+}
+
+.standalone-map-container { 
+    padding: 1rem;
+	width: 100%;
+    overflow: hidden; 
 }
 
 .map-container { 

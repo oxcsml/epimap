@@ -13,6 +13,7 @@ The project was incubated in the [Royal Society DELVE Initiative](https://rs-del
 * [Bobby He](http://csml.stats.ox.ac.uk/people/he/), Department of Statistics, University of Oxford
 * [Michael Hutchinson](https://mjhutchinson.github.io/), Department of Statistics, University of Oxford
 * [Ulrich Paquet](http://ulrichpaquet.com/), DeepMind, on secondment to Oxford Statistics
+* [Sang Woo Park](https://scholar.google.ca/citations?user=ZSCrs78AAAAJ&hl=en), Princeton University
 * [Jonathan Read](https://www.lancaster.ac.uk/people-profiles/jonathan-read), Lancaster Medical School, University of Lancaster
 * [Nenad Tomasev](https://ailab.ijs.si/nenad_tomasev/), DeepMind, on secondment to Oxford Statistics
 * [Sheheryar Zaidi](https://shehzaidi.github.io/), Department of Statistics, University of Oxford

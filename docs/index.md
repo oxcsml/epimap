@@ -34,10 +34,9 @@ and predicted future developments of the Covid-19 epidemic
 across local authorities in the UK.
 You'll see statistical estimates for time-varying regional R numbers from case data.
 
-Note that no one knows the *exact R*, and we have to estimate it from data we do have.
-Different models to estimate R may therefore give slightly different estimates. Do also look at the larger regional estimates by the
-[MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/) 
-and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
+Note that no one knows the *exact R*, and we have to estimate it from data we do have. It is important to treat a model's estimates with caution and be aware of its [limitations]({{ site.baseurl }}{% link limitations.md %}).
+Different models to estimate R may give slightly different estimates. Do look at the larger regional estimates by the
+[MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/), [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/) and [Imperial College London](https://imperialcollegelondon.github.io/covid19local/).
 
 <div class="map-container">
 <div class="row">

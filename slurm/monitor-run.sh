@@ -3,7 +3,7 @@
 set -e
 
 if [ $# -ne 2 ]; then
-  echo Usage: monitor-run results_directory
+  echo Usage: monitor-run results_directory job_id
   exit 1
 fi
 
@@ -11,7 +11,7 @@ results_directory=$1
 jobid=$2
 echo Monitoring job "$results_directory"
 
-tmux new-window -n "monitor $results_directory"
+tmux new-window -n "$results_directory $jobid"
 tmux split-window -h
 tmux split-window -h
 tmux split-window -h
@@ -34,7 +34,7 @@ for i in {1..10}; do
        sleep 10; \
      done" C-m
 done
-tmux select-pane -t 11 && tmux send-keys "swatch" C-m
+tmux select-pane -t 11 && tmux send-keys "swatch Rmap" C-m
 
 # && tmux kill-window
 

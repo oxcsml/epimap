@@ -18,7 +18,7 @@ covidmap_stage1_options = function(
   days_ignored       = 7,
   days_per_step      = 7,
   days_predicted     = 2,
-  num_steps_forecasted = 4,
+  num_steps_forecasted = 3,
 
   num_samples        = 20,
   num_iterations     = 3000,

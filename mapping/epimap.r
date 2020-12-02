@@ -30,9 +30,9 @@ Rmap_options = function(
   days_per_step        = 7,
   days_predicted       = 2,
   steps_ignored_stage2 = 1,
-  num_steps_forecasted = 4,
+  num_steps_forecasted = 3,
 
-  thinning             = 1,
+  thinning             = 10,
   chains               = 1,
   iterations           = 3000, 
 
@@ -342,8 +342,8 @@ Rmap_run = function(env) {
       "global_sigma",
       "local_scale",
       "gp_sigma",
-      "gp_space_length_scale",
-      "gp_time_length_scale",
+      # "gp_space_length_scale",
+      # "gp_time_length_scale",
       "infection_dispersion",
       "case_dispersion",
       "coupling_rate",
@@ -360,7 +360,7 @@ Rmap_run = function(env) {
     Rmap_control = list(
       # max_treedepth = 3, # testing only
       adapt_delta = .9,
-      max_treedepth = 8
+      max_treedepth = 7
     )
 
     #########################################################
@@ -381,9 +381,9 @@ Rmap_run = function(env) {
     # Summary of fit
     print(summary(fit,
         pars=c(
-          "gp_space_length_scale",
+          #"gp_space_length_scale",
           "gp_sigma",
-          "gp_time_length_scale",
+          #"gp_time_length_scale",
           "global_sigma",
           "local_scale",
           "infection_dispersion",
@@ -551,6 +551,7 @@ Rmap_postprocess = function(env) {
 
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
+    Tweek = Tstep # assumes Tstep = 7
     Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
     dim(Cweekly) <- c(N,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
@@ -564,11 +565,13 @@ Rmap_postprocess = function(env) {
     projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
     projectedweeks <- apply(projectedweeks,c(2,3),sum)
     projectedweeks <- t(projectedweeks)
-    Cweekly <- cbind(Cweekly,projectedweeks)
 
+    Cweekly <- cbind(Cweekly,projectedweeks)
     Cweekly <- t(Cweekly)
     Cweekly <- Cweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
     dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
+
+    Cweekly_provenance <- c(rep('actual',Tlik),rep('projected',Tproj))
     df <- area_date_dataframe(
       quoted_areas,
       days_all,

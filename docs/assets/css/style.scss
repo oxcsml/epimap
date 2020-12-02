@@ -3,22 +3,21 @@
 ---
 $grey-color:       #828282;
 
-$content-width: 1000px;
-
 @import
   "minima/skins/{{ site.minima.skin | default: 'classic' }}",
   "minima/initialize";
 
+$content-width: 1000px;
 
 a.site-title {
   font-size: 1.5em !important;
   font-weight: bold !important;
 }
 
-// .wrapper {
-//     // padding-right: 0px;
-//     // padding-left: 0px;
-// }
+.wrapper {
+  max-width: -webkit-calc(#{$content-width} - (#{$spacing-unit} * 2));
+  max-width:         calc(#{$content-width} - (#{$spacing-unit} * 2));
+}
 
 .map-container { 
   border: 1px solid black;

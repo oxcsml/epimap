@@ -179,7 +179,7 @@ const caseProjPer100kInfo = d3.select("#case-proj-per100k-info");
 
 // Map and projection
 const projection = d3.geoMercator()
-    .center([-9, 57])
+    .center([-7, 58.4])
     .scale(3000)
     .translate([0, 0]);
 const path = d3.geoPath().projection(projection);
@@ -189,7 +189,7 @@ const zoomIn = map_svg.append("g").append("text")
     .attr("x", 480)
     .attr("y", 290)
     .attr("width", 20)
-    .attr("height", 20)
+    .attr("height", 25)
     .attr("text-anchor", "middle")
     .attr("id", "zoom_in")
     .style("cursor", "pointer")
@@ -197,13 +197,13 @@ const zoomIn = map_svg.append("g").append("text")
 
 const zoomOut = map_svg.append("g").append("text")
     .attr("x", 480)
-    .attr("y", 315)
+    .attr("y", 330)
     .attr("width", 20)
     .attr("height", 20)
     .attr("text-anchor", "middle")
     .attr("id", "zoom_out")
     .style("cursor", "pointer")
-    .text("-");
+    .text("\u2013");
 
 let zoom = d3.zoom()
     .on("zoom", () => g.selectAll("path").attr("transform", d3.event.transform));

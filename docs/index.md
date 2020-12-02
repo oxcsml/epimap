@@ -39,13 +39,11 @@ Different models to estimate R may therefore give slightly different estimates. 
 [MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/) 
 and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
-
-<p>
 <div class="map-container">
 <div class="row">
 <div class="column">
 <svg id="slider-svg" viewBox="0 0 500 50" preserveAspectRatio="xMidYMid meet"></svg>
-<svg id="map" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet"> </svg>
+<svg id="map" viewBox="0 0 500 550" preserveAspectRatio="xMidYMid meet"> </svg>
 </div>
 
 <div class="column">
@@ -61,8 +59,8 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
 <h1 id="data-heading">Select an area in the map...</h1>
 <div id="sub-heading">Data shown for England, Wales and Scotland</div>
-<div class="row">
-    <div class="column">
+<div class="text-row">
+    <div class="text-column">
         <h3 id="cases-title">Cases</h3>
         <div class="info-row">
             <span class="info-heading">Week ending </span>
@@ -76,7 +74,7 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
         </div>
         <h3><span class="info-heading">Total cases: </span><span id="cases-total-info"></span></h3>
     </div>
-    <div class="column">
+    <div class="text-column">
         <h3 id="estimates-title">Projected Cases</h3>
         <div class="info-row">
             <span class="info-heading">Week starting </span>
@@ -93,12 +91,12 @@ and the [CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/).
 
 <div id="chart-container">
 <svg id="chart" viewBox="0 0 500 200"
-preserveAspectRatio="xMidYMid meet" ></svg>
+preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
 </div>
 
 <div id="chart-container">
 <svg id="rt-chart" viewBox="0 0 500 200" 
-preserveAspectRatio="xMidYMid meet" ></svg>
+preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
 </div>
 
 </div>
@@ -107,9 +105,7 @@ preserveAspectRatio="xMidYMid meet" ></svg>
 <script src="assets/js/auto-complete.min.js"></script>
 <script src="assets/js/map.js"></script>
 </div>
-
-</p>
-
+<p></p>
 <!-- This text is below the map. -->
 The R number roughly measures how fast Covid-19 is spreading in society. In the map, we write "Rt" instead of just "R". The "t" indicates "time". We do this because the number is not constant but can go up or down over time, depending on how fast Covid-19 is spreading at a given time.
 

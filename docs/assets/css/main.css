@@ -168,21 +168,19 @@ h3 small {
 
 
 .info-row {
-    font-size: 14px;
-    width: 250px;
-    font-size: 1vw;
+    width: 100%;
 }
 
 
 #sub-heading {
-    font-size: 0.9em;
-    margin-left: 0.25em;
+    font-size: max(0.7em, 1.5vw);
 }
 
 .overlay {
     fill: none;
     pointer-events: all;
 }
+
 
 .focus circle {
     fill: #F1F3F3;
@@ -200,9 +198,24 @@ h3 small {
 }
 
 .area-search-container {
-    width: 450px;
+    max-width: 350px;
     position: relative;
+    width: 75%;
+    margin: auto;
+    margin-bottom: 1em;
 }
+
+.text-row {
+    display: flex;
+    padding-bottom: 1em;
+    margin: auto;
+    font-size: max(1vw, 0.5em);
+}
+
+.text-column {
+    width: 50%
+}
+
 
 .search-input {
     background-color: transparent;
@@ -210,7 +223,7 @@ h3 small {
     border-radius: .4rem;
     box-shadow: none;
     box-sizing: inherit;
-    height: 3.8rem;
+    height: 2em;
     padding: .6rem 1.0rem .7rem;
     width: 100%;
     margin-bottom: 1.5rem;
@@ -223,9 +236,9 @@ h3 small {
 }
 
 .search-icon {
-    top: 7px;
+    right: 0.2em;
+    top: 0.2em;
     position: absolute;
-    right: 5px;
 }
 
 /* From https://github.com/Pixabay/JavaScript-autoComplete */
@@ -251,7 +264,7 @@ h3 small {
     white-space: nowrap; 
     overflow: hidden; 
     text-overflow: ellipsis; 
-    font-size: 1.02em; 
+    font-size: 1.0em; 
     color: #333; 
 }
 .autocomplete-suggestion b { 
@@ -268,37 +281,39 @@ h3 small {
 }
 
 .map-container { 
+    border: 1px solid black;
+    padding: 1rem;
 	position: relative;
 	width: 100%;
 	vertical-align: middle; 
     margin: auto;
     overflow: hidden; 
-    max-width: 1000px;
-    margin-top: 2em;
 }
 
-.chart-container {
-    max-height: 200px;
+#chart-container {
     width: 100%;
     margin: auto;
+    /*margin-bottom: -2em;*/
 }
 
 .map-container h1 {
-    font-size: 2vw;
+    font-size: max(1em, 2vw);
 }
 
 .map-container h3 {
-    font-size: 1.5vw;
+    font-size: max(1em, 1.5vw);
 }
 
 #zoom_in {
-    font-size: 1.5vw;
+    font-size: max(1.5vw, 30px);
 }
 
 #zoom_out {
-    font-size: 2vw;
+    font-size: max(1.5vw, 30px);
 }
 
 #areaSearch {
-    font-size: 1.1vw;
+    font-size: max(0.75em, 1.0vw);
+    margin-bottom: 0em;
+    height: 2em;
 }

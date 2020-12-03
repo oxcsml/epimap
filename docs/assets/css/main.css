@@ -87,7 +87,7 @@ div.tooltip span.header {
     fill: none;
     /* stroke: rgb(139, 0, 0); */
     /* stroke: rgba(70, 130, 180); */
-    stroke: rgb(0, 0, 0);
+    stroke: rgb(61, 61, 61);
     stroke-width: 1.5;
     stroke-dasharray: 4;
 }
@@ -129,7 +129,7 @@ div.tooltip span.header {
 .rt-projected-line {
     fill: none;
     /* stroke: rgb(139, 0, 0); */
-    stroke: rgb(0, 0, 0);
+    stroke: rgb(61, 61, 61);
     stroke-width: 1.5;
     stroke-dasharray: 4;
 }

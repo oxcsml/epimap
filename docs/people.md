@@ -23,6 +23,8 @@ People involved are:
 The project was incubated in the [Royal Society DELVE Initiative](https://rs-delve.github.io)
 and has benefited greatly from feedback from many DELVE contributors, 
 including: Sylvia Richardson, Frank Kelly, Aziz Shiekh, Bryan Grenfell, Guy Harling, 
-Nigel Field and Neil Lawrence.
+Nigel Field and Neil Lawrence. 
+We also gratefully acknowledge Barry Rowlingson and Chris Jewell for their help in data
+wrangling for the UK Census 2011 commuter flow data.
 
 

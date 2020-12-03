@@ -16,6 +16,11 @@ daily counts of positive PCR swab tests by specimen date, for:
 ([here](https://www.gov.scot/publications/coronavirus-covid-19-daily-data-for-scotland/)), and
 *   22 Unitary local authorities in Wales ([here](https://phw.nhs.wales/topics/latest-information-on-novel-coronavirus-covid-19/)).
 
+Other data sources:
+* UK 2011 Census commuter flow data ([here](https://www.statistics.digitalresources.jisc.ac.uk)),
+* Population sizes in each local authority
+
+
 ##### Methods
 
 At its core, our Bayesian method uses a renewal equation formulation of epidemic dynamics 

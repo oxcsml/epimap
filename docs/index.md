@@ -121,10 +121,7 @@ depending on how fast Covid-19 is spreading at a given time.
 
 You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of reported Covid-19 cases historically along with the corresponding estimates for Rt. The grey parts of the graphs are future predictions made by the model. For the
 cases plot, The thin blue line shows the actual number of daily reported cases while the 
-thick lines and shaded regions show the median and 95% credible intervals as predicted by 
-our model. 
-For the Rt plot, the thick line, darker, and lighter shaded regions shows the median and 
-central 50% and 95% credible intervals for the estimated Rt.
+thick lines and the light and dark shaded regions show the median and 95% and 50% credible intervals respectively, as predicted by our model. 
 
 Definitions for terms used on this website: 
 * For predictions, the notation X \[Y,Z\] means that the **median** is X while Y and Z gives the lower and upper endpoints of the 95% **credible interval**. That is the model believes that with 95% chance the interval \[Y,Z\] will contain the corresponding quantity, and there is equal chance that the corresponding quantity will be above and below X.

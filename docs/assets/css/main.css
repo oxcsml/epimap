@@ -71,21 +71,43 @@ div.tooltip span.header {
     stroke-width: 1.5;
 }
 
-.predicted-cases-area {
+.predicted-cases-inner-area {
     fill: rgb(70, 130, 180);
     opacity: 0.4;
 }
 
 
-.projected-cases-median-line {
-    fill: none;
-    stroke: rgb(139, 0, 0);
-    stroke-width: 1.5;
+.predicted-cases-outer-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.2;
 }
 
-.projected-cases-area {
-    fill: rgb(139, 0, 0);
+
+.projected-cases-median-line {
+    fill: none;
+    /* stroke: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180); */
+    stroke: rgb(0, 0, 0);
+    stroke-width: 1.5;
+    stroke-dasharray: 4;
+}
+
+.projected-cases-inner-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
     opacity: 0.4;
+}
+
+.projected-cases-outer-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
+    opacity: 0.2;
 }
 
 .rt-line {
@@ -106,17 +128,19 @@ div.tooltip span.header {
 
 .rt-projected-line {
     fill: none;
-    stroke: rgb(139, 0, 0);
+    /* stroke: rgb(139, 0, 0); */
+    stroke: rgb(0, 0, 0);
     stroke-width: 1.5;
+    stroke-dasharray: 4;
 }
 
 .rt-projected-inner-area {
-    fill: rgb(139, 0, 0);
+    /* fill: rgb(139, 0, 0); */
     opacity: 0.4;
 }
 
 .rt-projected-outer-area {
-    fill: rgb(139, 0, 0);
+    /* fill: rgb(139, 0, 0); */
     opacity: 0.2;
 }
 

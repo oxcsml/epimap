@@ -122,8 +122,11 @@ In the map, we write "Rt" instead of just "R". The "t" indicates "time".
 We do this because the number is not constant but can go up or down over time, 
 depending on how fast Covid-19 is spreading at a given time.
 
-You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of reported Covid-19 cases historically along with the corresponding estimates for Rt. The grey parts of the graphs are future predictions made by the model. For the
-cases plot, The thin blue line shows the actual number of daily reported cases while the 
+You can search for or click on a local authority to see its statistics.
+The blue parts of the graphs show the number of reported Covid-19 cases historically along with the corresponding estimates for Rt.
+The grey parts of the graphs are future predictions made by the model.
+**The grey parts include this week**, as the most recent case numbers are incomplete.
+For the cases plot, the thin blue line shows the actual number of daily reported cases while the 
 thick lines and the light and dark shaded regions show the median and 95% and 50% credible intervals respectively, as predicted by our model. 
 For the Rt plot, the thick lines and the light and dark shaded regions show the median and 
 95% and 50% credible intervals respectively, for the inferred weekly Rt.

@@ -34,11 +34,7 @@ slurm/submit-clean.sh $clean_directory
 
 rm -f mapping/stan_files/Rmap.rds
 
-slurm/submit-run.sh $results_directory $clean_directory &
-# slurm/submit-run-cori.sh $results_directory-cori $clean_directory &
-wait
-
-dataprocessing/reinflate.sh $results_directory/merged_ $today &
+dataprocessing/reinflate.sh $clean_directory $today &
 # dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
 wait
 
@@ -53,3 +49,11 @@ git add docs/assets/data/default
 git add -f data/*
 git commit -m "daily update $today"
 git push
+
+
+# dataprocessing/reinflate.sh $results_directory/merged_ $today &
+# wait
+
+slurm/submit-run.sh $results_directory $clean_directory &
+# slurm/submit-run-cori.sh $results_directory-cori $clean_directory &
+wait

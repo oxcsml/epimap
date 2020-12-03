@@ -50,7 +50,7 @@ Do look at estimates and predictions given by other groups at
 <div class="row">
 <div class="column">
 <svg id="slider-svg" viewBox="0 0 500 50" preserveAspectRatio="xMidYMid meet"></svg>
-<svg id="map" viewBox="0 0 500 550" preserveAspectRatio="xMidYMid meet"> </svg>
+<svg id="map" viewBox="0 0 500 600" preserveAspectRatio="xMidYMid meet"> </svg>
 </div>
 
 <div class="column">

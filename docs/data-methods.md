@@ -17,8 +17,7 @@ daily counts of positive PCR swab tests by specimen date, for:
 *   22 Unitary local authorities in Wales ([here](https://phw.nhs.wales/topics/latest-information-on-novel-coronavirus-covid-19/)).
 
 Other data sources:
-* UK 2011 Census commuter flow data ([here](https://www.statistics.digitalresources.jisc.ac.uk)),
-* Population sizes in each local authority
+* UK 2011 Census commuter flow data ([here](https://www.statistics.digitalresources.jisc.ac.uk))
 
 
 ##### Methods

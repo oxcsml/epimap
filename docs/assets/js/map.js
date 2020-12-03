@@ -385,6 +385,9 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
     });
 });
 
+// This is the last predicted (not projected!) date. Predicted is from observations,
+// projected is into the future =)
+let lastPredictedDate = null;
 const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEach(d => {
     if (!casePredTimeseries.has(d.area)) {
         casePredTimeseries.set(d.area, []);
@@ -407,8 +410,12 @@ const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEa
         d.C_upper = +d.C_75; 
     }
 
-    casePredTimeseries.get(d.area).push(d);
-}));
+    casePredTimeseries.get(d.area).push(d);	
+}))
+.then(() => {
+    lastPredictedDate = d3.max(casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date));
+    console.log(lastPredictedDate);
+});
 
 const loadCaseWeekly = d3.csv(case_weekly_path).then(data => data.forEach(d => {
     if (!caseWeeklyTimeseries.has(d.area)) {
@@ -683,9 +690,7 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-    const modelledDates = casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date);
-    console.log(d3.max(modelledDates));
-    selectDate(d3.max(modelledDates));
+    selectDate(lastPredictedDate);
     // selectDate(d3.max(availableDates));
 
     rtFillFn = date => {
@@ -1334,14 +1339,13 @@ function selectArea(selectedArea) {
 		return date.getDate()+' '+MONTHS[date.getMonth()]
 	}
 	// Set the last and next days.
-	// TODO. This should be cleaner; no -8 or -7 hardcoded here.
-	const casesWeekAgoStart = new Date(projectionDate.getTime() - sevenDays - sevenDays);		
-	const casesWeekAgoEnd = new Date(projectionDate.getTime() - eightDays);
+	const casesWeekAgoStart = new Date(lastPredictedDate.getTime() - sixDays);		
+	const casesWeekAgoEnd = new Date(lastPredictedDate.getTime());
 	casesStartDateInfo.text('('+formatdate(casesWeekAgoStart));
 	casesEndDateInfo.text(formatdate(casesWeekAgoEnd)+')');
 
-	const projectionThisWeekStart = new Date(projectionDate.getTime() - sevenDays);
-	const projectionThisWeekEnd = new Date(projectionDate.getTime() - oneDay);	
+	const projectionThisWeekStart = new Date(lastPredictedDate.getTime() + oneDay);
+	const projectionThisWeekEnd = new Date(lastPredictedDate.getTime() + sevenDays);	
 	casesProjStartDateInfo.text('('+formatdate(projectionThisWeekStart));
 	casesProjEndDateInfo.text(formatdate(projectionThisWeekEnd)+')');
 

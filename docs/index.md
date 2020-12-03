@@ -25,7 +25,6 @@ layout: home
 
 </head>
 
-
 <!-- This text is above the map. -->
 ### **Welcome to the UK Local Covid Map!**
 

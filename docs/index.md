@@ -32,13 +32,14 @@ This interactive map visualises the historical
 and predicted future developments of the Covid-19 epidemic
 across local authorities in the UK.
 
-We use a statistical model to estimate time-varying reproduction numbers (R) from UK 
+We use a [statistical model]({{ site.baseurl }}{% link data-methods.md %}) to estimate time-varying reproduction numbers (R) from UK 
 government data on daily reported cases in each lower tier local authority (LTLA). 
 Using these estimates, our model also produces predictions of how the number of cases will
-rise/fall in the next few weeks. This assumes no change in the circumstances affecting
+rise/fall in the next few weeks. 
+These predictions are made by the model assuming no change in the circumstances affecting
 transmission rates and testing in each local authority.
 
-We emphasize that no one knows the *exact R*, and we have to estimate it from data we do have. 
+We emphasize that no one knows the *true* reproduction numbers, and we estimate them from data we do have using statistical models. 
 It is important to treat a model's estimates with caution and be aware of its 
 [limitations]({{ site.baseurl }}{% link limitations.md %}).
 Different models to estimate R may give slightly different estimates. 
@@ -117,15 +118,18 @@ In the map, we write "Rt" instead of just "R". The "t" indicates "time".
 We do this because the number is not constant but can go up or down over time, 
 depending on how fast Covid-19 is spreading at a given time.
 
-You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of reported Covid-19 cases historically along with the corresponding estimates for Rt. The grey parts of the graphs are future predictions made by the model. In the plot the thick line, darker shade and lighter shade shows the median, 50% and 95%
-credible intervals for the estimated case numbers and Rt.
+You can search for or click on a local authority to see its statistics. The blue parts of the graphs show the number of reported Covid-19 cases historically along with the corresponding estimates for Rt. The grey parts of the graphs are future predictions made by the model. For the
+cases plot, The thin blue line shows the actual number of daily reported cases while the 
+thick lines and the light and dark shaded regions show the median and 95% and 50% credible intervals respectively, as predicted by our model. 
+For the Rt plot, the thick lines and the light and dark shaded regions show the median and 
+95% and 50% credible intervals respectively, for the inferred weekly Rt.
 
-Definitions for terms used in the map: 
+Definitions for terms used on this website: 
 * For predictions, the notation X \[Y,Z\] means that the **median** is X while Y and Z gives the lower and upper endpoints of the 95% **credible interval**. That is the model believes that with 95% chance the interval \[Y,Z\] will contain the corresponding quantity, and there is equal chance that the corresponding quantity will be above and below X.
-*   **Case** is an infected individual who has tested positive on the given date, 
+*   **Case** is an infected individual who has tested positive on the given specimen date, 
 under either Pillar 1 or Pillar 2 of the UK's testing strategy.
-*   **Rt** denotes the reproduction number at a given point in time: how many secondary cases a single primary case will result in on average. 
-**Rt** greater than 1 means that the size of the epidemic is increasing exponentially, and less than 1 means it is shrinking. 
+*   **Rt** denotes the reproduction number at a given point in time: how many secondary cases on average will be infected by a single primary case. 
+**Rt** greater than 1 means that the size of the epidemic is increasing exponentially, and less than 1 means it is shrinking exponentially. 
 *   **Cases (per 100k)** denotes the weekly number of cases per 100,000 population size. For past weeks, this number comes from historical weekly reported number of cases under Pillars 1+2. For future weeks, this is predicted by the model.
 *   **P(Rt>1)** denotes the probability (assigned by the model) that Rt is larger than 1 given the observed case counts.
 

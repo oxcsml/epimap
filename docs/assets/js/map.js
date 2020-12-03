@@ -524,14 +524,14 @@ const bisectDate = d3.bisector(d=>d).left;
 
 let currentSliderChangeFn = null;
 
-function getRtForArea(area, availableDates) {
+function getRtForArea(area, availableDates, someDate) {
     const rtSeries = rtData.get(area);
     if (!rtSeries) {
         return "? [? - ?]";
     }
     let rt = null;
     if (availableDates) {
-        const idx = bisectDate(availableDates, selectedDate, 1);
+        const idx = bisectDate(availableDates, someDate, 1);
         rt = rtSeries[idx];
     }
     else {
@@ -750,7 +750,7 @@ function ready(data) {
 			// will then say (e.g.) 1 Dec - 7 Dec, instead of an 8-day week =)
 			startDate.setTime(selectedDate.getTime() - sixDays);
             tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
-            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates)}`);
+            tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates, selectedDate)}`);
             tooltip_info3.text(`Cases/100k: ${getCaseWeeklyForArea(d.properties.lad20nm, availableDates, selectedDate)[1]}`);
             tooltip_info4.text(`P(Rt>1): ${getPExceedForArea(d.properties.lad20nm, availableDates)}`);
 
@@ -1338,19 +1338,25 @@ function selectArea(selectedArea) {
 	function formatdate(date) {
 		return date.getDate()+' '+MONTHS[date.getMonth()]
 	}
-	// Set the last and next days.
+
+	// Put last week's dates in website text.
+	// This is: 6 days from last prediction day to last prediction day, or
+	//          14 days ago to 8 days ago.
 	const casesWeekAgoStart = new Date(lastPredictedDate.getTime() - sixDays);		
 	const casesWeekAgoEnd = new Date(lastPredictedDate.getTime());
 	casesStartDateInfo.text('('+formatdate(casesWeekAgoStart));
 	casesEndDateInfo.text(formatdate(casesWeekAgoEnd)+')');
 
+	// Put this week's dates in website text.
+	// This is: The first to the 7th projection day, or
+	//          a nowcasted projection onto the week that's just passed, i.e. 7 days ago to yesterday.
+	// Recall that we project the week that's just passed, as the case numbers are not reliable.
 	const projectionThisWeekStart = new Date(lastPredictedDate.getTime() + oneDay);
 	const projectionThisWeekEnd = new Date(lastPredictedDate.getTime() + sevenDays);	
 	casesProjStartDateInfo.text('('+formatdate(projectionThisWeekStart));
 	casesProjEndDateInfo.text(formatdate(projectionThisWeekEnd)+')');
 
-	// Change in code here: instead of showing the true cases, we write the inferred cases,
-	// so that it is consistent with the data in the map.
+	// The observed cases, 14 days ago to 8 days ago.
 	// TODO The 'available dates' should be picked up from cases; it just happens to coincide now.
 	const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
 	const caseHist = getCaseWeeklyForArea(area, availableDates, casesWeekAgoEnd)
@@ -1358,14 +1364,13 @@ function selectArea(selectedArea) {
 	casesLast7PerInfo.text(caseHist[1]);
 
     const caseHistory = getCaseHistoryForArea(area);
-    // casesLast7Info.text(caseHistory.casesLast7Day);
-    // const caseHistoryPer100k = getCaseHistoryPer100kForArea(area);
-    // casesLast7PerInfo.text(caseHistoryPer100k.casesLast7Day.toFixed(1));		
     casesTotalInfo.text(caseHistory.casesTotal);	
 	
-    rtInfo.text(getRtForArea(area));
-    caseProjInfo.text(getCaseProjForArea(area));
-    caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
+	// The projected cases, 7 days ago to 1 day ago.
+    rtInfo.text(getRtForArea(area, availableDates, projectionThisWeekEnd));	
+    const caseProj = getCaseWeeklyForArea(area, availableDates, projectionThisWeekEnd);
+    caseProjInfo.text(caseProj[0]);
+    caseProjPer100kInfo.text(caseProj[1]);
 }
 
 function selectDate(date) {

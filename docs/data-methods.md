@@ -18,7 +18,6 @@ daily counts of positive PCR swab tests by specimen date, for:
 
 Other data sources:
 * UK 2011 Census commuter flow data ([here](https://www.statistics.digitalresources.jisc.ac.uk)),
-* Population sizes in each local authority
 
 
 ##### Methods

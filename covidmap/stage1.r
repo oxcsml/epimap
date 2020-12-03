@@ -278,7 +278,6 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
     Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
     Crecon_median[area_index, ] <- round(Crecon_m)
-
   
     ####################################################################
     area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
@@ -377,7 +376,8 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Cweekly[,1:Nstep,] = actuals
 
   projs = Cproj[,,3]
-  dim(projs) <- c(N, Nproj, Tstep)
+  dim(projs) <- c(N, Tstep, Nproj)
+  projs = aperm(projs,c(1,3,2))
   Cweekly[,(Nstep+1):(Nstep+Nproj),] = projs
 
   Cweekly = apply(Cweekly, c(1,2), sum) 

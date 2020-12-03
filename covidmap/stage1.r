@@ -368,9 +368,13 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
 
   Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
-  preds = Cpred[,,3]
-  dim(preds) <- c(N, Nstep, Tstep)
-  Cweekly[,1:Nstep,] = preds
+
+  actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
+  dim(actuals) <- c(N,Tstep,Nstep)
+  actuals <- aperm(actuals, c(1,3,2))
+  # preds = Cpred[,,3]
+  # dim(preds) <- c(N, Nstep, Tstep)
+  Cweekly[,1:Nstep,] = actuals
 
   projs = Cproj[,,3]
   dim(projs) <- c(N, Nproj, Tstep)

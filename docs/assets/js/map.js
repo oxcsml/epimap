@@ -270,8 +270,10 @@ tooltip_div.append("br");
 const tooltip_info4 = tooltip_div.append("span")
     .attr("class", "info-row4");
 
-// Load external data
-let projectionDate = null;
+// Load external data.
+// The last observation date (from site_data.csv) is used to determine when we overlay.
+// This date is different from the last prediction date and first projection date.
+let lastObservationDate = null;
 const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
     data.forEach(d => {
         if (!caseTimeseries.has(d.area)) {
@@ -286,7 +288,7 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
     caseTimeseries.each((cases, area) => {
         const casesLast7Day = cases.slice(1).slice(-7).map(c => c.cases_new).reduce((a, b) => a + b);
         const casesTotal = cases.map(c => c.cases_new).reduce((a, b) => a + b);
-        projectionDate = d3.max(cases.slice(-1).map(c => c.Date));
+        lastObservationDate = d3.max(cases.slice(-1).map(c => c.Date));
         caseHistory.set(area, {
             casesLast7Day: casesLast7Day,
             casesTotal: casesTotal
@@ -345,6 +347,8 @@ const loadPExceed = d3.csv(pexceed_path).then(data => {
     });
 });
 
+// Cproj.csv, starting at the first projection date.
+let firstProjectionDate = null;
 const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEach(d => {
     if (!caseProjTimeseries.has(d.area)) {
         caseProjTimeseries.set(d.area, []);
@@ -368,8 +372,12 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
     }
 
     caseProjTimeseries.get(d.area).push(d);
-
-})).then(() => {
+}))
+.then(() => {
+    firstProjectionDate = d3.min(caseProjTimeseries.get(caseProjTimeseries.keys()[0]).map(r=>r.Date));
+    console.log('First projection date: '+firstProjectionDate);
+})
+.then(() => {
     caseProjTimeseries.each((projections, area) => {
         let caseProjLower = 0, caseProjMedian = 0, caseProjUpper = 0;
         for (let i = 0; i < 7; i++) {
@@ -385,9 +393,11 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
     });
 });
 
+// Cpred.csv, ending at the last prediction date.
 // This is the last predicted (not projected!) date. Predicted is from observations,
-// projected is into the future =)
-let lastPredictedDate = null;
+// projected is into the future.
+// It should be true that firstProjectionDate = lastPredictionDate + one day.
+let lastPredictionDate = null;
 const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEach(d => {
     if (!casePredTimeseries.has(d.area)) {
         casePredTimeseries.set(d.area, []);
@@ -413,8 +423,8 @@ const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEa
     casePredTimeseries.get(d.area).push(d);	
 }))
 .then(() => {
-    lastPredictedDate = d3.max(casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date));
-    console.log(lastPredictedDate);
+    lastPredictionDate = d3.max(casePredTimeseries.get(casePredTimeseries.keys()[0]).map(r=>r.Date));
+    console.log('Last prediction date: '+lastPredictionDate);
 });
 
 const loadCaseWeekly = d3.csv(case_weekly_path).then(data => data.forEach(d => {
@@ -479,20 +489,6 @@ const casesAndMeta = Promise.all([
     loadNHSScotland,
     loadEnglandMetaAreas
 ]).then(() => {
-    caseProjTimeseries.each((projections, area) => {
-        let caseProjLower = 0, caseProjMedian = 0, caseProjUpper = 0;
-        projections.filter(d=>(d.Date>projectionDate && d.Date<=d3.timeDay.offset(projectionDate,7))).map(d=>{
-            caseProjLower += d.C_lower;
-            caseProjMedian += d.C_median;
-            caseProjUpper += d.C_upper;
-        });
-        nextWeekCaseProj.set(area, {
-            caseProjLower: Math.round(caseProjLower),
-            caseProjMedian: Math.round(caseProjMedian),
-            caseProjUpper: Math.round(caseProjUpper)
-        });
-    });
-}).then(() => {
     nextWeekCaseProj.each((caseProj, area) => {
         const pop = getPopulation(area) / 100000;
         nextWeekCaseProjPer100k.set(area, {
@@ -690,7 +686,7 @@ function ready(data) {
         .attr("transform", "translate(-5, 15) rotate(-90)");
     
     const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
-    selectDate(lastPredictedDate);
+    selectDate(lastPredictionDate);
     // selectDate(d3.max(availableDates));
 
     rtFillFn = date => {
@@ -745,9 +741,7 @@ function ready(data) {
             const startDate = new Date();
             // startDate.setTime(selectedDate.getTime() - sevenDays);
 			// Comment: The tooltip_info is a bisect and takes the index of the selected (end) date
-			// to look up Rt, weekly cases and probability. The start date is only used for display
-			// purposes. It's set to 6 days prior as we include the selected day; the tool tip text
-			// will then say (e.g.) 1 Dec - 7 Dec, instead of an 8-day week =)
+			// to look up Rt, weekly cases and probability.
 			startDate.setTime(selectedDate.getTime() - sixDays);
             tooltip_info1.text(`${tooltipDateFormat(startDate)} - ${tooltipDateFormat(selectedDate)}`);
             tooltip_info2.text(`Rt: ${getRtForArea(d.properties.lad20nm, availableDates, selectedDate)}`);
@@ -1101,9 +1095,6 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
     caseChartYAxis.call(d3.axisLeft(y).ticks(5));
     caseChartTitle.text(`Covid-19 Cases for ${area}`);
 
-    //const predictionDate = d3.max(predictionData.map(c => c.Date));
-    //const projectionDate = d3.max(chartData.map(c => c.Date));
-
     caseCurrentDateLine
         .style("display", null)
         .attr("transform", "translate(" + caseX(selectedDate) + ", 0)");
@@ -1135,10 +1126,10 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .on("mousemove", mousemove);
 
     const bisectDate = d3.bisector(function (d) { return d.Date; }).left;
-    const allData = [...chartData, ...projectionData.filter(d => (d.Date > projectionDate))];
+    const allData = [...chartData, ...projectionData.filter(d => (d.Date > lastObservationDate))];
 
     function getValue(d) {
-        if (d.Date > projectionDate) {
+        if (d.Date > lastObservationDate) {
             return d.C_median;
         }
         else {
@@ -1150,14 +1141,19 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         const x0 = caseX.invert(d3.mouse(this)[0] + chartMargin.left),
             i = bisectDate(allData, x0, 1),
             d0 = allData[i - 1],
-            d1 = allData[i],
-            d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
+     	    d1 = allData[i];
 
-        // TODO: Change this to cases actual, smoothed and projections
-        var chartDateFormat = d3.timeFormat("%d %b")
-        focus.attr("transform", "translate(" + caseX(d.Date) + "," + y(getValue(d)) + ")");
-        focus.select("text").text(function () { return chartDateFormat(d.Date)+": "+getValue(d); });
-        focus.select(".x-hover-line").attr("y2", chartHeight - y(getValue(d)));
+		if (d1 !== undefined) {
+			// On dragging a mouse from out of bounds, the bisection may give a date index past the end
+			// of allData.
+            const d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
+
+	        // TODO: Change this to cases actual, smoothed and projections
+	        var chartDateFormat = d3.timeFormat("%d %b")
+	        focus.attr("transform", "translate(" + caseX(d.Date) + "," + y(getValue(d)) + ")");
+	        focus.select("text").text(function () { return chartDateFormat(d.Date)+": "+getValue(d); });
+	        focus.select(".x-hover-line").attr("y2", chartHeight - y(getValue(d)));
+		}
     }
 }
 
@@ -1271,13 +1267,19 @@ function plotRtChart(rtData, chartData, projectionData, predictionData, area) {
         const x0 = rtX.invert(d3.mouse(this)[0] + chartMargin.left),
             i = bisectDate(rtData, x0, 1),
             d0 = rtData[i - 1],
-            d1 = rtData[i],
-            d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
-        var fr = d3.format(".1f");
-        var chartDateFormat = d3.timeFormat("%d %b")
-        focus.attr("transform", "translate(" + rtX(d.Date) + "," + y(d.Rt50) + ")");
-        focus.select("text").text(function () { return chartDateFormat(d.Date) +": "+ fr(d.Rt50); });
-        focus.select(".x-hover-line").attr("y2", chartHeight - y(d.Rt50));
+            d1 = rtData[i];
+
+		if (d1 !== undefined) {
+		    // On dragging a mouse from out of bounds, the bisection may give a date index past the end
+		    // of allData.
+            const d = x0 - d0.Date > d1.Date - x0 ? d1 : d0;
+
+	        var fr = d3.format(".1f");
+	        var chartDateFormat = d3.timeFormat("%d %b")
+	        focus.attr("transform", "translate(" + rtX(d.Date) + "," + y(d.Rt50) + ")");
+	        focus.select("text").text(function () { return chartDateFormat(d.Date) +": "+ fr(d.Rt50); });
+	        focus.select(".x-hover-line").attr("y2", chartHeight - y(d.Rt50));
+		}
     }
 }
 
@@ -1342,8 +1344,8 @@ function selectArea(selectedArea) {
 	// Put last week's dates in website text.
 	// This is: 6 days from last prediction day to last prediction day, or
 	//          14 days ago to 8 days ago.
-	const casesWeekAgoStart = new Date(lastPredictedDate.getTime() - sixDays);		
-	const casesWeekAgoEnd = new Date(lastPredictedDate.getTime());
+	const casesWeekAgoStart = new Date(lastPredictionDate.getTime() - sixDays);		
+	const casesWeekAgoEnd = new Date(lastPredictionDate.getTime());
 	casesStartDateInfo.text('('+formatdate(casesWeekAgoStart));
 	casesEndDateInfo.text(formatdate(casesWeekAgoEnd)+')');
 
@@ -1351,13 +1353,12 @@ function selectArea(selectedArea) {
 	// This is: The first to the 7th projection day, or
 	//          a nowcasted projection onto the week that's just passed, i.e. 7 days ago to yesterday.
 	// Recall that we project the week that's just passed, as the case numbers are not reliable.
-	const projectionThisWeekStart = new Date(lastPredictedDate.getTime() + oneDay);
-	const projectionThisWeekEnd = new Date(lastPredictedDate.getTime() + sevenDays);	
+	const projectionThisWeekStart = new Date(lastPredictionDate.getTime() + oneDay);
+	const projectionThisWeekEnd = new Date(lastPredictionDate.getTime() + sevenDays);	
 	casesProjStartDateInfo.text('('+formatdate(projectionThisWeekStart));
 	casesProjEndDateInfo.text(formatdate(projectionThisWeekEnd)+')');
 
 	// The observed cases, 14 days ago to 8 days ago.
-	// TODO The 'available dates' should be picked up from cases; it just happens to coincide now.
 	const availableDates = rtData.get(rtData.keys()[0]).map(r=>r.Date);
 	const caseHist = getCaseWeeklyForArea(area, availableDates, casesWeekAgoEnd)
 	casesLast7Info.text(caseHist[0]);
@@ -1368,9 +1369,17 @@ function selectArea(selectedArea) {
 	
 	// The projected cases, 7 days ago to 1 day ago.
     rtInfo.text(getRtForArea(area, availableDates, projectionThisWeekEnd));	
+
+    // The following code will write the median projections, like they appear in the tooltip.
     const caseProj = getCaseWeeklyForArea(area, availableDates, projectionThisWeekEnd);
     caseProjInfo.text(caseProj[0]);
     caseProjPer100kInfo.text(caseProj[1]);
+
+	// TODO. The following code adds error bars, but the median is the sum of 7 medians in JavaScript,
+	//       and not the median of the `sum of 7` in simulation.
+	// caseProjInfo.text(getCaseProjForArea(area));
+	// caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
+	
 }
 
 function selectDate(date) {

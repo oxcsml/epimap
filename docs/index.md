@@ -46,7 +46,12 @@ Different models to estimate R may give slightly different estimates.
 Do look at estimates and predictions given by other groups at
 [Cambridge MRC Biostatistics Unit](https://www.mrc-bsu.cam.ac.uk/tackling-covid-19/nowcasting-and-forecasting-of-covid-19/), [LSHTM CMMID](https://epiforecasts.io/covid/posts/national/united-kingdom/) and [Imperial College London](https://imperialcollegelondon.github.io/covid19local/).
 
-This website and the method behind it were developed by an [OxCSML](http://csml.stats.ox.ac.uk/) [team]({{ site.baseurl }}{% link people.md %}) at the University of Oxford's Department of Statistics, along with a number of other collaborators.
+This website and the method behind it were developed by a 
+[team]({{ site.baseurl }}{% link people.md %}) in the 
+[OxCSML](http://csml.stats.ox.ac.uk/) research group at the 
+[University of Oxford](https://www.ox.ac.uk)'s 
+[Department of Statistics](http://www.stats.ox.ac.uk), 
+along with a number of other collaborators.
 
 
 <div class="map-container">

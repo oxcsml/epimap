@@ -6,7 +6,7 @@ weight: 1
 
 We aim to reliably estimate the instantaneous reproduction number $R_t$ across local authorities in the UK with appropriately quantified uncertainties.
 
-##### Data
+### Data
 
 We use publicly available [Pillar 1+2](https://www.gov.uk/government/publications/coronavirus-covid-19-scaling-up-testing-programmes) 
 daily counts of positive PCR swab tests by specimen date, for:
@@ -21,7 +21,7 @@ Other data sources:
 * ONS UK population estimates from mid 2019 ([here](https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration/populationestimates/datasets/populationestimatesforukenglandandwalesscotlandandnorthernireland)).
 
 
-##### Methods
+### Methods
 
 At its core, our Bayesian method uses a renewal equation formulation of epidemic dynamics 
 within each local authority, 

@@ -83,14 +83,20 @@ const smoothedChartLine = caseChartSvg.append("path")
 const predictedChartLine = caseChartSvg.append("path")
     .attr("class", "predicted-cases-median-line");
 
-const predictedArea = caseChartSvg.append("path")
-    .attr("class", "predicted-cases-area");
+const predictedInnerArea = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-inner-area");
+
+const predictedOuterArea = caseChartSvg.append("path")
+    .attr("class", "predicted-cases-outer-area");
 
 const projectedChartLine = caseChartSvg.append("path")
     .attr("class", "projected-cases-median-line");
 
-const projectedArea = caseChartSvg.append("path")
-    .attr("class", "projected-cases-area");
+const projectedInnerArea = caseChartSvg.append("path")
+    .attr("class", "projected-cases-inner-area");
+
+const projectedOuterArea = caseChartSvg.append("path")
+    .attr("class", "projected-cases-outer-area");
 
 const caseCurrentDateLine = caseChartSvg.append("g");
 
@@ -354,6 +360,13 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
       d.C_upper = +d.C_upper;
     }  
 
+    if (d.C_25) {
+        d.C_lower2 = +d.C_lower;
+        d.C_upper2 = +d.C_upper;
+        d.C_lower = +d.C_25;
+        d.C_upper = +d.C_75; 
+    }
+
     caseProjTimeseries.get(d.area).push(d);
 
 })).then(() => {
@@ -386,6 +399,13 @@ const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEa
       d.C_median = +d.C_median;
       d.C_upper = +d.C_upper;
     }  
+
+    if (d.C_25) {
+        d.C_lower2 = +d.C_lower;
+        d.C_upper2 = +d.C_upper;
+        d.C_lower = +d.C_25;
+        d.C_upper = +d.C_75; 
+    }
 
     casePredTimeseries.get(d.area).push(d);
 }));
@@ -1000,19 +1020,29 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.C_median); });
 
-    const predictedCasesArea = d3.area()
+    const predictedCasesInnerArea = d3.area()
         .x(function (d) { return caseX(d.Date); })
         .y0(function (d) { return y(d.C_lower); })
         .y1(function (d) { return y(d.C_upper); });
+
+    const predictedCasesOuterArea = d3.area()
+        .x(function (d) { return caseX(d.Date); })
+        .y0(function (d) { return y(d.C_lower2); })
+        .y1(function (d) { return y(d.C_upper2); });
 
     const projectedCasesLine = d3.line()
         .x(function (d) { return caseX(d.Date); })
         .y(function (d) { return y(d.C_median); });
 
-    const projectedCasesArea = d3.area()
+    const projectedCasesInnerArea = d3.area()
         .x(function (d) { return caseX(d.Date); })
         .y0(function (d) { return y(d.C_lower); })
         .y1(function (d) { return y(d.C_upper); });
+    
+    const projectedCasesOuterArea = d3.area()
+        .x(function (d) { return caseX(d.Date); })
+        .y0(function (d) { return y(d.C_lower2); })
+        .y1(function (d) { return y(d.C_upper2); });
 
     actualChartLine
         .datum(chartData)
@@ -1026,11 +1056,17 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .duration(500)
         .attr("d", smoothedCasesLine);
 
-    predictedArea
+    predictedInnerArea
         .datum(predictionData)
         .transition()
         .duration(500)
-        .attr("d", predictedCasesArea);
+        .attr("d", predictedCasesInnerArea);
+
+    predictedOuterArea
+        .datum(predictionData)
+        .transition()
+        .duration(500)
+        .attr("d", predictedCasesOuterArea);
 
     predictedChartLine
         .datum(predictionData)
@@ -1038,11 +1074,17 @@ function plotCaseChart(chartData, projectionData, predictionData, area) {
         .duration(500)
         .attr("d", predictedCasesLine);
 
-    projectedArea
+    projectedInnerArea
         .datum(projectionData)
         .transition()
         .duration(500)
-        .attr("d", projectedCasesArea);
+        .attr("d", projectedCasesInnerArea);
+
+    projectedOuterArea
+        .datum(projectionData)
+        .transition()
+        .duration(500)
+        .attr("d", projectedCasesOuterArea);
 
     projectedChartLine
         .datum(projectionData)

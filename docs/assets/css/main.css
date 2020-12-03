@@ -71,9 +71,15 @@ div.tooltip span.header {
     stroke-width: 1.5;
 }
 
-.predicted-cases-area {
+.predicted-cases-inner-area {
     fill: rgb(70, 130, 180);
     opacity: 0.4;
+}
+
+
+.predicted-cases-outer-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.2;
 }
 
 
@@ -83,9 +89,14 @@ div.tooltip span.header {
     stroke-width: 1.5;
 }
 
-.projected-cases-area {
+.projected-cases-inner-area {
     fill: rgb(139, 0, 0);
     opacity: 0.4;
+}
+
+.projected-cases-outer-area {
+    fill: rgb(139, 0, 0);
+    opacity: 0.2;
 }
 
 .rt-line {

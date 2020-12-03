@@ -40,3 +40,6 @@ header_pages:
   - about.md
 
 delve_url: https://rs-delve.github.io/
+
+# Google analytics
+google_analytics: G-TEZZX5Z9P2

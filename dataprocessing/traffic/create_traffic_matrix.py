@@ -87,4 +87,4 @@ if __name__ == "__main__":
             if k % 1000 == 0:
                 print(f"Done {k}/{NN} entries.")
 
-    traffic.to_csv("traffic/traffic.csv")
+    traffic.to_csv("data/uk_traffic.csv")

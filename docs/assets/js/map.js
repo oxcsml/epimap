@@ -387,7 +387,10 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         }
         nextWeekCaseProj.set(area, {
             caseProjLower: Math.round(caseProjLower),
-            caseProjMedian: Math.round(caseProjMedian),
+			// TODO: The data from Cweekly.csv used for the tooltip is rounded down. It means that the
+			//       displayed total projected cases could differ by one depending on rouning up or
+			//       down. The `floor` ensures that the displayed values matches the tooltip.
+            caseProjMedian: Math.floor(caseProjMedian),
             caseProjUpper: Math.round(caseProjUpper)
         });
     });
@@ -1375,8 +1378,7 @@ function selectArea(selectedArea) {
     // caseProjInfo.text(caseProj[0]);
     // caseProjPer100kInfo.text(caseProj[1]);
 
-	// TODO. The following code adds error bars, but the median is the sum of 7 medians in JavaScript,
-	//       and not the median of the `sum of 7` in simulation.
+	// The following code adds error bars...
 	caseProjInfo.text(getCaseProjForArea(area));
 	caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
 }

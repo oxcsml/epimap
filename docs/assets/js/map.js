@@ -1371,15 +1371,14 @@ function selectArea(selectedArea) {
     rtInfo.text(getRtForArea(area, availableDates, projectionThisWeekEnd));	
 
     // The following code will write the median projections, like they appear in the tooltip.
-    const caseProj = getCaseWeeklyForArea(area, availableDates, projectionThisWeekEnd);
-    caseProjInfo.text(caseProj[0]);
-    caseProjPer100kInfo.text(caseProj[1]);
+    // const caseProj = getCaseWeeklyForArea(area, availableDates, projectionThisWeekEnd);
+    // caseProjInfo.text(caseProj[0]);
+    // caseProjPer100kInfo.text(caseProj[1]);
 
 	// TODO. The following code adds error bars, but the median is the sum of 7 medians in JavaScript,
 	//       and not the median of the `sum of 7` in simulation.
-	// caseProjInfo.text(getCaseProjForArea(area));
-	// caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
-	
+	caseProjInfo.text(getCaseProjForArea(area));
+	caseProjPer100kInfo.text(getCaseProjPer100kForArea(area));
 }
 
 function selectDate(date) {

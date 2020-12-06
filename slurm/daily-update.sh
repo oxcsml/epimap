@@ -34,7 +34,7 @@ slurm/submit-clean.sh $clean_directory
 
 rm -f mapping/stan_files/Rmap.rds
 
-dataprocessing/reinflate.sh $clean_directory $today &
+dataprocessing/reinflate.sh $clean_directory/ $today &
 # dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
 wait
 

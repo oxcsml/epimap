@@ -1,19 +1,13 @@
-Merge made by the 'recursive' strategy.
- docs/CNAME            |  1 +
- docs/_config.yml      |  4 +--
- docs/assets/js/map.js | 75 ++++++++++++++++++++++++++++++++++++++-------------
- docs/index.md         | 30 +++++++++++----------
- docs/map.html         | 26 +++++++++++++-----
- docs/people.md        |  2 +-
- 6 files changed, 96 insertions(+), 42 deletions(-)
- create mode 100644 docs/CNAME
 Already up to date.
+Updating 0e6abff..5b5a3c8
+Fast-forward
+ dataset/combined_dataset_latest.csv | 103156 +++++++++++++++++----------------
+ 1 file changed, 51669 insertions(+), 51487 deletions(-)
 /data/localhost/not-backed-up/mhutchin/Rmap-daily-update/Rmap
 source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && python dataprocessing/process_uk_cases.py
 source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && python dataprocessing/process_mobility.py
 Wrote data/mobility.csv
-source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && python dataprocessing/process_metadata.py
-Wrote data/metadata.csv
+# source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && python dataprocessing/process_metadata.py
 source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && python dataprocessing/process_site_data.py
 Wrote docs/assets/data/site_data.csv
 source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && Rscript dataprocessing/process_data.r
@@ -21,20 +15,13 @@ source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && Rscr
 [1] "Matched meta_areas: Highland, Highland"
 [1] "Using: Highland, NHS Scotland Health Board"
 # source /data/ziz/mhutchin/miniconda3/bin/activate && conda activate Rmap && Rscript process_radiation_fluxes.r
-submit-clean: Cleaning areas
-clean_directory = fits/clean-2020-12-01
-Submitted batch job 879161
-submit-clean: Combining areas
-Submitted batch job 881462
+clean_directory = fits/clean-2020-12-05
+submit-clean: compiling
+submit-clean: cleaning area
+Submitted batch job 889481
+submit-clean: combining areas
+Submitted batch job 889829
 submit-clean: DONE
-submit-run: Inferring for each cleaned sample
-results_directory = fits/map-2020-12-01
-clean_directory = fits/clean-2020-12-01
-submit-run: Inferring for each cleaned sample
-results_directory = fits/map-2020-12-01-cori
-clean_directory = fits/clean-2020-12-01
-Submitted batch job 882280
-Submitted batch job 882281
-submit-run: Merging results
-Submitted batch job 882723
-submit-run: DONE
+/data/localhost/not-backed-up/mhutchin/Rmap-daily-update/Rmap/docs/assets/data
+/data/localhost/not-backed-up/mhutchin/Rmap-daily-update/Rmap
+daily-update-clean: Failed before finishing with exit code 128

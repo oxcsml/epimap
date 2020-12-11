@@ -96,7 +96,7 @@ transformed parameters {
   { // latent renewal process 
     // negative binomial noise approximated by gaussian
     for (t in 1:Tcond) {
-      Xt[t] = xi + 
+      Xt[t] = xi +
         (1.0-mean_serial_interval_real) * Count[1,t+mean_serial_interval_int] + 
         mean_serial_interval_real * Count[1,t+mean_serial_interval_int+1];
     }

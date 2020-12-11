@@ -5,16 +5,16 @@ source('dataprocessing/read_data.r')
 source('covidmap/utils.r')
 
 Rmap_options = function(
-  spatialkernel        = "matern12",
+  spatialkernel        = "none",
   temporalkernel       = "matern12",
   localkernel          = "local",
-  globalkernel         = "global",
-  gp_space_scale       = 1.0, # units of 100km
-  gp_space_decay_scale = .1,
-  gp_time_scale        = 60.0, # units of 1 day
-  gp_time_decay_scale  = .1,
-  fixed_gp_space_length_scale = 3.0,
-  fixed_gp_time_length_scale = 100.0,
+  globalkernel         = "none",
+  gp_space_scale       = 0.5, # units of 100km
+  gp_space_decay_scale = .25,
+  gp_time_scale        = 50.0, # units of 1 day
+  gp_time_decay_scale  = .25,
+  fixed_gp_space_length_scale = -1, # 0.5,
+  fixed_gp_time_length_scale = -1, # 100.0,
   constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
   full_cases_distribution = 1,
   metapop              = "traffic_forward,traffic_reverse,uniform,in",
@@ -277,7 +277,7 @@ Rmap_run = function(env) {
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
       coupling_mu_loc = -2.19, # centre at .1
       coupling_mu_scale = 0.25, # set mean of process to be 0.1, 1 std = 0.024-0.33
-      coupling_sigma_scale = 0.25,
+      coupling_sigma_scale = 0.1,
       coupling_alpha_scale = 1-exp(-Tstep/28),
       
       SPATIAL_KERNEL = SPATIAL_KERNEL,
@@ -306,16 +306,18 @@ Rmap_run = function(env) {
     Rmap_init = lapply(1:numchains, function(i) {
       env = list2env(list(
         global_sigma = .25,
-        local_scale = .25,
         gp_sigma = .25,
+        local_space_sigma = .25,
+        local_time_sigma = .1,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
-        infection_dispersion = 1.0,
-        case_dispersion = 1.0
+        infection_dispersion = 1.0
       ))
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
       }
+      # lapply(1:N, function(f) setval('local_space_sigma', .1, f))
+      # lapply(1:Mstep+Mproj, function(f) setval('local_time_sigma', .1, f))
       lapply(1:(Mstep+Mproj), function(k) {
         lapply(1:N, function(j) {
           l = j+(k-1)*N;
@@ -323,7 +325,7 @@ Rmap_run = function(env) {
           lapply(
             c(
               'gp_eta_in','gp_eta_out',
-              'global_eta_in','global_eta_out',
+              # 'global_eta_in','global_eta_out',
               'local_eta_in','local_eta_out'
             ),
             function(par) {
@@ -333,39 +335,53 @@ Rmap_run = function(env) {
         })
         setval('coupling_rate',.01, k);
       })
+      lapply(1:Tlik, function(s) {
+        lapply(1:N, function(j) {
+          setval('infection_eta', rnorm(1,0,1), s, j)
+        })
+      })
       lapply(1:F, function(f) setval('flux_probs', 1/F, f))
+      lapply(1:N, function(j) setval('case_precision', 0.1, j))
       as.list(env)
     })
     # print(Rmap_init)
     # message(Rmap_init[[1]])
-    Rmap_pars = c(
+    Rmap_summary_pars = c(
       "global_sigma",
-      "local_scale",
+      "local_space_sigma",
+      "local_time_sigma",
       "gp_sigma",
-      # "gp_space_length_scale",
-      # "gp_time_length_scale",
       "infection_dispersion",
-      "case_dispersion",
       "coupling_rate",
       "flux_probs",
       "Rt",
-      "Rt_all",
-      "Rt_region",
+      "Rt_all"
+    )
+    if (opt$fixed_gp_space_length_scale<0.0) {
+      Rmap_summary_pars = c(Rmap_summary_pars,"gp_space_length_scale")
+    }
+    if (opt$fixed_gp_time_length_scale<0.0) {
+      Rmap_summary_pars = c(Rmap_summary_pars,"gp_time_length_scale")
+    }
+    Rmap_pars = c(Rmap_summary_pars,
+      "case_precision",
       "Ppred",
       "Cpred",
       "Cproj",
-      "Cproj_region",
-      "Cpred_region"
+      "fluxproportions"
+      # "Rt_region",
+      # "Cproj_region",
+      # "Cpred_region"
     )
     Rmap_control = list(
       # max_treedepth = 3, # testing only
       adapt_delta = .9,
-      max_treedepth = 7
+      max_treedepth = 10 
     )
 
     #########################################################
     fit <- stan(
-      file = 'mapping/stan_files/Rmap.stan',
+      file = 'mapping/stan_files/Rmap-latent.stan',
       data = Rmap_data,
       init = Rmap_init,
       pars = Rmap_pars,
@@ -380,18 +396,7 @@ Rmap_run = function(env) {
     #########################################################
     # Summary of fit
     print(summary(fit,
-        pars=c(
-          #"gp_space_length_scale",
-          "gp_sigma",
-          #"gp_time_length_scale",
-          "global_sigma",
-          "local_scale",
-          "infection_dispersion",
-          "case_dispersion",
-          "Rt_all",
-          "coupling_rate",
-          "flux_probs"
-        ),
+        pars=Rmap_summary_pars,
         probs=c(.025,0.5,.975)
     )$summary)
 
@@ -453,9 +458,9 @@ Rmap_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
-    save_samples("Rt_region", N_sites=N_region)
-    save_samples("Cpred_region", N_sites=N_region, areafirst=TRUE)
-    save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
+    #save_samples("Rt_region", N_sites=N_region)
+    #save_samples("Cpred_region", N_sites=N_region, areafirst=TRUE)
+    #save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
       numareas <- length(areas)
@@ -618,7 +623,7 @@ Rmap_postprocess = function(env) {
     #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
     #pairs(fit, pars=c(
     #    "gp_space_length_scale","gp_sigma","gp_time_length_scale",
-    #    "global_sigma","local_scale","precision"))
+    #    "global_sigma","local_sigma","precision"))
     #dev.off()
 
     ####################################################################

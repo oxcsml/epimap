@@ -53,7 +53,6 @@ if __name__ == "__main__":
     ).apply(list)
 
     closest = top_exports.add(top_imports).apply(lambda x: list(dict.fromkeys(x)))
-    closest = top_imports
 
     areas = read_flux(args.areas)
     stub = "nhs_region."

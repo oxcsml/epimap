@@ -1,4 +1,5 @@
 import argparse
+import json
 from functools import partial
 import os
 
@@ -37,6 +38,7 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument("areas", type=str, help="area name to nhs region")
+    parser.add_argument("output", type=str, help="json path to save output")
     parser.add_argument("--threshold", type=float, default=0.95)
 
     args = parser.parse_args()
@@ -75,3 +77,7 @@ if __name__ == "__main__":
     sizes = pd.Series(utils.map_lowest(len, groups))
     assert sizes.ge(regions.sum(0)).all(), "groups are smaller than the regions"
     print("Group sizes:\n", sizes)
+
+    with open(args.output, "w") as f:
+        json.dump(groups, f)
+

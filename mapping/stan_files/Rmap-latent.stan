@@ -42,10 +42,16 @@ functions {
     return none_kernel(dist, gp_sigma, gp_length_scale);
   }
 
+  real adjustedR(real RZ, real dispersion) {
+    return RZ
+      - 2.0 * RZ * normal_cdf(-sqrt(RZ/(1.0+dispersion)),0.0,1.0)
+      + sqrt(2.0*(1.0+dispersion)*RZ/pi())*exp(-RZ/(2.0*(1.0+dispersion)));
+  }
+
 }
 
 data {
-  int<lower=1> N;           // number of regions
+  int<lower=1> Nall;           // number of regions
   int<lower=1> Tall;        // number of all days in case count time series
   int<lower=1> Tcur;       // number of days we will condition on
   int<lower=0> Tstep;       // number of days to step for each time step of Rt prediction
@@ -54,9 +60,13 @@ data {
   int<lower=0> Mignore;           // number of time steps to ignore
   int<lower=0> Mproj;           // number of time steps
 
-  int Ct[N,Tall];           // case counts
-  int Clean_recon[N,Tcur];     // case counts
-  matrix[N,Tcur] Clean_latent; // cleaned case counts
+  int Ct_all[Nall,Tall];           // case counts
+  int Clean_recon[Nall,Tcur];     // case counts
+  matrix[Nall,Tcur+Mproj*Tstep] Clean_latent; // cleaned case counts
+
+  int<lower=0,upper=1> area_modelled[Nall]; // whether an area is modelled
+  int<lower=0,upper=1> area_inferred[Nall]; // whether an area is inferred
+  
 
   // vector[2] geoloc[N];   // geo locations of regions
   int<lower=1> Tip;         // length of infection profile
@@ -64,12 +74,12 @@ data {
   int<lower=1> Tdp;         // length of infection profile
   vector[Tdp] delayprofile; // infection profile aka serial interval distribution
   int F;
-  matrix[N,N] flux[F];      // fluxes for radiation metapopulation model
+  matrix[Nall,Nall] flux[F];      // fluxes for radiation metapopulation model
 
   int<lower=1> N_region;               // number of regions
-  matrix[N,N_region] sparse_region; 
+  matrix[Nall,N_region] sparse_region; 
 
-  matrix[N,N] geodist;      // distance between locations
+  matrix[Nall,Nall] geodist_all;      // distance between locations
   matrix[Mstep+Mproj,Mstep+Mproj] timedist;     // distance between time samples
   matrix[Mstep+Mproj,Mstep+Mproj] timecorcut;   // matrix specifying which time points should be correlated (to account for lockdown)
 
@@ -99,6 +109,12 @@ data {
 }
 
 transformed data {
+  int Narea = sum(area_modelled);
+  int Ninferred = sum(area_inferred);
+  int Nnotmodelled = Nall-Narea;
+  int inferred[Ninferred];
+  int area[Narea];
+  int notmodelled[Nall-Narea];
   int Tlik = Mstep*Tstep;     // Number of days to use for the likelihood computation
   int Tproj = Mproj*Tstep;    // The number of days to project forward
   int Tcond = Tcur-Tlik;    // index of day on which we are estimating Rt
@@ -111,11 +127,14 @@ transformed data {
   vector[Tdp] delayprofile_rev; // reversed infection profile
   int mean_serial_interval_int = 0;
   real mean_serial_interval_real;
-  matrix[N,Tcond] Xcond;
+  matrix[Narea,Tcond] Xcond;
 
-  matrix[F1,N*N] fluxt;      // transposed flux matrices
+  int Ct[Narea,Tall];
+  matrix[F1,Narea*Narea] fluxt;      // transposed flux matrices
+  matrix[F1,Narea] FZt_ext[Tlik+Tproj];
 
-  matrix[N,N] fixed_L_space;
+  matrix[Narea,Narea] geodist;
+  matrix[Narea,Narea] fixed_L_space;
   matrix[Mstep+Mforw,Mstep+Mforw] fixed_L_time;
 
   int NONE_KERNEL = 1;
@@ -155,36 +174,73 @@ transformed data {
     }
   }
 
-  { // mean shift the counts for rough estimate of incidence rates in past
-    for (i in 1:N) {
-      for (t in 1:Tcond) {
-        Xcond[i,t] = (
-          (1.0-mean_serial_interval_real) * Ct[i,t+mean_serial_interval_int] 
-          + mean_serial_interval_real * Ct[i,t+mean_serial_interval_int+1]
-        );
+  { // deal only with the modelled areas, not all areas
+    int j = 0;
+    int k = 0;
+    int l = 0;
+    for (i in 1:Nall) {
+      if (area_modelled[i]==1) {
+        j += 1;
+        area[j] = i;
+        if (area_inferred[i]==1) {
+          l += 1;
+          inferred[l] = j;
+        }
+      } else {
+        k += 1;
+        notmodelled[k] = i;
       }
     }
+    Ct = Ct_all[area,];
+  }
+
+  { // mean shift the counts for rough estimate of incidence rates in past
+    Xcond = Clean_latent[area,1:Tcond];
+    //for (t in 1:Tcond) {
+    //  for (i in 1:Narea) {
+    //    Xcond[i,t] = (
+    //      (1.0-mean_serial_interval_real) * Ct[i,t+mean_serial_interval_int] 
+    //      + mean_serial_interval_real * Ct[i,t+mean_serial_interval_int+1]
+    //    );
+    //  }
+    //}
   }
 
   { // flux matrices
-    fluxt[1,] = to_row_vector(diag_matrix(rep_vector(1.0,N)));
-    for (f in 2:F1)
-      fluxt[f,] = to_row_vector(flux[f-1]');
+    matrix[Nnotmodelled,Tlik+Tproj] Zt_ext;
+    fluxt[1,] = to_row_vector(diag_matrix(rep_vector(1.0,Narea)));
+    for (s in 1:Tlik+Tproj) {
+      int t = Tcond + s;
+      int L = min(Tip,t-1);
+      Zt_ext[,s] = Clean_latent[notmodelled,t-L:t-1] * 
+          infprofile_rev[Tip-L+1:Tip];
+      FZt_ext[s][1,] = rep_row_vector(0.0,Narea);
+    }
+    for (f in 2:F1) {
+      fluxt[f,] = to_row_vector(flux[f-1][area,area]');
+      for (s in 1:Tlik+Tproj) {
+        int t = Tcond + s;
+        FZt_ext[s][f,] = Zt_ext[,s]' * flux[f-1][notmodelled,area];
+      }
+    } 
   }
 
-  if (fixed_gp_space_length_scale > 0.0) {
-    matrix[N,N] fixed_K_space;
-    fixed_K_space = kernel(SPATIAL_KERNEL,geodist, 1.0, fixed_gp_space_length_scale,
-        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
-    fixed_L_space = cholesky_decompose(fixed_K_space);
-  }
-
-  if (fixed_gp_time_length_scale > 0.0) {
-    matrix[Mstep+Mforw,Mstep+Mforw] fixed_K_time;
-    fixed_K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, fixed_gp_time_length_scale,
-        NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
-    fixed_K_time  = fixed_K_time .* timecorcut;  // Zero out uncorrelated time entries
-    fixed_L_time = cholesky_decompose(fixed_K_time)';
+  { // GP
+    geodist = geodist_all[area,area];
+    if (fixed_gp_space_length_scale > 0.0) {
+      matrix[Narea,Narea] fixed_K_space;
+      fixed_K_space = kernel(SPATIAL_KERNEL,geodist, 1.0, fixed_gp_space_length_scale,
+          NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+      fixed_L_space = cholesky_decompose(fixed_K_space);
+    }
+  
+    if (fixed_gp_time_length_scale > 0.0) {
+      matrix[Mstep+Mforw,Mstep+Mforw] fixed_K_time;
+      fixed_K_time  = kernel(TEMPORAL_KERNEL,timedist, 1.0, fixed_gp_time_length_scale,
+          NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL);
+      fixed_K_time  = fixed_K_time .* timecorcut;  // Zero out uncorrelated time entries
+      fixed_L_time = cholesky_decompose(fixed_K_time)';
+    }
   }
 
 }
@@ -197,12 +253,12 @@ parameters {
   real<lower=0.0> global_sigma;
   real<lower=0.0> local_space_sigma;
   real<lower=0.0> local_time_sigma;
-  vector[N*(Mstep+Mforw)] gp_eta_in;
-  vector[(DO_METAPOP && DO_IN_OUT) ? N*(Mstep+Mforw) : 1] gp_eta_out;
+  vector[Narea*(Mstep+Mforw)] gp_eta_in;
+  vector[(DO_METAPOP && DO_IN_OUT) ? Narea*(Mstep+Mforw) : 1] gp_eta_out;
 
   // latent epidemic process
   real<lower=0.0> infection_dispersion;
-  vector[N] infection_eta[Tlik];
+  vector[Narea] infection_eta[Tlik];
   real<lower=0.0> xi; // exogeneous infections
 
   // metapopulation model
@@ -214,18 +270,18 @@ parameters {
   simplex[7] weekly_case_variations;
 
   // observation process
-  vector<lower=0.0>[N] case_precision;
+  vector<lower=0.0>[Narea] case_precision;
 }
 
 transformed parameters {
   // GP prior for transmission rates
   real gp_space_length_scale;
   real gp_time_length_scale;
-  matrix[N, Mstep+Mforw] Rin;                 // instantaneous reproduction number
-  matrix[N, Mstep+Mforw] Rout;                 // instantaneous reproduction number
+  matrix[Narea, Mstep+Mforw] Rin;                 // instantaneous reproduction number
+  matrix[Narea, Mstep+Mforw] Rout;                 // instantaneous reproduction number
 
   // latent epidemic process
-  matrix[N,Tcur] Xt;
+  matrix[Narea,Tcur] Xt;
   real<lower=0> xi_scale = 0.1;
 
   // metapopulation model
@@ -234,8 +290,8 @@ transformed parameters {
   vector[Mstep+Mforw] coupling_rate;
 
   { // Prior on transmission rates
-    matrix[N,N] K_space;
-    matrix[N,N] L_space;
+    matrix[Narea,Narea] K_space;
+    matrix[Narea,Narea] L_space;
     matrix[Mstep+Mforw,Mstep+Mforw] L_time;
     matrix[Mstep+Mforw,Mstep+Mforw] K_time;
 
@@ -247,7 +303,7 @@ transformed parameters {
     K_time  = (
       kernel(TEMPORAL_KERNEL,timedist, 1.0, gp_time_length_scale,
         NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL)
-      + diag_matrix(rep_vector(LOCAL_KERNEL ? square(local_time_sigma) : 1e-6, Mstep+Mforw))
+      // + diag_matrix(rep_vector(LOCAL_KERNEL ? square(local_time_sigma) : 1e-6, Mstep+Mforw))
     );
     K_time  = K_time .* timecorcut;  // Zero out uncorrelated time entries
     L_time = cholesky_decompose(K_time)';
@@ -261,25 +317,25 @@ transformed parameters {
       K_space = (
         kernel(SPATIAL_KERNEL,geodist, gp_sigma, gp_space_length_scale,
           NONE_KERNEL,EXP_QUAD_KERNEL,MATERN12_KERNEL,MATERN32_KERNEL,MATERN52_KERNEL)
-        + diag_matrix(rep_vector(LOCAL_KERNEL ? square(local_space_sigma) : 1e-6, N))
+        + diag_matrix(rep_vector(LOCAL_KERNEL ? square(local_space_sigma) : 1e-6, Narea))
       );
       if (GLOBAL_KERNEL) 
-        K_space += rep_matrix(square(global_sigma),N,N);
+        K_space += rep_matrix(square(global_sigma),Narea,Narea);
       L_space = cholesky_decompose(K_space);
 
-      Rin = exp( (L_space * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time) );
+      Rin = exp( (L_space * to_matrix(gp_eta_in, Narea, Mstep+Mforw) * L_time) );
       if (DO_METAPOP && DO_IN_OUT) {
-        Rout = exp( (L_space * to_matrix(gp_eta_out, N, Mstep+Mforw) * L_time) );
+        Rout = exp( (L_space * to_matrix(gp_eta_out, Narea, Mstep+Mforw) * L_time) );
       } else {
-        Rout = rep_matrix(1.0,N,Mstep+Mforw);
+        Rout = rep_matrix(1.0,Narea,Mstep+Mforw);
       }
  
     } else {
-      Rin = exp( local_space_sigma * to_matrix(gp_eta_in, N, Mstep+Mforw) * L_time );
+      Rin = exp( local_space_sigma * to_matrix(gp_eta_in, Narea, Mstep+Mforw) * L_time );
       if (DO_METAPOP && DO_IN_OUT) {
-        Rout = exp( (local_space_sigma * to_matrix(gp_eta_out, N, Mstep+Mforw) * L_time) );
+        Rout = exp( local_space_sigma * to_matrix(gp_eta_out, Narea, Mstep+Mforw) * L_time );
       } else {
-        Rout = rep_matrix(1.0,N,Mstep+Mforw);
+        Rout = rep_matrix(1.0,Narea,Mstep+Mforw);
       }
     }
 
@@ -321,28 +377,37 @@ transformed parameters {
   { // latent renewal process and observation model
     Xt[,1:Tcond] = Xcond;
     for (m in 1:Mstep) {
-      matrix[N,N] fluxmatrix;
-      if (DO_METAPOP)
-        fluxmatrix = to_matrix(fluxproportions[m] * fluxt, N, N);
+      matrix[Narea,Narea] fluxmatrix;
+      if (DO_METAPOP) 
+        fluxmatrix = to_matrix(fluxproportions[m] * fluxt, Narea, Narea);
 
       for (j in 1:Tstep) {
         int s = (m-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
-        vector[N] Zt = Xt[,t-L:t-1] * infprofile_rev[Tip-L+1:Tip];
-        vector[N] EXt;
+        vector[Narea] Zt = Xt[,t-L:t-1] * infprofile_rev[Tip-L+1:Tip];
+        vector[Narea] EXt;
         if (DO_METAPOP) {
-          if (DO_IN_OUT)
-            EXt = col(Rin,m) .* (xi + fluxmatrix * (Zt .* col(Rout,m)));
-          else {
-            EXt = col(Rin,m) .* (xi + fluxmatrix * Zt);
+          if (DO_IN_OUT) {
+            EXt = col(Rin,m) .* (
+              xi 
+              + fluxmatrix * (Zt .* col(Rout,m))
+              + (fluxproportions[m] * FZt_ext[s])'
+            );
+          } else {
+            EXt = col(Rin,m) .* (
+              xi 
+              + fluxmatrix * Zt
+              + (fluxproportions[m] * FZt_ext[s])'
+            );
           }
         } else {
           EXt = col(Rin,m) .* (xi + Zt);
         }
         Xt[,t] = fabs(
-            EXt +
-            sqrt((1.0+infection_dispersion) * EXt) .* infection_eta[s]
+            EXt 
+            //+ sqrt((1.0+infection_dispersion) * EXt) .* infection_eta[s]
+            + sqrt(EXt) .* infection_eta[s]
         );
       }
     }
@@ -381,10 +446,10 @@ model {
   // likelihood
   for (t in Tcond+1:Tcur) {
     int d = (t % 7)+1;
-    vector[N] ECt = 
+    vector[Narea] ECt = 
       (7.0*weekly_case_variations[d]) * 
       (Xt[,t-Tdp+1:t] * delayprofile_rev);
-    for (j in 1:N) {
+    for (j in 1:Narea) {
       Ct[j,t] ~ neg_binomial_2(ECt[j], ECt[j] * case_precision[j]);
     }
   }
@@ -394,67 +459,80 @@ model {
 generated quantities {
 
   // Rt
-  vector[N] Rt[Mstep+Mproj];
+  vector[Ninferred] Rt[Mstep+Mproj];
   real Rt_all[Mstep+Mproj];
+  real Rt_region[Mstep+Mproj];
   // predicted and projected counts
-  matrix[N,Tlik] Cpred;
-  matrix[N,Tproj] Cproj;
-  matrix[N,Tpred] Ppred = rep_matrix(0.0,N,Tpred); // TODO
+  matrix[Ninferred,Tlik] Cpred;
+  matrix[Ninferred,Tproj] Cproj;
+  matrix[1,Tlik] Cpred_region;
+  matrix[1,Tproj] Cproj_region;
+  matrix[Ninferred,Tpred] Ppred = rep_matrix(0.0,Ninferred,Tpred); // TODO
 
   { // latent renewal process and observation model
-    vector[N] N0 = rep_vector(0.0,N);
-    vector[N] N1 = rep_vector(1.0,N);
-    matrix[N,Tcur+Tproj] Xproj;
+    vector[Narea] N0 = rep_vector(0.0,Narea);
+    vector[Narea] N1 = rep_vector(1.0,Narea);
+    matrix[Narea,Tcur+Tproj] Xproj;
 
     Xproj[,1:Tcur] = Xt;
     for (m in 1:Mstep+Mproj) {
-      matrix[N,N] fluxmatrix;
-      vector[N] sum_Zt = rep_vector(0.0,N);
-      vector[N] sum_EXt = rep_vector(0.0,N);
-      if (DO_METAPOP)
-        fluxmatrix = to_matrix(fluxproportions[m] * fluxt, N, N);
+      matrix[Narea,Narea] fluxmatrix;
+      vector[Narea] sum_Zt = rep_vector(0.0,Narea);
+      vector[Narea] sum_Xt = rep_vector(0.0,Narea);
+      if (DO_METAPOP) 
+        fluxmatrix = to_matrix(fluxproportions[m] * fluxt, Narea, Narea);
 
       for (j in 1:Tstep) {
         int s = (m-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
-        vector[N] EXproj;
+        vector[Narea] EXproj;
         // latent process
-        vector[N] Zt;
+        vector[Narea] Zt;
         Zt = Xproj[,t-L:t-1] * infprofile_rev[Tip-L+1:Tip];
         if (DO_METAPOP) {
-          if (DO_IN_OUT)
-            EXproj = col(Rin,m) .* (xi + fluxmatrix * (Zt .* col(Rout,m)));
-          else {
-            EXproj = col(Rin,m) .* (xi + fluxmatrix * Zt);
+          if (DO_IN_OUT) {
+            EXproj = col(Rin,m) .* (
+               xi 
+               + fluxmatrix * (Zt .* col(Rout,m))
+               + (fluxproportions[m] * FZt_ext[s])'
+            );
+          } else {
+            EXproj = col(Rin,m) .* (
+              xi 
+              + fluxmatrix * Zt
+              + (fluxproportions[m] * FZt_ext[s])'
+            );
           }
         } else {
           EXproj = col(Rin,m) .* (xi + Zt);
         }
         if (m > Mstep) {
           Xproj[,t] = fabs(
-            EXproj +
-            sqrt((1.0+infection_dispersion) * EXproj) .* to_vector(normal_rng(N0,N1))
+            EXproj 
+            //+ sqrt((1.0+infection_dispersion) * EXproj) .* to_vector(normal_rng(N0,N1))
+            + sqrt(EXproj) .* to_vector(normal_rng(N0,N1))
           );
         }
 
         // Rt computations
         sum_Zt += Zt;
-        sum_EXt += EXproj;
+        sum_Xt += Xproj[,t];
 
       }
-      Rt_all[m] = sum(sum_EXt) / sum(sum_Zt);
-      Rt[m] = sum_EXt ./ sum_Zt;
+      Rt_all[m] = sum(sum_Xt[inferred]) / sum(sum_Zt[inferred]);
+      Rt[m] = sum_Xt[inferred] ./ sum_Zt[inferred];
     }
+    Rt_region = Rt_all;
 
     //observation model
     for (t in Tcond+1:Tcur+Tproj) {
       int s = t - Tcond;
       int d = (t % 7)+1;
-      vector[N] ECt = 
+      vector[Ninferred] ECt = 
         (7.0*weekly_case_variations[d]) *
-        Xproj[,t-Tdp+1:t] * delayprofile_rev;
-      for (j in 1:N) {
+        Xproj[inferred,t-Tdp+1:t] * delayprofile_rev;
+      for (j in 1:Ninferred) {
         if (t<=Tcur) {
           Cpred[j,t-Tcond] = ECt[j];
           // Cpred[j,t-Tcond] = neg_binomial_2_rng(ECt[j], case_precision[j]);
@@ -464,7 +542,8 @@ generated quantities {
         }
       }
     }
-
+    Cpred_region = rep_matrix(1.0,1,Ninferred) * Cpred;
+    Cproj_region = rep_matrix(1.0,1,Ninferred) * Cproj;
   }
 
 

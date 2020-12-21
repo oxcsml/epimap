@@ -56,6 +56,12 @@ process_dates_modelled = function(
       } else {
         last_day_modelled = first_day_modelled + 7*opt$weeks_modelled - 1
       }
+    } else {
+      weeks = floor((last_day_modelled-first_day_modelled)/7)
+      if (!is.null(weeks_modelled) && weeks != weeks_modelled) {
+        stop(paste("First/last day modelled and weeks modelled inconsistent", list_args, sep=""))
+      }
+      first_day_modelled = last_day_modelled - 7*weeks
     }
   } else if (!is.null(last_day_modelled) && !is.null(opt$weeks_modelled)) {
     first_day_modelled = last_day_modelled - 7*opt$weeks_modelled + 1

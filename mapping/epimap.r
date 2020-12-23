@@ -762,11 +762,20 @@ area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
 
 provenance <- c(rep('inferred',Tlik),rep('projected',Tproj))
 days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj))
+areas = function(region_id) {
+  if (region_id==0) {
+    rep(1,N)==1
+  } else {
+    inferred_region[,region_id]==1
+  }
+}
+Nareas = function(region_id) sum(areas(region_id))
+
 if (length(region_ids)==1 && region_ids[1]==0) {
   quoted_areas_by_regions = quoted_areas
 } else {
   quoted_areas_by_regions = do.call(c,lapply(region_ids, function(region_id) {
-    quoted_areas[inferred_region[,region_id]==1]
+    quoted_areas[areas(region_id)]
   }))
 }
 
@@ -810,7 +819,7 @@ Pexceedance = do.call(rbind,lapply(region_ids, function(region_id) {
   Rt_samples = load_samples(region_id,'Rt')
   Rt_samples <- as.matrix(Rt_samples)
   numsamples = dim(Rt_samples)[1] 
-  Narea = sum(inferred_region[,region_id])
+  Narea = Nareas(region_id)
   dim(Rt_samples) <- c(numsamples,Mstep+Mproj,Narea)
   Pexceedance = array(0.0,dim=c(Mstep+Mproj,Narea,numthresholds))
   for (k in 1:(Mstep+Mproj)) {
@@ -869,7 +878,7 @@ stopifnot(Tcur+Tstep<=length(AllCount))
 #Cweekly <- cbind(Cweekly,ignoredweek)
 
 Cweekly = do.call(rbind,lapply(region_ids,function(region_id) {
-  Narea = sum(inferred_region[,region_id])
+  Narea = Nareas(region_id)
   Cproj_samples = load_samples(region_id,'Cproj')
   projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
       probs=c(.5)
@@ -878,7 +887,7 @@ Cweekly = do.call(rbind,lapply(region_ids,function(region_id) {
   projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
   projectedweeks <- apply(projectedweeks,c(2,3),sum)
   projectedweeks <- t(projectedweeks)
-  cbind(Cweekly[inferred_region[,region_id]==1,],projectedweeks)
+  cbind(Cweekly[areas(region_id),],projectedweeks)
 }))
 
 Cweekly <- t(Cweekly)

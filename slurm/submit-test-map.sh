@@ -1,7 +1,7 @@
 #!/bin/bash
-results_directory=fits/test-full-spatial20km
+results_directory=fits/test-map-spatial20km
 options=" \
-    --stage full \
+    --stage map \
     --iterations 3000 \
     --clean_directory fits/clean-1221 \
     --globalkernel none \
@@ -13,5 +13,5 @@ options=" \
     #--last_day_modelled 2020-10-30 \
     #--limit_area Oxford \
     #--limit_radius 0.8 \
-slurm/submit-run-full.sh $results_directory $options
+slurm/submit-run-generic.sh $results_directory $options
 

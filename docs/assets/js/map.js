@@ -999,7 +999,9 @@ function ready(data) {
 
 function plotCaseChart(chartData, projectionData, predictionData, area) {
     const xDomain = d3.extent([...chartData.map(c => c.Date), ...projectionData.map(p => p.Date)]);
-    const yDomain = [0, d3.max([...chartData.map(c=>c.cases_new), ...projectionData.map(p=>p.C_median)])];
+    const cases_max = d3.max([...chartData.map(c=>c.cases_new)]);
+    const projs_max = d3.max([...projectionData.map(p=>p.C_median)]);
+    const yDomain = [0, d3.max([cases_max, d3.min([2.0*cases_max, projs_max])])];
 
     caseX.domain(xDomain);
     // const x = d3.scaleTime()

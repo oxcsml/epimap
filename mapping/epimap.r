@@ -17,7 +17,7 @@ Rmap_options = function(
   fixed_gp_time_length_scale = 100, # 100.0,
   constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
   full_cases_distribution = 1,
-  metapop              = "traffic_forward,traffic_reverse,in",
+  metapop              = "alt_traffic_forward,alt_traffic_reverse,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
   stage                = "map",
   observation_data     = "cleaned_latent_sample",
@@ -56,6 +56,14 @@ Rmap_setup = function(opt = Rmap_options()) {
   env$opt = opt
   Rmap_read_data(env)
   with(env,{
+
+    stopifnot(identical(opt$stage,"map") || identical(opt$stage,"full"))
+    if (identical(opt$stage,"full")) {
+      stopifnot(opt$region_id>0)
+      opt$cleaned_sample_id=0
+    } else {
+      opt$region_id=0
+    }
 
     #########################################################
     numchains = opt$chains
@@ -203,6 +211,8 @@ Rmap_run = function(env) {
       'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
       'traffic_forward' = traffic_flux[,,1], # infected commuters taking infection from home to work
       'traffic_reverse' = traffic_flux[,,2], # commuters getting infected at work and bringing back home
+      'alt_traffic_forward' = alt_traffic_flux[,,1], # infected commuters taking infection from home to work
+      'alt_traffic_reverse' = alt_traffic_flux[,,2], # commuters getting infected at work and bringing back home
       'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
     )
     if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {
@@ -256,9 +266,26 @@ Rmap_run = function(env) {
       }
     }
 
+    if (identical(opt$stage,"map")) {
+      coupling_mu_loc = -2.19 # centre at .1
+      coupling_mu_scale = 0.25 # set mean of process to be 0.1, 1 std = 0.024-0.33
+      coupling_sigma_scale = 0.25
+      coupling_alpha_scale = 1-exp(-Tstep/28)
+      area_modelled = rep(1,N)
+      area_inferred = rep(1,N)
+    } else {
+      coupling_mu_loc = 0
+      coupling_mu_scale = 0.5
+      coupling_sigma_scale = 0.5
+      coupling_alpha_scale = 1-exp(-Tstep/28)
+      area_modelled = modelled_region[,opt$region_id]
+      area_inferred = inferred_region[,opt$region_id]
+    } 
+
     #########################################################
     # Main computation
     print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
+    print("Rmap_data")
     Rmap_data <- list(
       Nall = N,
       Mstep = Mstep,
@@ -282,11 +309,10 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      coupling_mu_loc = 0., # centre at .1
-      #coupling_mu_loc = -2.19, # centre at .1
-      coupling_mu_scale = 0.5, # set mean of process to be 0.1, 1 std = 0.024-0.33
-      coupling_sigma_scale = 0.5,
-      coupling_alpha_scale = 1-exp(-Tstep/28),
+      coupling_mu_loc = coupling_mu_loc,
+      coupling_mu_scale = coupling_mu_scale,
+      coupling_sigma_scale = coupling_sigma_scale,
+      coupling_alpha_scale = coupling_alpha_scale,
       
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
@@ -305,23 +331,26 @@ Rmap_run = function(env) {
       delayprofile = testdelayprofile,
       F = F,
       flux = flux,
-      area_modelled = modelled_region[,opt$region_id],
-      area_inferred = inferred_region[,opt$region_id],
+      area_modelled = area_modelled,
+      area_inferred = area_inferred,
 
       N_region = N_region,
       sparse_region = sparse_region
     )
 
     #########################################################
+    print("Rmap_init")
     Rmap_init = lapply(1:numchains, function(i) {
       env = list2env(list(
         global_sigma = .25,
         gp_sigma = .25,
+        local_scale = .25,
         local_space_sigma = .5,
         local_time_sigma = .1,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
-        infection_dispersion = 1.0
+        infection_dispersion = 1.0,
+        case_dispersion = 1.0
       ))
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
@@ -335,7 +364,7 @@ Rmap_run = function(env) {
           lapply(
             c(
               'gp_eta_in','gp_eta_out',
-              # 'global_eta_in','global_eta_out',
+              'global_eta_in','global_eta_out',
               'local_eta_in','local_eta_out'
             ),
             function(par) {
@@ -358,14 +387,24 @@ Rmap_run = function(env) {
     # message(Rmap_init[[1]])
     Rmap_summary_pars = c(
       "global_sigma",
-      "local_space_sigma",
-      "local_time_sigma",
       "gp_sigma",
       "infection_dispersion",
       "coupling_rate",
       "Rt_all",
       "flux_probs"
     )
+    if (identical(opt$stage,"map")) {
+      Rmap_summary_pars = c(Rmap_summary_pars,
+        "local_scale",
+        "case_dispersion"
+      )
+    } else {
+      Rmap_summary_pars = c(Rmap_summary_pars,
+        "local_space_sigma",
+        "local_time_sigma"
+      )
+    }
+        
     if (opt$fixed_gp_space_length_scale<0.0) {
       Rmap_summary_pars = c(Rmap_summary_pars,"gp_space_length_scale")
     }
@@ -373,7 +412,6 @@ Rmap_run = function(env) {
       Rmap_summary_pars = c(Rmap_summary_pars,"gp_time_length_scale")
     }
     Rmap_pars = c(Rmap_summary_pars,
-      "case_precision",
       "Ppred",
       "Cpred",
       "Cproj",
@@ -383,15 +421,27 @@ Rmap_run = function(env) {
       "Cproj_region",
       "Cpred_region"
     )
+    if (identical(opt$stage,"full")) {
+      Rmap_pars = c(Rmap_pars,
+        "case_precision"
+      )
+    }
+    print("Rmap_control")
     Rmap_control = list(
       # max_treedepth = 3, # testing only
       adapt_delta = .9,
       max_treedepth = 10 
     )
 
+    if (identical(opt$stage,"map")) {
+      Rmap_file = 'mapping/stan_files/Rmap.stan'
+    } else {
+      Rmap_file = 'mapping/stan_files/Rmap-latent.stan'
+    }
+    print(Rmap_file)
     #########################################################
     fit <- stan(
-      file = 'mapping/stan_files/Rmap-latent.stan',
+      file = Rmap_file,
       data = Rmap_data,
       init = Rmap_init,
       pars = Rmap_pars,
@@ -447,7 +497,13 @@ Rmap_postprocess = function(env) {
       write.csv(data,sprintf('%s%s.csv',runname,filename),...)
     }
 
-    Ninferred = sum(inferred_region[,opt$region_id])
+    if (opt$region_id>0) {
+      Ninferred = sum(inferred_region[,opt$region_id])
+      inferred_areas = inferred_region[,opt$region_id]
+    } else {
+      Ninferred = N
+      inferred_areas = 1:N
+    }
 
     # save raw samples
     save_samples = function(pars,N_sites=Ninferred,areafirst=FALSE) {
@@ -515,7 +571,7 @@ Rmap_postprocess = function(env) {
     Rt <- Rt[sapply(1:(Ninferred*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
     message(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas[inferred_region[,opt$region_id]==1],
+      quoted_areas[inferred_areas],
       days_all,
       provenance,
       format(round(Rt,2),nsmall=2),
@@ -546,7 +602,7 @@ Rmap_postprocess = function(env) {
     Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
     dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*Ninferred,numthresholds)
     df <- area_date_dataframe(
-        quoted_areas[inferred_region[,opt$region_id]==1],
+        quoted_areas[inferred_areas],
         days_all,
         provenance,
         format(round(Pexceedance,2),nsmall=2),
@@ -565,7 +621,7 @@ Rmap_postprocess = function(env) {
     Cpred <- t(t(Cpred))
     message(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas[inferred_region[,opt$region_id]==1],
+      quoted_areas[inferred_areas],
       seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
       rep('inferred',Tlik),
       format(round(Cpred,1),nsmall=1),
@@ -577,7 +633,7 @@ Rmap_postprocess = function(env) {
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
     Tweek = Tstep # assumes Tstep = 7
-    Cweekly <- as.matrix(AllCount[inferred_region[,opt$region_id]==1,(Tcond+1):(Tcond+Tlik)]) 
+    Cweekly <- as.matrix(AllCount[inferred_areas,(Tcond+1):(Tcond+Tlik)]) 
     dim(Cweekly) <- c(Ninferred,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
@@ -598,7 +654,7 @@ Rmap_postprocess = function(env) {
 
     Cweekly_provenance <- c(rep('actual',Tlik),rep('projected',Tproj))
     df <- area_date_dataframe(
-      quoted_areas[inferred_region[,opt$region_id]==1],
+      quoted_areas[inferred_areas],
       days_all,
       provenance,
       format(round(Cweekly,1),digits=6),
@@ -614,7 +670,7 @@ Rmap_postprocess = function(env) {
     Cproj <- t(t(Cproj))
     message(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas[inferred_region[,opt$region_id]==1], 
+      quoted_areas[inferred_areas], 
       seq(dates[Tcur]+1,by=1,length.out=Tproj),
       rep('projected',Tproj),
       format(round(Cproj,1),digits=5),
@@ -635,7 +691,7 @@ Rmap_postprocess = function(env) {
     dim(logpred) = c(Ninferred*Tpred)
     message(sprintf("mean log predictives = %f",mean(logpred)))
     df <- area_date_dataframe(
-      quoted_areas[inferred_region[,opt$region_id]==1],
+      quoted_areas[inferred_areas],
       seq(dates[Tcur]+1,by=1,length.out=Tpred),
       rep('projected', Tpred),
       logpred,
@@ -706,6 +762,13 @@ area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
 
 provenance <- c(rep('inferred',Tlik),rep('projected',Tproj))
 days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj))
+if (length(region_ids)==1 && region_ids[1]==0) {
+  quoted_areas_by_regions = quoted_areas
+} else {
+  quoted_areas_by_regions = do.call(c,lapply(region_ids, function(region_id) {
+    quoted_areas[inferred_region[,region_id]==1]
+  }))
+}
 
 #################################################################
 # Rt posterior
@@ -726,7 +789,7 @@ Rt = do.call(rbind,lapply(region_ids, function(region_id) {
 Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
 #Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(round(Rt,2),nsmall=2),
@@ -763,7 +826,7 @@ Pexceedance = do.call(rbind,lapply(region_ids, function(region_id) {
   Pexceedance
 }))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(round(Pexceedance,2),nsmall=2),
@@ -783,7 +846,7 @@ Cpred = do.call(rbind,lapply(region_ids, function(region_id) {
 }))
 
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
     rep('inferred',Tlik),
     format(round(Cpred,1),nsmall=1),
@@ -822,7 +885,7 @@ Cweekly <- t(Cweekly)
 Cweekly <- Cweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
 dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(Cweekly,digits=3),
@@ -840,7 +903,7 @@ Cproj = do.call(rbind,lapply(region_ids,function(region_id) {
   ))
 }))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     seq(dates[Tcur]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
     format(round(Cproj,1),nsmall=1),
@@ -1000,7 +1063,7 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       default=opt$metapop,
       help=paste(
           "metapopulation model for inter-region cross infections",
-          "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
+          "(none, or comma separated list containing radiation{1,2,3},{alt_}traffic_{forward,reverse},uniform,in,in_out);",
           "default = ", opt$metapop
       )
     ),

@@ -105,14 +105,16 @@ Rmap_read_data = function(env) {
     dimnames(radiation_flux)[[3]] <- radiation_length_scales
 
     traffic_flux <- array(0, dim=c(N,N,2))
-    # df <- data.matrix(readdata('traffic_flux_row-normed', row.names=1))
-    df <- data.matrix(readdata('uk_forward_commute_flow', row.names=1))
-    traffic_flux[,,1] <- df
-    #df <- data.matrix(readdata('traffic_flux_transpose_row-normed', row.names=1))
-    df <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
-    traffic_flux[,,2] <- df
+    traffic_flux[,,1] <- data.matrix(readdata('traffic_flux_row-normed', row.names=1))
+    traffic_flux[,,2] <- data.matrix(readdata('traffic_flux_transpose_row-normed', row.names=1))
     colnames(traffic_flux) <- areas
     rownames(traffic_flux) <- areas
+
+    alt_traffic_flux <- array(0, dim=c(N,N,2))
+    alt_traffic_flux[,,1] <- data.matrix(readdata('uk_forward_commute_flow', row.names=1))
+    alt_traffic_flux[,,2] <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
+    colnames(alt_traffic_flux) <- areas
+    rownames(alt_traffic_flux) <- areas
 
   })
   if (!is.null(env$opt$limit_area) && !is.null(env$opt$limit_radius)) {

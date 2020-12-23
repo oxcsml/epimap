@@ -530,7 +530,7 @@ generated quantities {
       int s = t - Tcond;
       int d = (t % 7)+1;
       vector[Ninferred] ECt = 
-        (7.0*weekly_case_variations[d]) *
+        // (7.0*weekly_case_variations[d]) *
         Xproj[inferred,t-Tdp+1:t] * delayprofile_rev;
       for (j in 1:Ninferred) {
         if (t<=Tcur) {

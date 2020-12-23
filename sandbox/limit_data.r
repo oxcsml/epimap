@@ -8,11 +8,11 @@ limit_data_by_distance <- function(env,area,distance) {
   region_ind <- colSums(env$sparse_region != 0) !=0
   env$sparse_region <- env$sparse_region[,region_ind]
   env$N_region <- ncol(env$sparse_region)
-  if (is.null(env$N_region)) {
-    env$sparse_region = matrix(env$sparse_region)
-    env$N_region = 1
-  }
+  stopifnot(env$N_region>0)
   env$quoted_regions <- env$quoted_regions[region_ind]
+  env$inferred_region <- env$inferred_region[ind,region_ind]
+  env$modelled_region <- env$modelled_region[ind,region_ind]
+
 
   env$geoloc <- env$geoloc[ind,]
   env$geodist <- env$geodist[ind,ind]
@@ -31,6 +31,18 @@ limit_data_by_distance <- function(env,area,distance) {
       env$traffic_flux[i,,f] <- x / sum(x)
     }
   }
+  env$alt_traffic_flux <- env$alt_traffic_flux[ind,ind,]
+  for (i in 1:env$N) {
+    for (f in 1:dim(env$radiation_flux)[3]) {
+      x <- env$radiation_flux[i,,f]
+      env$radiation_flux[i,,f] <- x / sum(x)
+    }
+    for (f in 1:dim(env$alt_traffic_flux)[3]) {
+      x <- env$alt_traffic_flux[i,,f]
+      env$alt_traffic_flux[i,,f] <- x / sum(x)
+    }
+  }
+
 }
 
 limit_data_multi <- function(env,areas_distances) { 
@@ -45,11 +57,10 @@ limit_data_multi <- function(env,areas_distances) {
   region_ind <- colSums(env$sparse_region != 0) !=0
   env$sparse_region <- env$sparse_region[,region_ind]
   env$N_region <- ncol(env$sparse_region)
-  if (is.null(env$N_region)) {
-    env$sparse_region = matrix(env$sparse_region)
-    env$N_region = 1
-  }
+  stopifnot(env$N_region>0)
   env$quoted_regions <- env$quoted_regions[region_ind]
+  env$inferred_region <- env$inferred_region[ind,region_ind]
+  env$modelled_region <- env$modelled_region[ind,region_ind]
 
   env$geoloc <- env$geoloc[ind,]
   env$geodist <- env$geodist[ind,ind]
@@ -68,4 +79,16 @@ limit_data_multi <- function(env,areas_distances) {
       env$traffic_flux[i,,f] <- x / sum(x)
     }
   }
+  env$alt_traffic_flux <- env$alt_traffic_flux[ind,ind,]
+  for (i in 1:env$N) {
+    for (f in 1:dim(env$radiation_flux)[3]) {
+      x <- env$radiation_flux[i,,f]
+      env$radiation_flux[i,,f] <- x / sum(x)
+    }
+    for (f in 1:dim(env$alt_traffic_flux)[3]) {
+      x <- env$alt_traffic_flux[i,,f]
+      env$alt_traffic_flux[i,,f] <- x / sum(x)
+    }
+  }
+
 }

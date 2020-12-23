@@ -6,7 +6,8 @@ source('sandbox/limit_data.r')
 
 
 opt = Rmap_options(
-    stage = "full",
+    stage = "map",
+    region_id = 0,
     first_day_modelled = "2020-08-26",
     last_day_modelled = "2020-12-08",
     spatialkernel = "none",
@@ -16,11 +17,11 @@ opt = Rmap_options(
     days_ignored=NULL,
     days_per_step = 7,
     num_steps_forecasted = 3,
-    iterations=3000,
+    iterations=30,
     fixed_gp_time_length_scale = -1,
     fixed_gp_space_length_scale = -1,
-    clean_directory='fits/clean-1215',
-    results_directory='fits/test-weekly-northeast-newrt-local'
+    clean_directory='fits/clean-1221',
+    results_directory='fits/small-run'
 )
 
 env = Rmap_setup(opt)

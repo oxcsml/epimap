@@ -58,12 +58,6 @@ Rmap_setup = function(opt = Rmap_options()) {
   with(env,{
 
     stopifnot(identical(opt$stage,"map") || identical(opt$stage,"full"))
-    if (identical(opt$stage,"full")) {
-      stopifnot(opt$region_id>0)
-      opt$cleaned_sample_id=0
-    } else {
-      opt$region_id=0
-    }
 
     #########################################################
     numchains = opt$chains

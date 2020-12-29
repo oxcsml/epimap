@@ -12,7 +12,7 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = "2020-03-10",
+  first_day_modelled = "2020-07-01",
   last_day_modelled  = NULL,
   weeks_modelled     = NULL,
   days_ignored       = 7,

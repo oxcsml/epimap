@@ -48,6 +48,7 @@ git add docs/assets/data/$today/*
 git add docs/assets/data/default
 git add -f data/*
 git commit -m "daily update $today"
+git pull
 git push
 
 

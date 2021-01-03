@@ -6,8 +6,6 @@ umask 000
 
 trap 'echo daily-update-clean: Failed before finishing with exit code $? && exit $?' ERR
 
-rm -rf map-*/*.rds
-rm -rf clean-/**/*.rds
 
 # Update this repo
 git pull
@@ -58,3 +56,7 @@ git push
 slurm/submit-run.sh $results_directory $clean_directory &
 # slurm/submit-run-cori.sh $results_directory-cori $clean_directory &
 wait
+
+
+rm -rf $results_directory/*.rds
+rm -rf $clean_directory/*/*.rds

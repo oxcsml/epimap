@@ -647,8 +647,8 @@ function ready(data) {
         .domain(pExceedColorDomain);
 
     minCases = 1;
-	maxCases = 400;
-    maxColorCases = 400;
+	maxCases = 800;
+    maxColorCases = 800;
 		
 	const caseColorDomain = [0, 100, maxCases];	
 	const caseColorScale = d3.scaleDiverging(t => d3.interpolateViridis(1 - t))
@@ -785,13 +785,13 @@ function ready(data) {
         .attr("id", "pexceed-gradient");
 
     rtGradient.selectAll("stop")
-        .data([0.5, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
+        .data([0.5, 0.6, 0.8, 0.9, 1.0, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: rtColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);
 
     caseGradient.selectAll("stop")       
-		.data([1, 10, 50, 100, 200, 400].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
+		.data([1, 10, 50, 100, 200, 400, 800].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);		

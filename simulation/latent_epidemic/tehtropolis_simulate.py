@@ -14,7 +14,7 @@ areas = pd.read_csv(append + "data/areas.csv")
 counts = pd.read_csv(append + "data/cases.csv")
 metadata = pd.read_csv(append + "data/metadata.csv")
 distances = pd.read_csv(append + "data/distances.csv")
-radiation_fluxes_01 = pd.read_csv(append + "data/radiation_flux_ls=0.1.csv")
+# radiation_fluxes_01 = pd.read_csv(append + "data/radiation_flux_ls=0.1.csv")
 # radiation_fluxes_02 = pd.read_csv(append + "data/radiation_flux_ls=0.2.csv")
 # radiation_fluxes_05 = pd.read_csv(append + "data/radiation_flux_ls=0.5.csv")
 traffic_flux = pd.read_csv(append + "data/traffic_flux_row-normed.csv")
@@ -23,7 +23,7 @@ traffic_flux_transpose = pd.read_csv(
 )
 serial_interval = pd.read_csv(append + "data/serial_interval.csv")
 
-radiation_fluxes_01 = radiation_fluxes_01.to_numpy()[:, 1:].astype(np.float)
+# radiation_fluxes_01 = radiation_fluxes_01.to_numpy()[:, 1:].astype(np.float)
 # radiation_fluxes_02 = radiation_fluxes_02.to_numpy()[:, 1:].astype(np.float)
 # radiation_fluxes_05 = radiation_fluxes_05.to_numpy()[:, 1:].astype(np.float)
 traffic_flux = traffic_flux.to_numpy()[:, 1:].astype(np.float)
@@ -109,19 +109,19 @@ elif R_noise == "additive_post":
     R = R + 0.1 * np.random.randn(*R.shape)
 
 delay_profile = np.array([0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.3, 0.1])
-N = radiation_fluxes_01.shape[0]
+N = traffic_flux.shape[0]
 uniform_flux = np.ones((N, N)) * 1 / N
 flux_matrices = np.concatenate(
     [
         uniform_flux[:, :, np.newaxis],
-        radiation_fluxes_01[:, :, np.newaxis],
+        # radiation_fluxes_01[:, :, np.newaxis],
         traffic_flux[:, :, np.newaxis],
         traffic_flux_transpose[:, :, np.newaxis],
     ],
     axis=2,
 )
 # normalise rows
-flux_mixing = np.array([0.08, 0.92, 0.0, 0.0])
+flux_mixing = np.array([0.1, 0.45, 0.45])
 flux_matrix = flux_matrices @ flux_mixing
 mixing_proportions = np.ones_like(R[0, :]) * 0.1  # 0.05 * R[0, :].squeeze() / 2.5
 observation_probability = np.ones_like(
@@ -167,5 +167,5 @@ params = {
     "mixing_proportions": list(mixing_proportions),
 }
 
-save_simulation_with_data(X, C, R, params, "test_sim")
+save_simulation_with_data(X, C, R, params, "tehtropolis")
 # %%

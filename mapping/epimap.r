@@ -191,9 +191,9 @@ Rmap_run = function(env) {
     # metapopulation cross-area fluxes.
     METAPOPMODEL = strsplit(opt$metapop,',')[[1]]
     METAPOPOPTIONS = list(
-      'radiation1' = radiation_flux[,,1], # smoothed radiation model with length scale = .1 (10km)
-      'radiation2' = radiation_flux[,,2], # smoothed radiation model with length scale = .2 (20km)
-      'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
+      # 'radiation1' = radiation_flux[,,1], # smoothed radiation model with length scale = .1 (10km)
+      # 'radiation2' = radiation_flux[,,2], # smoothed radiation model with length scale = .2 (20km)
+      # 'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
       'traffic_forward' = traffic_flux[,,1], # infected commuters taking infection from home to work
       'traffic_reverse' = traffic_flux[,,2], # commuters getting infected at work and bringing back home
       'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
@@ -435,8 +435,8 @@ Rmap_postprocess = function(env) {
     # save raw samples
     save_samples = function(pars,N_sites=N,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
-      samples = samples[seq(numchains,by=numchains,to=numiters/2),,,drop=FALSE]
-      ns = numiters/2
+      samples = samples[seq(opt$thinning,by=opt$thinning,to=numiters/2),,,drop=FALSE]
+      ns = numiters/2/opt$thinning
       np = dim(samples)[3]/N_sites
       parnames = dimnames(samples)[[3]]
       dim(samples) = c(ns,np*N_sites)

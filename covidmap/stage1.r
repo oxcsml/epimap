@@ -511,7 +511,14 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       c("--clean_directory"), 
       type="character", 
       default=opt$clean_directory, 
-      help=paste("Directory to put cleaned results in default",opt$clean_directory)
+      help=paste("Directory to put cleaned results in, default ",opt$clean_directory)
+    ),
+
+    make_option(
+      c("--data_directory"), 
+      type="character", 
+      default=opt$data_directory, 
+      help=paste("Directory to get data from, default ",opt$data_directory)
     ),
 
     make_option(

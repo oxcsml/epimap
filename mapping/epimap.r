@@ -9,19 +9,21 @@ Rmap_options = function(
   temporalkernel       = "matern12",
   localkernel          = "local",
   globalkernel         = "global",
-  gp_space_scale       = 1.0, # units of 100km
-  gp_space_decay_scale = .1,
-  gp_time_scale        = 60.0, # units of 1 day
-  gp_time_decay_scale  = .1,
-  fixed_gp_space_length_scale = 3.0,
-  fixed_gp_time_length_scale = 100.0,
+  gp_space_scale       = 0.5, # units of 100km
+  gp_space_decay_scale = .25,
+  gp_time_scale        = 50.0, # units of 1 day
+  gp_time_decay_scale  = .25,
+  fixed_gp_space_length_scale = .1, # 0.5,
+  fixed_gp_time_length_scale = 100, # 100.0,
   constant_forward_rt  = 0, # if 0, use the Rt from last week to predict forwards
   full_cases_distribution = 1,
-  metapop              = "traffic_forward,traffic_reverse,uniform,in",
+  metapop              = "alt_traffic_forward,alt_traffic_reverse,in",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
+  stage                = "map",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
-  cleaned_sample_id    = 1, 
+  cleaned_sample_id    = 0, 
+  region_id            = 0,
 
   first_day_modelled   = NULL,
   last_day_modelled    = NULL,
@@ -41,9 +43,8 @@ Rmap_options = function(
   results_directory    = NULL,
 
   limit_area           = NULL,
-  limit_radius         = NULL,
+  limit_radius         = NULL
 
-  stage                = "map"
 ) {
   as.list(environment())
 }
@@ -55,6 +56,8 @@ Rmap_setup = function(opt = Rmap_options()) {
   env$opt = opt
   Rmap_read_data(env)
   with(env,{
+
+    stopifnot(identical(opt$stage,"map") || identical(opt$stage,"full"))
 
     #########################################################
     numchains = opt$chains
@@ -77,9 +80,10 @@ Rmap_setup = function(opt = Rmap_options()) {
     Tproj = Tstep*Mproj           # number of days to project forward
 
     message("Tcur: ", Tcur, ", length Clean_latent: ", length(Clean_latent))
-    stopifnot(Tcur == length(Clean_latent))
-      message("Tcur: ", Tcur, ", length Clean_recon: ", length(Clean_recon))
+    stopifnot(Tcur+Tproj == length(Clean_latent))
+    message("Tcur: ", Tcur, ", length Clean_recon: ", length(Clean_recon))
     stopifnot(Tcur == length(Clean_recon))
+    print(length(Clean_latent))
 
     days_likelihood = dates[(Tcond+1):Tcur]
     days_pred_held_out = seq(dates[Tcur+1],by=1,length.out=Tpred)
@@ -109,8 +113,13 @@ Rmap_setup = function(opt = Rmap_options()) {
       )
     }
     dir.create(opt$results_directory, showWarnings = FALSE)
-    if (opt$cleaned_sample_id>0) {
-      runname = paste(opt$results_directory,'/',opt$cleaned_sample_id,'_',sep='')
+    if (opt$cleaned_sample_id>0 || opt$region_id>0) {
+      runname = paste(
+        opt$results_directory,'/',
+        opt$region_id,'_',
+        opt$cleaned_sample_id,'_',
+        sep=''
+      )
     } else {
       runname = paste(opt$results_directory,'/',sep='')
     }
@@ -196,6 +205,8 @@ Rmap_run = function(env) {
       # 'radiation3' = radiation_flux[,,3], # smoothed radiation model with length scale = .5 (50km)
       'traffic_forward' = traffic_flux[,,1], # infected commuters taking infection from home to work
       'traffic_reverse' = traffic_flux[,,2], # commuters getting infected at work and bringing back home
+      'alt_traffic_forward' = alt_traffic_flux[,,1], # infected commuters taking infection from home to work
+      'alt_traffic_reverse' = alt_traffic_flux[,,2], # commuters getting infected at work and bringing back home
       'uniform' = matrix(1.0/N,N,N) # uniform cross-area infection
     )
     if (length(METAPOPMODEL)==1 && METAPOPMODEL[1] == 'none') {
@@ -249,11 +260,28 @@ Rmap_run = function(env) {
       }
     }
 
+    if (identical(opt$stage,"map")) {
+      coupling_mu_loc = -2.19 # centre at .1
+      coupling_mu_scale = 0.25 # set mean of process to be 0.1, 1 std = 0.024-0.33
+      coupling_sigma_scale = 0.25
+      coupling_alpha_scale = 1-exp(-Tstep/28)
+      area_modelled = rep(1,N)
+      area_inferred = rep(1,N)
+    } else {
+      coupling_mu_loc = 0
+      coupling_mu_scale = 0.5
+      coupling_sigma_scale = 0.5
+      coupling_alpha_scale = 1-exp(-Tstep/28)
+      area_modelled = modelled_region[,opt$region_id]
+      area_inferred = inferred_region[,opt$region_id]
+    } 
+
     #########################################################
     # Main computation
     print(cat("Mproj: ", Mproj, " Tpred: ", Tpred))
+    print("Rmap_data")
     Rmap_data <- list(
-      N = N,
+      Nall = N,
       Mstep = Mstep,
       Tall = Tall,
       Tcur = Tcur,
@@ -262,10 +290,10 @@ Rmap_run = function(env) {
       Mproj = Mproj,
       Tpred = Tpred,
 
-      Ct = AllCount,
+      Ct_all = AllCount,
       Clean_latent = Clean_latent,
       Clean_recon = Clean_recon,
-      geodist = geodist,
+      geodist_all = geodist,
       timedist = timedist,
       timecorcut = time_corellation_cutoff,
 
@@ -275,10 +303,10 @@ Rmap_run = function(env) {
       gp_time_decay_scale = opt$gp_time_decay_scale,
       fixed_gp_space_length_scale = opt$fixed_gp_space_length_scale,
       fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-      coupling_mu_loc = -2.19, # centre at .1
-      coupling_mu_scale = 0.25, # set mean of process to be 0.1, 1 std = 0.024-0.33
-      coupling_sigma_scale = 0.25,
-      coupling_alpha_scale = 1-exp(-Tstep/28),
+      coupling_mu_loc = coupling_mu_loc,
+      coupling_mu_scale = coupling_mu_scale,
+      coupling_sigma_scale = coupling_sigma_scale,
+      coupling_alpha_scale = coupling_alpha_scale,
       
       SPATIAL_KERNEL = SPATIAL_KERNEL,
       TEMPORAL_KERNEL = TEMPORAL_KERNEL,
@@ -297,17 +325,22 @@ Rmap_run = function(env) {
       delayprofile = testdelayprofile,
       F = F,
       flux = flux,
+      area_modelled = area_modelled,
+      area_inferred = area_inferred,
 
       N_region = N_region,
       sparse_region = sparse_region
     )
 
     #########################################################
+    print("Rmap_init")
     Rmap_init = lapply(1:numchains, function(i) {
       env = list2env(list(
         global_sigma = .25,
-        local_scale = .25,
         gp_sigma = .25,
+        local_scale = .25,
+        local_space_sigma = .5,
+        local_time_sigma = .1,
         gp_space_decay = opt$gp_space_decay,
         gp_time_decay = opt$gp_time_decay,
         infection_dispersion = 1.0,
@@ -316,6 +349,8 @@ Rmap_run = function(env) {
       setval = function(par,val,...) {
         env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
       }
+      # lapply(1:N, function(f) setval('local_space_sigma', .1, f))
+      # lapply(1:Mstep+Mproj, function(f) setval('local_time_sigma', .1, f))
       lapply(1:(Mstep+Mproj), function(k) {
         lapply(1:N, function(j) {
           l = j+(k-1)*N;
@@ -327,45 +362,80 @@ Rmap_run = function(env) {
               'local_eta_in','local_eta_out'
             ),
             function(par) {
-              setval(par, rnorm(1,0,1) , l)
+              setval(par, .1*rnorm(1,0,1) , l)
             }
           )
         })
         setval('coupling_rate',.01, k);
       })
+      lapply(1:Tlik, function(s) {
+        lapply(1:N, function(j) {
+          setval('infection_eta', rnorm(1,0,1), s, j)
+        })
+      })
       lapply(1:F, function(f) setval('flux_probs', 1/F, f))
+      lapply(1:N, function(j) setval('case_precision', 0.1, j))
       as.list(env)
     })
     # print(Rmap_init)
     # message(Rmap_init[[1]])
-    Rmap_pars = c(
+    Rmap_summary_pars = c(
       "global_sigma",
-      "local_scale",
       "gp_sigma",
-      # "gp_space_length_scale",
-      # "gp_time_length_scale",
       "infection_dispersion",
-      "case_dispersion",
       "coupling_rate",
-      "flux_probs",
-      "Rt",
       "Rt_all",
-      "Rt_region",
+      "flux_probs"
+    )
+    if (identical(opt$stage,"map")) {
+      Rmap_summary_pars = c(Rmap_summary_pars,
+        "local_scale",
+        "case_dispersion"
+      )
+    } else {
+      Rmap_summary_pars = c(Rmap_summary_pars,
+        "local_space_sigma",
+        "local_time_sigma"
+      )
+    }
+        
+    if (opt$fixed_gp_space_length_scale<0.0) {
+      Rmap_summary_pars = c(Rmap_summary_pars,"gp_space_length_scale")
+    }
+    if (opt$fixed_gp_time_length_scale<0.0) {
+      Rmap_summary_pars = c(Rmap_summary_pars,"gp_time_length_scale")
+    }
+    Rmap_pars = c(Rmap_summary_pars,
       "Ppred",
       "Cpred",
       "Cproj",
+      "fluxproportions",
+      "Rt",
+      "Rt_region",
       "Cproj_region",
       "Cpred_region"
     )
+    if (identical(opt$stage,"full")) {
+      Rmap_pars = c(Rmap_pars,
+        "case_precision"
+      )
+    }
+    print("Rmap_control")
     Rmap_control = list(
       # max_treedepth = 3, # testing only
       adapt_delta = .9,
-      max_treedepth = 7
+      max_treedepth = 10 
     )
 
+    if (identical(opt$stage,"map")) {
+      Rmap_file = 'mapping/stan_files/Rmap.stan'
+    } else {
+      Rmap_file = 'mapping/stan_files/Rmap-latent.stan'
+    }
+    print(Rmap_file)
     #########################################################
     fit <- stan(
-      file = 'mapping/stan_files/Rmap.stan',
+      file = Rmap_file,
       data = Rmap_data,
       init = Rmap_init,
       pars = Rmap_pars,
@@ -380,18 +450,7 @@ Rmap_run = function(env) {
     #########################################################
     # Summary of fit
     print(summary(fit,
-        pars=c(
-          #"gp_space_length_scale",
-          "gp_sigma",
-          #"gp_time_length_scale",
-          "global_sigma",
-          "local_scale",
-          "infection_dispersion",
-          "case_dispersion",
-          "Rt_all",
-          "coupling_rate",
-          "flux_probs"
-        ),
+        pars=Rmap_summary_pars,
         probs=c(.025,0.5,.975)
     )$summary)
 
@@ -432,8 +491,16 @@ Rmap_postprocess = function(env) {
       write.csv(data,sprintf('%s%s.csv',runname,filename),...)
     }
 
+    if (opt$region_id>0) {
+      Ninferred = sum(inferred_region[,opt$region_id])
+      inferred_areas = inferred_region[,opt$region_id]
+    } else {
+      Ninferred = N
+      inferred_areas = 1:N
+    }
+
     # save raw samples
-    save_samples = function(pars,N_sites=N,areafirst=FALSE) {
+    save_samples = function(pars,N_sites=Ninferred,areafirst=FALSE) {
       samples = extract(fit,pars=pars,permuted=FALSE)
       samples = samples[seq(opt$thinning,by=opt$thinning,to=numiters/2),,,drop=FALSE]
       ns = numiters/2/opt$thinning
@@ -453,9 +520,15 @@ Rmap_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
-    save_samples("Rt_region", N_sites=N_region)
-    save_samples("Cpred_region", N_sites=N_region, areafirst=TRUE)
-    save_samples("Cproj_region", N_sites=N_region, areafirst=TRUE)
+    if (opt$region_id>0) {
+      nregion = 1
+    } else {
+      nregion = N_region
+    }
+    save_samples("Rt_region", N_sites=nregion)
+    save_samples("Cpred_region", N_sites=nregion, areafirst=TRUE)
+    save_samples("Cproj_region", N_sites=nregion, areafirst=TRUE)
+
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
       numareas <- length(areas)
@@ -478,20 +551,21 @@ Rmap_postprocess = function(env) {
 
     #################################################################
     # Rt posterior
+    print("Rt")
     s <- summary(fit, pars="Rt", probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
     Rt <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
     #s <- summary(fit, pars="Rt", probs=c(.1, .2, .3, .4, .5, .6, .7, .8, .9))$summary
     #Rt <- s[,c("10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")]
     
-    times = rep(c(1:(Mstep+Mproj)), N)
-    places = rep(1:N, each=Mstep+Mproj)
-    indicies = places + (N)*(times-1)
+    times = rep(c(1:(Mstep+Mproj)), Ninferred)
+    places = rep(1:Ninferred, each=Mstep+Mproj)
+    indicies = places + (Ninferred)*(times-1)
     Rt = Rt[indicies,]
 
-    Rt <- Rt[sapply(1:(N*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
+    Rt <- Rt[sapply(1:(Ninferred*(Mstep+Mproj)),function(i)rep(i,Tstep)),]
     message(sprintf("median Rt range: [%f, %f]",min(Rt[,"50%"]),max(Rt[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas,
+      quoted_areas[inferred_areas],
       days_all,
       provenance,
       format(round(Rt,2),nsmall=2),
@@ -504,14 +578,15 @@ Rmap_postprocess = function(env) {
 
     #################################################################
     # Rt exceedance probabilities
+    print("Pexceed_samples")
     thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
     numthresholds = length(thresholds)
     numsamples = numchains*numiters/2
     Rt <- as.matrix(fit, pars="Rt")
-    dim(Rt) <- c(numsamples,Mstep+Mproj,N)
-    Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
+    dim(Rt) <- c(numsamples,Mstep+Mproj,Ninferred)
+    Pexceedance = array(0.0,dim=c(Mstep+Mproj,Ninferred,numthresholds))
     for (k in 1:(Mstep+Mproj)) {
-      for (i in 1:N) {
+      for (i in 1:Ninferred) {
         for (x in 1:numthresholds) {
           Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
         }
@@ -519,9 +594,9 @@ Rmap_postprocess = function(env) {
     }
     Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
     Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
-    dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
+    dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*Ninferred,numthresholds)
     df <- area_date_dataframe(
-        quoted_areas,
+        quoted_areas[inferred_areas],
         days_all,
         provenance,
         format(round(Pexceedance,2),nsmall=2),
@@ -540,7 +615,7 @@ Rmap_postprocess = function(env) {
     Cpred <- t(t(Cpred))
     message(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas,
+      quoted_areas[inferred_areas],
       seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
       rep('inferred',Tlik),
       format(round(Cpred,1),nsmall=1),
@@ -552,8 +627,8 @@ Rmap_postprocess = function(env) {
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
     Tweek = Tstep # assumes Tstep = 7
-    Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
-    dim(Cweekly) <- c(N,Tstep,Mstep)
+    Cweekly <- as.matrix(AllCount[inferred_areas,(Tcond+1):(Tcond+Tlik)]) 
+    dim(Cweekly) <- c(Ninferred,Tstep,Mstep)
     Cweekly <- apply(Cweekly,c(1,3),sum)
 
     # ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
@@ -561,7 +636,7 @@ Rmap_postprocess = function(env) {
 
     s <- summary(fit, pars=c("Cproj"), probs=c(.5))$summary
     projectedweeks <- as.matrix(s[,"50%"])
-    dim(projectedweeks) <- c(Tstep,Mproj,N)
+    dim(projectedweeks) <- c(Tstep,Mproj,Ninferred)
     projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
     projectedweeks <- apply(projectedweeks,c(2,3),sum)
     projectedweeks <- t(projectedweeks)
@@ -569,11 +644,11 @@ Rmap_postprocess = function(env) {
     Cweekly <- cbind(Cweekly,projectedweeks)
     Cweekly <- t(Cweekly)
     Cweekly <- Cweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
-    dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
+    dim(Cweekly) <- c(Ninferred*(Tlik+Tstep*Mproj))
 
     Cweekly_provenance <- c(rep('actual',Tlik),rep('projected',Tproj))
     df <- area_date_dataframe(
-      quoted_areas,
+      quoted_areas[inferred_areas],
       days_all,
       provenance,
       format(round(Cweekly,1),digits=6),
@@ -589,7 +664,7 @@ Rmap_postprocess = function(env) {
     Cproj <- t(t(Cproj))
     message(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
     df <- area_date_dataframe(
-      quoted_areas,
+      quoted_areas[inferred_areas], 
       seq(dates[Tcur]+1,by=1,length.out=Tproj),
       rep('projected',Tproj),
       format(round(Cproj,1),digits=5),
@@ -601,15 +676,21 @@ Rmap_postprocess = function(env) {
 
     #################################################################
     # predictive probabilities
+    print("logpred")
     s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
     Ppred <- s[,"mean"]
     logpred <- log(Ppred)
-    dim(logpred) <- c(Tpred,N)
+    dim(logpred) <- c(Tpred,Ninferred)
     logpred <- t(logpred)
+    dim(logpred) = c(Ninferred*Tpred)
     message(sprintf("mean log predictives = %f",mean(logpred)))
-    df <- data.frame(area = quoted_areas, logpred = logpred, provenance=rep('inferred', length(quoted_areas)))
-    for (i in 1:Tpred)
-      colnames(df)[i+1] <- sprintf('logpred_day%d',i)
+    df <- area_date_dataframe(
+      quoted_areas[inferred_areas],
+      seq(dates[Tcur]+1,by=1,length.out=Tpred),
+      rep('projected', Tpred),
+      logpred,
+      c('logpred')
+    )
     writeresults(df, 'logpred', row.names=FALSE, quote=FALSE)
 
 
@@ -618,7 +699,7 @@ Rmap_postprocess = function(env) {
     #pdf(paste('fits/',runname,'_pairs.pdf',sep=''),width=9,height=9)
     #pairs(fit, pars=c(
     #    "gp_space_length_scale","gp_sigma","gp_time_length_scale",
-    #    "global_sigma","local_scale","precision"))
+    #    "global_sigma","local_sigma","precision"))
     #dev.off()
 
     ####################################################################
@@ -628,8 +709,9 @@ Rmap_postprocess = function(env) {
 ##########################################################################
 ##########################################################################
 
-Rmap_merge = function(env,cleaned_sample_ids) {
+Rmap_merge = function(env,cleaned_sample_ids=c(0),region_ids=c(0)) {
 env$cleaned_sample_ids = cleaned_sample_ids
+env$region_ids = region_ids
 with(env, {
 
 writemergedresults = function(data,filename,...) {
@@ -637,11 +719,13 @@ writemergedresults = function(data,filename,...) {
 }
 
 numruns = length(cleaned_sample_ids)
-load_samples = function(pars) {
+
+load_samples = function(region_id,pars) {
   samples = do.call(rbind, lapply(1:numruns, function(i) {
     read.csv(paste(
       opt$results_directory,
-      '/',cleaned_sample_ids[i],
+      '/',region_id,
+      '_',cleaned_sample_ids[i],
       '_',pars,
       '_samples.csv',
       sep=''
@@ -672,24 +756,43 @@ area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
 
 provenance <- c(rep('inferred',Tlik),rep('projected',Tproj))
 days_all <- c(days_likelihood,seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj))
+areas = function(region_id) {
+  if (region_id==0) {
+    rep(1,N)==1
+  } else {
+    inferred_region[,region_id]==1
+  }
+}
+Nareas = function(region_id) sum(areas(region_id))
+
+if (length(region_ids)==1 && region_ids[1]==0) {
+  quoted_areas_by_regions = quoted_areas
+} else {
+  quoted_areas_by_regions = do.call(c,lapply(region_ids, function(region_id) {
+    quoted_areas[areas(region_id)]
+  }))
+}
 
 #################################################################
 # Rt posterior
-Rt_samples = load_samples('Rt')
-# TODO: we get very infrequent Nas in the cori model
-# if (any(is.na(Rt_samples))) {
-#   message("WARNING: NAs in Rt samples")
-#   Rt_samples = Rt_samples[complete.cases(Rt_samples),]
-# }
+Rt = do.call(rbind,lapply(region_ids, function(region_id) {
 
-Rt = t(apply(Rt_samples,2,quantile,
+  Rt_samples = load_samples(region_id,'Rt')
+  # TODO: we get very infrequent Nas in the cori model
+  # if (any(is.na(Rt_samples))) {
+  #   message("WARNING: NAs in Rt samples")
+  #   Rt_samples = Rt_samples[complete.cases(Rt_samples),]
+  # }
+  
+  t(apply(Rt_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
-))
+  ))
+}))
 
 Rt = Rt[sapply(1:N,function(i)rep((i-1)*(Mstep+Mproj)+c(1:(Mstep+Mproj)),each=Tstep)),]
 #Rt = Rt[sapply(1:N,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(round(Rt,2),nsmall=2),
@@ -704,23 +807,29 @@ message('done Rt')
 # Rt exceedance probabilities
 thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
 numthresholds = length(thresholds)
-numsamples = numruns * floor(numiters/2 / opt$thinning)
-# numsamples = dim(env$Rt_samples)[1] 
-Rt <- as.matrix(Rt_samples)
-dim(Rt) <- c(numsamples,Mstep+Mproj,N)
-Pexceedance = array(0.0,dim=c(Mstep+Mproj,N,numthresholds))
-for (k in 1:(Mstep+Mproj)) {
-  for (i in 1:N) {
-    for (x in 1:numthresholds) {
-      Pexceedance[k,i,x] = mean(Rt[,k,i]>thresholds[x])
+#numsamples = numruns * floor(numiters/2 / opt$thinning)
+
+Pexceedance = do.call(rbind,lapply(region_ids, function(region_id) {
+  Rt_samples = load_samples(region_id,'Rt')
+  Rt_samples <- as.matrix(Rt_samples)
+  numsamples = dim(Rt_samples)[1] 
+  Narea = Nareas(region_id)
+  dim(Rt_samples) <- c(numsamples,Mstep+Mproj,Narea)
+  Pexceedance = array(0.0,dim=c(Mstep+Mproj,Narea,numthresholds))
+  for (k in 1:(Mstep+Mproj)) {
+    for (i in 1:Narea) {
+      for (x in 1:numthresholds) {
+        Pexceedance[k,i,x] = mean(Rt_samples[,k,i]>thresholds[x])
+      }
     }
   }
-}
-Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
-Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
-dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*N,numthresholds)
+  Pexceedance = Pexceedance[c(1:(Mstep+Mproj)),,]
+  Pexceedance <- Pexceedance[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),,]
+  dim(Pexceedance) <- c(Tstep*(Mstep+Mproj)*Narea,numthresholds)
+  Pexceedance
+}))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(round(Pexceedance,2),nsmall=2),
@@ -729,17 +838,18 @@ df <- area_date_dataframe(
 writemergedresults(df, 'Pexceed', row.names=FALSE, quote=FALSE)
 message('done Pexceedance')
 
-rm(Rt_samples)
 
 #################################################################
 # posterior predictives and projections
-Cpred_samples = load_samples('Cpred')
-Cpred = t(apply(Cpred_samples,2,quantile,
+Cpred = do.call(rbind,lapply(region_ids, function(region_id) {
+  Cpred_samples = load_samples(region_id,'Cpred')
+  t(apply(Cpred_samples,2,quantile,
     probs=c(0.025, 0.25, .5, 0.75, .975)
-))
+  ))
+}))
 
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
     rep('inferred',Tlik),
     format(round(Cpred,1),nsmall=1),
@@ -749,34 +859,36 @@ df <- area_date_dataframe(
 writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
 message('done Cpred')
 
-rm(Cpred_samples)
-
 ####################################################################################
 # weekly counts. Includes 1 last column of actual counts among days ignored in model
-Cproj_samples = load_samples('Cproj')
+
 Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
 dim(Cweekly) <- c(N,Tstep,Mstep)
 Cweekly <- apply(Cweekly,c(1,3),sum)
 
 stopifnot(Tcur+Tstep<=length(AllCount))
 
-ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
-Cweekly <- cbind(Cweekly,ignoredweek)
+#ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+#Cweekly <- cbind(Cweekly,ignoredweek)
 
-projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
-    probs=c(.5)
-))
-dim(projectedweeks) <- c(Tstep,Mproj,N)
-projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
-projectedweeks <- apply(projectedweeks,c(2,3),sum)
-projectedweeks <- t(projectedweeks)
-Cweekly <- cbind(Cweekly,projectedweeks)
+Cweekly = do.call(rbind,lapply(region_ids,function(region_id) {
+  Narea = Nareas(region_id)
+  Cproj_samples = load_samples(region_id,'Cproj')
+  projectedweeks = as.matrix(apply(Cproj_samples,2,quantile,
+      probs=c(.5)
+  ))
+  dim(projectedweeks) <- c(Tstep,Mproj,Narea)
+  projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
+  projectedweeks <- apply(projectedweeks,c(2,3),sum)
+  projectedweeks <- t(projectedweeks)
+  cbind(Cweekly[areas(region_id),],projectedweeks)
+}))
 
 Cweekly <- t(Cweekly)
 Cweekly <- Cweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
 dim(Cweekly) <- c(N*(Tlik+Tstep*Mproj))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     days_all,
     provenance,
     format(Cweekly,digits=3),
@@ -787,11 +899,14 @@ message('done Cweekly')
 
 
 
-Cproj = t(apply(Cproj_samples,2,quantile,
-    probs=c(.025,.25,.5,.75,.975)
-))
+Cproj = do.call(rbind,lapply(region_ids,function(region_id) {
+  Cproj_samples = load_samples(region_id,'Cproj')
+  t(apply(Cproj_samples,2,quantile,
+      probs=c(.025,.25,.5,.75,.975)
+  ))
+}))
 df <- area_date_dataframe(
-    quoted_areas,
+    quoted_areas_by_regions,
     seq(dates[Tcur]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
     format(round(Cproj,1),nsmall=1),
@@ -800,11 +915,15 @@ df <- area_date_dataframe(
 )
 writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
 message('done Cproj')
+
+
 # Rt_region posterior
-Rt_region_samples = load_samples('Rt_region')
-Rt_region = t(apply(Rt_region_samples,2,quantile,
+Rt_region = do.call(rbind,lapply(region_ids,function(region_id) {
+  Rt_region_samples = load_samples(region_id,'Rt_region')
+  t(apply(Rt_region_samples,2,quantile,
     probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
-))
+  ))
+}))
 
 Rt_region = Rt_region[sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
 df <- area_date_dataframe(
@@ -818,11 +937,14 @@ df <- area_date_dataframe(
 )
 writemergedresults(df, 'Rt_region', row.names=FALSE, quote=FALSE)
 message('done Rt_region')
+
 # Cproj_region posterior predictive
-Cproj_region_samples = load_samples('Cproj_region')
-Cproj_region = t(apply(Cproj_region_samples,2,quantile,
+Cproj_region = do.call(rbind,lapply(region_ids,function(region_id) {
+  Cproj_region_samples = load_samples(region_id,'Cproj_region')
+  t(apply(Cproj_region_samples,2,quantile,
     probs=c(.025,.25,.5,.75,.975)
-))
+  ))
+}))
 df <- area_date_dataframe(
     quoted_regions,
     seq(dates[Tcur]+1,by=1,length.out=Tproj),
@@ -833,11 +955,14 @@ df <- area_date_dataframe(
 )
 writemergedresults(df, 'Cproj_region', row.names=FALSE, quote=FALSE)
 message('done Cproj_region')
+
 # Cpred_region posterior predictive
-Cpred_region_samples = load_samples('Cpred_region')
-Cpred_region = t(apply(Cpred_region_samples,2,quantile,
+Cpred_region = do.call(rbind,lapply(region_ids,function(region_id) {
+  Cpred_region_samples = load_samples(region_id,'Cpred_region')
+  t(apply(Cpred_region_samples,2,quantile,
     probs=c(.025,.25,.5,.75,.975)
-))
+  ))
+}))
 df <- area_date_dataframe(
     quoted_regions,
     seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
@@ -856,6 +981,13 @@ message('done Cpred_region')
 
 epimap_cmdline_options = function(opt = Rmap_options()) {
   list(
+    make_option(
+      c("--stage"),
+      type="character",
+      default=opt$localkernel,
+      help=paste("Run stage(clean/map/full); default =", opt$stage)
+    ),
+
     make_option(
       c("-s", "--spatialkernel"),
       type="character",
@@ -934,7 +1066,7 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       default=opt$metapop,
       help=paste(
           "metapopulation model for inter-region cross infections",
-          "(none, or comma separated list containing radiation{1,2,3},traffic{forward,reverse},uniform,in,in_out);",
+          "(none, or comma separated list containing radiation{1,2,3},{alt_}traffic_{forward,reverse},uniform,in,in_out);",
           "default = ", opt$metapop
       )
     ),
@@ -976,6 +1108,13 @@ epimap_cmdline_options = function(opt = Rmap_options()) {
       default=opt$cleaned_sample_id,
       help=paste("id of cleaned sample to use; default =", opt$cleaned_sample_id)
     ),
+    make_option(
+      c("--region_id"),
+      type="integer",
+      default=opt$region_id,
+      help=paste("id of region to model; default =", opt$region_id)
+    ),
+
     make_option(
       c("-c", "--chains"),
       type="integer",

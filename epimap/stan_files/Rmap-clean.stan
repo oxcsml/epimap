@@ -1,3 +1,11 @@
+functions {
+  real adjustedR(real RZ, real dispersion) {
+    return RZ 
+      - 2.0 * RZ * normal_cdf(-sqrt(RZ/(1.0+dispersion)),0.0,1.0) 
+      + sqrt(2.0*(1.0+dispersion)*RZ/pi())*exp(-RZ/(2.0*(1.0+dispersion)));
+  }
+}
+
 data {
   int<lower=1> Tall;  //
   int<lower=1> Tcond;  //
@@ -54,37 +62,39 @@ transformed data {
 }
 
 parameters {
-  real mu; // prior mean for log(Rt)
-  real<lower=0> sigma; // prior scale for log(Rt)
-  real<lower=0,upper=1> alpha1; // 1-autocorrelation for log(Rt)
+  real mu; // prior mean for log(Rx)
+  real<lower=0> sigma; // prior scale for log(Rx)
+  real<lower=0,upper=1> alpha1; // 1-autocorrelation for log(Rx)
   real<lower=0> phi_latent; // dispersion for negative binomial latent process
   real<lower=0> phi_observed; // dispersion for negative binomial observation
   vector[Nstep+Nproj] Reta;
   vector[Tlik] Ceta;
   real<lower=0> xi;
   simplex[Trdp] resultdelayprofile;
+  simplex[7] weekly_case_variations;
 }
 
 transformed parameters {
   real alpha;
-  vector[Nstep+Nproj] Rt;
+  vector[Nstep+Nproj] Rx;
   vector[Tcur] Xt;
   vector[Tlik] Ecount;
   vector[Trdp] resultdelayprofile_revcum;
 
 
   if (fixed_gp_time_length_scale <= 0.0) {
-    alpha = pow(1.0-alpha1, Tstep/gp_time_scale); // autocorrelation for log(Rt)
+    alpha = pow(1.0-alpha1, Tstep/gp_time_scale); // autocorrelation for log(Rx)
   } else {
     alpha = exp(-Tstep/fixed_gp_time_length_scale);
   }
-  { // AR1 process for log(Rt)
+  { // AR1 process for log(Rx)
     vector[Nstep+Nproj] Zt = rep_vector(0.0,Nstep+Nproj);
     real delta = sqrt(1.0-alpha);
     Zt[1] += Reta[1];
     for (i in 2:Nstep+Nproj)
       Zt[i] += alpha * Zt[i-1] + delta * Reta[i];
-    Rt = exp(mu + sigma * Zt);
+    //Rx = exp(mu + sigma * Zt); 
+    Rx = exp(sigma * Zt); // don't want drift when forecasting
   }
   { // results delay distribution
     real s = 0.0;
@@ -96,7 +106,7 @@ transformed parameters {
   { // latent renewal process 
     // negative binomial noise approximated by gaussian
     for (t in 1:Tcond) {
-      Xt[t] = xi + 
+      Xt[t] = xi +
         (1.0-mean_serial_interval_real) * Count[1,t+mean_serial_interval_int] + 
         mean_serial_interval_real * Count[1,t+mean_serial_interval_int+1];
     }
@@ -106,7 +116,7 @@ transformed parameters {
         int t = Tcond + s;
         int L = min(Tip,t-1);
 
-        real Einfection = Rt[i] * (xi + dot_product(
+        real Einfection = Rx[i] * (xi + dot_product(
             Xt[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         ));
@@ -134,6 +144,7 @@ model {
   xi ~ normal(0.0, xi_scale);
   Reta ~ std_normal();
   Ceta ~ std_normal();
+  weekly_case_variations ~ dirichlet(rep_vector(5.0,7));
 
   {
     resultdelayprofile ~ dirichlet(resultdelayalpha[1:Trdp]);
@@ -142,24 +153,29 @@ model {
   {
     for (t in Tcond+1:Tcur-Trdp+1) {
       int s = t-Tcond;
-      Count[1,t] ~ neg_binomial_2(Ecount[s], 1.0 / phi_observed);
+      int d = (t % 7)+1;
+      real ec = (7.0*weekly_case_variations[d]) * Ecount[s];
+      Count[1,t] ~ neg_binomial_2(ec, ec / phi_observed);
     }
     for (i in 2:Trdp) {
       int t = Tcur-Trdp+i;
       int s = t-Tcond;
-      real ec = Ecount[s] * resultdelayprofile_revcum[i];
-      Count[1,t] ~ neg_binomial_2(ec, 1.0 / phi_observed);
+      int d = (t % 7)+1;
+      real ec = (7.0*weekly_case_variations[d]) *
+        Ecount[s] * resultdelayprofile_revcum[i];
+      Count[1,t] ~ neg_binomial_2(ec, ec / phi_observed);
     }
   }
 }
 
 generated quantities {
+  vector[Nstep+Nproj] Rt;
   int Crecon[Tcur];
   vector[Tstep*Nstep] Cpred;
   int Noutliers = 0;
   real meandelay = 0.0;
   real denomdelay = 0.0;
-  vector[Tstep*Nproj] Xt_proj;
+  vector[Tcur+Tstep*Nproj] Xt_proj;
   vector[Tstep*Nproj] Count_proj;
   vector[Tpred] Ppred;
   real gp_time_length_scale = -Tstep/log(alpha);
@@ -209,7 +225,7 @@ generated quantities {
         int s = (i-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
-        real Einfection = Rt[i] * (xi + dot_product(
+        real Einfection = Rx[i] * (xi + dot_product(
             xlatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
         ));
@@ -225,7 +241,7 @@ generated quantities {
             testdelayprofile_rev
         );
     } } 
-    Xt_proj = xlatent[Tcur+1:Tcur+Tstep*Nproj];
+    Xt_proj = xlatent;
 
     for (m in 1:Nproj) {
       for (t in 1:Tstep) {
@@ -239,8 +255,27 @@ generated quantities {
         ));
       }
     }
-  }
 
+    for (i in 1:Nstep+Nproj) {
+      real sumZ = 0.0;
+      real sumRZ = 0.0;
+      for (s in 1:Tstep) {
+        int t = Tcond + (i-1)*Tstep + s;
+        int L = min(Tip,t-1);
+        real Z = (xi + dot_product(
+            Xt_proj[t-L:t-1], 
+            infprofile_rev[Tip-L+1:Tip]
+        ));
+        real RZ = Rx[i] * Z;
+        sumZ += Z;
+        sumRZ += RZ;
+        // sumRZ += Xt_proj[t];
+        // sumRZ += adjustedR(RZ,phi_latent);
+      }
+      Rt[i] = sumRZ / sumZ;
+    }
+
+  }
 
 } 
 

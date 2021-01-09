@@ -3,7 +3,7 @@ import numpy as np
 
 # %%
 
-traffic = pd.read_csv("traffic/traffic.csv", index_col=0)
+traffic = pd.read_csv("data/uk_traffic.csv", index_col=0)
 
 assert (np.diag(traffic) > 0).all()
 assert (traffic.sum(axis=1) > 0).all()

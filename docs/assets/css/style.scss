@@ -6,3 +6,58 @@ $grey-color:       #828282;
 @import
   "minima/skins/{{ site.minima.skin | default: 'classic' }}",
   "minima/initialize";
+
+$content-width: 1000px;
+
+a.site-title {
+  font-size: 1.5em !important;
+  font-weight: bold !important;
+}
+
+.wrapper {
+  max-width: -webkit-calc(#{$content-width} - (#{$spacing-unit} * 2));
+  max-width:         calc(#{$content-width} - (#{$spacing-unit} * 2));
+}
+
+.map-container { 
+  border: 1px solid black;
+  padding: 1rem;
+  position: relative;
+  width: 100%;
+  vertical-align: middle; 
+  margin: auto;
+  overflow: hidden; 
+
+}
+
+.map-container h1 {
+  font-size: max(1em, 4vw);
+  @media (min-width: 40rem) {
+    font-size: min(max(1em, 2vw), #{0.02*$content-width});    
+  }
+}
+
+.map-container h3 {
+  font-size: max(1em, 3vw);
+  @media (min-width: 40rem) {
+    font-size: min(max(1em, 1.5vw), #{0.015*$content-width});
+  }
+}
+
+#sub-heading {
+  font-size: max(0.7em, 3vw);
+  @media (min-width: 40rem) {
+    font-size: min(max(0.7em, 1.5vw), #{0.015*$content-width});
+  }
+}
+
+.text-row {
+  display: flex;
+  padding-bottom: 4em;
+  margin: auto;
+  font-size: max(0.5em, 2vw);
+  @media (min-width: 40rem) {
+    font-size: min(max(0.5em, 1vw), #{0.01*$content-width});
+  }
+}
+

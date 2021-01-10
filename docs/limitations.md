@@ -1,5 +1,5 @@
 ---
-layout: home
+layout: page
 title: Limitations
 weight: 1
 ---
@@ -27,6 +27,8 @@ testing is now more targeted, and,
 from the perspective of understanding rates of transmissions from case counts, 
 can introduce biases and noise.
 *   Uncertainties in $R_t$ in local authorities are high and sensitive to random local events.
+* In future it would be useful to incorporate data on daily death counts as well as 
+seroprevalence and symptom surveys. 
 
 Making the following data publicly accessible will help the epidemic monitoring research we and others are carrying out:
 * Daily case count data from local authorities in Northern Ireland. 

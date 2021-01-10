@@ -12,7 +12,7 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = NULL,
+  first_day_modelled = "2020-07-01",
   last_day_modelled  = NULL,
   weeks_modelled     = 35,
   days_ignored       = 7,
@@ -284,7 +284,6 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Crecon_m <- summary(fit, pars = "Crecon", probs = c(0.5))$summary
     Crecon_m <- t(as.matrix(Crecon_m[, "50%"]))
     Crecon_median[area_index, ] <- round(Crecon_m)
-
   
     ####################################################################
     area_rt = summary(fit, pars = "Rt", probs=percentiles)$summary
@@ -379,12 +378,17 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
 
   Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
-  preds = Cpred[,,3]
-  dim(preds) <- c(N, Nstep, Tstep)
-  Cweekly[,1:Nstep,] = preds
+
+  actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
+  dim(actuals) <- c(N,Tstep,Nstep)
+  actuals <- aperm(actuals, c(1,3,2))
+  # preds = Cpred[,,3]
+  # dim(preds) <- c(N, Nstep, Tstep)
+  Cweekly[,1:Nstep,] = actuals
 
   projs = Cproj[,,3]
-  dim(projs) <- c(N, Nproj, Tstep)
+  dim(projs) <- c(N, Tstep, Nproj)
+  projs = aperm(projs,c(1,3,2))
   Cweekly[,(Nstep+1):(Nstep+Nproj),] = projs
 
   Cweekly = apply(Cweekly, c(1,2), sum) 

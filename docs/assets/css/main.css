@@ -1,14 +1,8 @@
 *{
     box-sizing: border-box;
-    padding: 0;
-    margin: 0;
+    /* padding: 0;
+    margin: 0; */
 }
-
-.container {
-    max-width: none;
-    margin-top: 2em;
-}
-
 
 .background {
     fill: none;
@@ -77,21 +71,43 @@ div.tooltip span.header {
     stroke-width: 1.5;
 }
 
-.predicted-cases-area {
+.predicted-cases-inner-area {
     fill: rgb(70, 130, 180);
     opacity: 0.4;
 }
 
 
-.projected-cases-median-line {
-    fill: none;
-    stroke: rgb(139, 0, 0);
-    stroke-width: 1.5;
+.predicted-cases-outer-area {
+    fill: rgb(70, 130, 180);
+    opacity: 0.2;
 }
 
-.projected-cases-area {
-    fill: rgb(139, 0, 0);
+
+.projected-cases-median-line {
+    fill: none;
+    /* stroke: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180); */
+    stroke: rgb(61, 61, 61);
+    stroke-width: 1.5;
+    stroke-dasharray: 4;
+}
+
+.projected-cases-inner-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
     opacity: 0.4;
+}
+
+.projected-cases-outer-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
+    opacity: 0.2;
 }
 
 .rt-line {
@@ -112,17 +128,19 @@ div.tooltip span.header {
 
 .rt-projected-line {
     fill: none;
-    stroke: rgb(139, 0, 0);
+    /* stroke: rgb(139, 0, 0); */
+    stroke: rgb(61, 61, 61);
     stroke-width: 1.5;
+    stroke-dasharray: 4;
 }
 
 .rt-projected-inner-area {
-    fill: rgb(139, 0, 0);
+    /* fill: rgb(139, 0, 0); */
     opacity: 0.4;
 }
 
 .rt-projected-outer-area {
-    fill: rgb(139, 0, 0);
+    /* fill: rgb(139, 0, 0); */
     opacity: 0.2;
 }
 
@@ -132,10 +150,10 @@ div.tooltip span.header {
     stroke-dasharray: 5;
 }
 
-#chart {
-    margin-top:2em;
-}
-
+/*#slider-svg{*/
+    /*height: 10px;*/
+    /*width: 500px;*/
+/*}*/
 .slider-button {
     width: 20px;
     height: 20px;
@@ -174,23 +192,7 @@ h3 small {
 
 
 .info-row {
-    font-size: 14px;
-    width: 250px;
-}
-
-.column {
-    margin-top: 0em;
-    width: 250px;
-}
-
-.row {
-    margin-top: 0em;
-    width: 520px;
-}
-
-#sub-heading {
-    font-size: 0.9em;
-    margin-left: 0.25em;
+    width: 100%;
 }
 
 .overlay {
@@ -198,10 +200,14 @@ h3 small {
     pointer-events: all;
 }
 
+
 .focus circle {
     fill: #F1F3F3;
     stroke: #333;
-    stroke-width: 5px;
+    stroke-width: 5px; 
+}
+.focus text {
+    font-size: 12px;
 }
 
 .hover-line {
@@ -211,8 +217,29 @@ h3 small {
 }
 
 .area-search-container {
-    width: 340px;
+    max-width: 350px;
     position: relative;
+    width: 75%;
+    margin: auto;
+    margin-bottom: 1em;
+}
+
+
+.text-column {
+    width: 50%
+}
+
+
+.search-input {
+    background-color: transparent;
+    border: 0.1rem solid #d1d1d1;
+    border-radius: .4rem;
+    box-shadow: none;
+    box-sizing: inherit;
+    height: 2em;
+    padding: .6rem 1.0rem .7rem;
+    width: 100%;
+    margin-bottom: 1.5rem;
 }
 
 .current-date-line {
@@ -222,9 +249,9 @@ h3 small {
 }
 
 .search-icon {
-    top: 7px;
+    right: 0.2em;
+    top: 0.2em;
     position: absolute;
-    right: 5px;
 }
 
 /* From https://github.com/Pixabay/JavaScript-autoComplete */
@@ -250,7 +277,7 @@ h3 small {
     white-space: nowrap; 
     overflow: hidden; 
     text-overflow: ellipsis; 
-    font-size: 1.02em; 
+    font-size: 1.0em; 
     color: #333; 
 }
 .autocomplete-suggestion b { 
@@ -259,4 +286,43 @@ h3 small {
 }
 .autocomplete-suggestion.selected { 
     background: #f0f0f0; 
+}
+
+.map-outer-container {
+    border: 1px solid black;
+}
+
+.standalone-map-border {
+    border: 10px solid black;
+    margin: auto;
+	vertical-align: middle; 
+	position: relative;
+	width: 80%;
+}
+
+.standalone-map-container { 
+    padding: 1rem;
+	width: 100%;
+    overflow: hidden; 
+}
+
+
+#chart-container {
+    width: 100%;
+    margin: auto;
+    /*margin-bottom: -2em;*/
+}
+
+#zoom_in {
+    font-size: max(1.5vw, 30px);
+}
+
+#zoom_out {
+    font-size: max(1.5vw, 30px);
+}
+
+#areaSearch {
+    font-size: max(0.75em, 1.0vw);
+    margin-bottom: 0em;
+    height: 2em;
 }

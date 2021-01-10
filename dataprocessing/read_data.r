@@ -1,3 +1,6 @@
+
+library("rjson")
+
 ##########################################################################
 ##########################################################################
 Rmap_read_data = function(env) { 
@@ -27,6 +30,7 @@ Rmap_read_data = function(env) {
     testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdpnz-1)])
     testdelayprofile <- c(rep(0, presymptomdays), testdelayprofile)
 
+    # data about areas
     df <- readdata("areas",row.names=1)
     N <- nrow(df)
     areas <- rownames(df)
@@ -44,6 +48,15 @@ Rmap_read_data = function(env) {
     geodist <- readdata("distances",row.names=1)
     colnames(geodist) <- areas
 
+    # read data about how to split UK into regions to model for full model
+    js = fromJSON(file="data/region-groupings.json") ### TODO FIX
+    inferred_region = sparse_region
+    modelled_region = 0*sparse_region
+    for (i in 1:9) {
+      modelled_region[js[[i]],i]=1
+    }
+    stopifnot(all(inferred_region<=modelled_region))
+
     # Use counts from uk_cases in case updated
     cases <- readdata("cases")
     ind <- sapply(cases[,2], function(s)
@@ -56,62 +69,53 @@ Rmap_read_data = function(env) {
     colnames(AllCount) <- dates
     rownames(AllCount) <- areas
 
-    if (identical(opt$stage, "map")) {
-      if (opt$cleaned_sample_id>0 && (
-        opt$observation_data == 'cleaned_latent_sample' ||
-        opt$observation_data == 'cleaned_recon_sample' ||
-        opt$observation_data == 'latent_reports')) {
+    if (!identical(opt$stage, "clean")) {
+      if (opt$cleaned_sample_id>0) {
         sample_id = opt$cleaned_sample_id
         Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''), 
           row.names=1)
         Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
           row.names=1)
-        print(paste('Using samples from ',opt$clean_directory,'/Clatent_sample',sample_id,'.csv',sep=''))
+        print(paste(
+         'Using samples from ',
+         opt$clean_directory,'/Clatent_sample',sample_id,'.csv',
+         sep=''
+        ))
       } else {
-        # placeholder if not using cleaned data
-        sample_id = 'mean'
-        Clean_latent <- readclean('Clatent_mean', row.names=1)
+        Clean_latent <- readclean('Clatent_median', row.names=1)
         Clean_recon <- readclean('Crecon_median', row.names=1)
-        print(paste('Using samples from ',opt$clean_directory,'/Clatent_mean.csv',sep=''))
+        print(paste(
+          'Using samples from ',
+          opt$clean_directory,'/Clatent_median',
+          sep=''
+        ))
       }
     }
 
     #########################################################
-    radiation_length_scales <- c(.1,.2,.5)
-    radiation_flux <- array(0,dim=c(N,N,length(radiation_length_scales)))
-    for (i in 1:length(radiation_length_scales)) {
-      ls <- radiation_length_scales[i]
-      df <- data.matrix(readdata(sprintf('radiation_flux_ls=%1.1f',ls),row.names=1))
-      radiation_flux[,,i] <- df
-    }
-    colnames(radiation_flux) <- areas
-    rownames(radiation_flux) <- areas
-    dimnames(radiation_flux)[[3]] <- radiation_length_scales
+    # Radiation fluxes have also been tried, but found to not be significantly different from traffic models.
+    # radiation_length_scales <- c(.1,.2,.5)
+    # radiation_flux <- array(0,dim=c(N,N,length(radiation_length_scales)))
+    # for (i in 1:length(radiation_length_scales)) {
+    #   ls <- radiation_length_scales[i]
+    #   df <- data.matrix(readdata(sprintf('radiation_flux_ls=%1.1f',ls),row.names=1))
+    #   radiation_flux[,,i] <- df
+    # }
+    # colnames(radiation_flux) <- areas
+    # rownames(radiation_flux) <- areas
+    # dimnames(radiation_flux)[[3]] <- radiation_length_scales
 
     traffic_flux <- array(0, dim=c(N,N,2))
-    df <- data.matrix(readdata('traffic_flux_row-normed', row.names=1))
-    traffic_flux[,,1] <- df
-    df <- data.matrix(readdata('traffic_flux_transpose_row-normed', row.names=1))
-    traffic_flux[,,2] <- df
+    traffic_flux[,,1] <- data.matrix(readdata('traffic_flux_row-normed', row.names=1))
+    traffic_flux[,,2] <- data.matrix(readdata('traffic_flux_transpose_row-normed', row.names=1))
     colnames(traffic_flux) <- areas
     rownames(traffic_flux) <- areas
 
-    #########################################################
-    # If cleaning stage, no cleaned data so don't load.
-
-    if ("observation_data" %in% names(opt)) {
-      if (opt$observation_data == 'cleaned_latent_sample' || opt$observation_data == 'cleaned_recon_sample') {
-        sample_id = opt$cleaned_sample_id
-        Clean_latent <- readclean(paste('Clatent_sample',sample_id,sep=''), row.names=1)
-        Clean_recon <- readclean(paste('Crecon_sample',sample_id,sep=''), row.names=1)
-        print(paste('Using samples from Clatent_sample',sample_id,'.csv',sep=''))
-      } else {
-        sample_id = 'mean'
-        Clean_latent <- readclean('Clatent_mean', row.names=1)
-        Clean_recon <- readclean('Crecon_median', row.names=1)
-        # placeholder if not using cleaned data
-      }
-    }
+    alt_traffic_flux <- array(0, dim=c(N,N,2))
+    alt_traffic_flux[,,1] <- data.matrix(readdata('uk_forward_commute_flow', row.names=1))
+    alt_traffic_flux[,,2] <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
+    colnames(alt_traffic_flux) <- areas
+    rownames(alt_traffic_flux) <- areas
 
   })
   if (!is.null(env$opt$limit_area) && !is.null(env$opt$limit_radius)) {

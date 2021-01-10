@@ -14,3 +14,5 @@ preprocess-data:
 	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_site_data.py
 	source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript dataprocessing/process_data.r
 	# source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript process_radiation_fluxes.r
+	# source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/traffic/create_traffic_matrix.py
+	# source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/traffic/process_alt_traffic.py

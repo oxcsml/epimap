@@ -13,10 +13,10 @@ options="\
     --iterations 6000 \
     --observation_data cleaned_latent_sample \
     --observation_model gaussian \
-    --clean_directory $clean_directory \
     --spatialkernel none \
     --temporalkernel none \
     --constant_forward_rt 1 \
+    --clean_directory $clean_directory \
     --limit_area Oxford \
     --limit_radius 0.5 \
 "

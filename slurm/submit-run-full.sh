@@ -1,9 +1,9 @@
 #!/bin/bash
 
-trap 'echo submit-run: Failed before finishing with exit code $? && exit $?' ERR
+trap 'echo submit-run-full: Failed before finishing with exit code $? && exit $?' ERR
 
 if [ $# -lt 2 ]; then
-  echo Usage: submit-run results_directory options
+  echo Usage: submit-run-full results_directory options
   exit 1
 fi
 
@@ -29,10 +29,10 @@ sbatch --wait \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=10G \
-    --array=1-10 \
+    --array=1-9 \
     --wrap \
     "Rscript mapping/run.r $options \
-        --cleaned_sample_id \$SLURM_ARRAY_TASK_ID \
+        --region_id \$SLURM_ARRAY_TASK_ID \
         && echo run: DONE"
 
 echo submit-run: Merging results

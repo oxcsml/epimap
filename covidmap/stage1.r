@@ -8,13 +8,13 @@ source("epimap/epiclean.r")
 rstan_options(auto_write = FALSE)
 
 covidmap_stage1_options = function(
-  gp_time_scale        = 14.0, # units of 1 day
+  gp_time_scale        = 28.0, # units of 1 day
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
   first_day_modelled = "2020-07-01",
   last_day_modelled  = NULL,
-  weeks_modelled     = NULL,
+  weeks_modelled     = 35,
   days_ignored       = 7,
   days_per_step      = 7,
   days_predicted     = 2,
@@ -59,7 +59,7 @@ covidmap_stage1_plots = function(area,Count,fit,directory,Tcond,Tstep,Nstep,Nsam
   par(mfrow = c(5, 2))
   par(oma = c(0, 0, 0, 0))
   par(mar = c(1, 1, 1, 1))
-  ClatentCI <- summary(fit, pars = "Xt", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
+  ClatentCI <- summary(fit, pars = "Xt_proj", probs = c(0.025, 0.25, 0.5, 0.75, 0.975))$summary
   ind <- (Tcond + 1):Tcur
   ClatentCI <- ClatentCI[, c("2.5%", "50%", "97.5%")]
 
@@ -162,6 +162,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
       "Noutliers",
       "meandelay",
       "resultdelayprofile",
+      "Rx",
       "Rt"
     ),
     probs=c(0.5)
@@ -227,11 +228,13 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Nsample <- opt$num_samples
 
   # Initialize arrays
-  Clatent_sample <- array(0, c(N, Tcur, Nsample))
-  Clatent_mean <- array(0, c(N, Tcur))
+  Clatent_sample <- array(0, c(N, Tcur+Tproj, Nsample))
+  Clatent_mean <- array(0, c(N, Tcur+Tproj))
+  Clatent_median <- array(0, c(N, Tcur+Tproj))
   Crecon_sample <- array(0, c(N, Tcur, Nsample))
   Crecon_median <- array(0, c(N, Tcur))
   Clatent_mean[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
+  Clatent_median[, 1:Tcond] <- as.matrix(Count[, 1:Tcond])
   for (i in 1:Nsample) {
     Clatent_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
     Crecon_sample[, 1:Tcond, i] <- as.matrix(Count[, 1:Tcond])
@@ -250,6 +253,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Cpred = array(0.0, c(N, Nstep*Tstep, num_C_percentiles))
   Cproj = array(0.0, c(N, Nproj*Tstep, num_C_percentiles))
   
+
   # Loop over areas, loading area RDS files and filling the arrays
   for (area_index in 1:N) {
     area <- areas[area_index]
@@ -259,15 +263,17 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   
     skip <- numiters / 2 / Nsample
     ####################################################################
-    Clatent_s <- extract(fit, pars = "Xt", permuted = FALSE)
+    Clatent_s <- extract(fit, pars = "Xt_proj", permuted = FALSE)
     Clatent_s <- Clatent_s[seq(from=skip, by = skip, length.out = Nsample), , ]
-    dim(Clatent_s) <- c(Nsample, Tcur)
+    dim(Clatent_s) <- c(Nsample, Tcur+Tproj)
     Clatent_s <- t(Clatent_s)
-    dim(Clatent_s) <- c(1, Tcur, Nsample)
+    dim(Clatent_s) <- c(1, Tcur+Tproj, Nsample)
     Clatent_sample[area_index, , ] <- Clatent_s
-    Clatent_m <- summary(fit, pars = "Xt", probs = c(0.5))$summary
-    Clatent_m <- t(as.matrix(Clatent_m[, "mean"]))
-    Clatent_mean[area_index, ] <- Clatent_m
+    Clatent_m <- summary(fit, pars = "Xt_proj", probs = c(0.5))$summary
+    cmean <- t(as.matrix(Clatent_m[, "mean"]))
+    Clatent_mean[area_index, ] <- cmean
+    cmedian <- t(as.matrix(Clatent_m[, "50%"]))
+    Clatent_median[area_index, ] <- cmedian
 
     ####################################################################
     Crecon_s <- extract(fit, pars = "Crecon", permuted = FALSE)
@@ -302,16 +308,21 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   }
   
   days <- colnames(Count)
+  days_proj <- c(days,as.character(seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),format='%Y-%m-%d'))
+
   rownames(Clatent_mean) <- quoted_areas
-  colnames(Clatent_mean) <- days
+  colnames(Clatent_mean) <- days_proj
   write.csv(Clatent_mean, paste(opt$clean_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
+  rownames(Clatent_median) <- quoted_areas
+  colnames(Clatent_median) <- days_proj
+  write.csv(Clatent_median, paste(opt$clean_directory, "/Clatent_median.csv", sep=""), quote = FALSE)
   rownames(Crecon_median) <- quoted_areas
   colnames(Crecon_median) <- days
   write.csv(Crecon_median, paste(opt$clean_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
   for (i in 1:Nsample) {
     cc <- Clatent_sample[, , i]
     rownames(cc) <- quoted_areas
-    colnames(cc) <- days
+    colnames(cc) <- days_proj
     write.csv(cc, paste(opt$clean_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
     cc <- Crecon_sample[, , i]
     rownames(cc) <- quoted_areas
@@ -515,7 +526,14 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       c("--clean_directory"), 
       type="character", 
       default=opt$clean_directory, 
-      help=paste("Directory to put cleaned results in default",opt$clean_directory)
+      help=paste("Directory to put cleaned results in, default ",opt$clean_directory)
+    ),
+
+    make_option(
+      c("--data_directory"), 
+      type="character", 
+      default=opt$data_directory, 
+      help=paste("Directory to get data from, default ",opt$data_directory)
     ),
 
     make_option(

@@ -14,7 +14,7 @@ echo results_directory = $results_directory
 mkdir -p $results_directory
 mkdir -p $results_directory/output
 git rev-parse HEAD > $results_directory/git-hash.txt
-options="--results_directory $results_directory ${@:2}"
+options="--stage full --results_directory $results_directory ${@:2}"
 echo $options
 
 echo compiling

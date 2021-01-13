@@ -61,7 +61,7 @@ git add docs/assets/data/$today/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
 git add docs/assets/data/site_data.csv
-git add -f data/*
+git add -f data/uk_cases.csv
 git commit -m "daily update $today"
 git pull
 git push

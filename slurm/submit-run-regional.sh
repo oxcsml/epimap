@@ -1,25 +1,26 @@
 #!/bin/bash
 
-trap 'echo submit-run: Failed before finishing with exit code $? && exit $?' ERR
+trap 'echo submit-run-regional: Failed before finishing with exit code $? && exit $?' ERR
 
 if [ $# -lt 2 ]; then
-  echo Usage: submit-run results_directory options
+  echo Usage: submit-run-regional results_directory singlearea_directory options
   exit 1
 fi
 
-echo submit-run: Inferring for each cleaned sample
+echo submit-run-regional: Inferring for each single area sample
 
 results_directory=$1
 echo results_directory = $results_directory
 mkdir -p $results_directory
 mkdir -p $results_directory/output
 git rev-parse HEAD > $results_directory/git-hash.txt
-options="--results_directory $results_directory ${@:2}"
+options="--approximation regional --results_directory $results_directory --singlearea_directory $2 ${@:3}"
 echo $options
 
-echo compiling
+echo submit-run-regional: compiling
 Rscript mapping/compile.r
 
+echo submit-run-regional: running regions
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
@@ -29,13 +30,13 @@ sbatch --wait \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=10G \
-    --array=1-10 \
+    --array=1-9 \
     --wrap \
-    "Rscript mapping/run.r $options \
-        --cleaned_sample_id \$SLURM_ARRAY_TASK_ID \
+    "Rscript covidmap/stage2_run.r $options \
+        --region_id \$SLURM_ARRAY_TASK_ID \
         && echo run: DONE"
 
-echo submit-run: Merging results
+echo submit-run-regional: Merging results
 
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
@@ -47,6 +48,6 @@ sbatch --wait \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \
     --wrap \
-    "Rscript mapping/merge_results.r $options && echo merge: DONE"
+    "Rscript covidmap/stage2_merge.r $options && echo merge: DONE"
 
-echo submit-run: DONE
+echo submit-run-regional: DONE

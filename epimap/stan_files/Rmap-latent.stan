@@ -61,7 +61,7 @@ data {
   int<lower=0> Mproj;           // number of time steps
 
   int Ct_all[Nall,Tall];           // case counts
-  int Clean_recon[Nall,Tcur];     // case counts
+  // int Clean_recon[Nall,Tcur];     // case counts
   matrix[Nall,Tcur+Mproj*Tstep] Clean_latent; // cleaned case counts
 
   int<lower=0,upper=1> area_modelled[Nall]; // whether an area is modelled
@@ -76,8 +76,8 @@ data {
   int F;
   matrix[Nall,Nall] flux[F];      // fluxes for radiation metapopulation model
 
-  int<lower=1> N_region;               // number of regions
-  matrix[Nall,N_region] sparse_region; 
+  // int<lower=1> N_region;               // number of regions
+  // matrix[Nall,N_region] sparse_region; 
 
   matrix[Nall,Nall] geodist_all;      // distance between locations
   matrix[Mstep+Mproj,Mstep+Mproj] timedist;     // distance between time samples

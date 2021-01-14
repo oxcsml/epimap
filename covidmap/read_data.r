@@ -1,16 +1,13 @@
-
 library("rjson")
 
-##########################################################################
-##########################################################################
-Rmap_read_data = function(env) { 
+covidmap_read_data = function(env) { 
   with(env,{
 
     readdata = function(filename,...) {
       read.csv(sprintf('%s/%s.csv',opt$data_directory,filename),...)
     }
-    readclean = function(filename,...) {
-      read.csv(sprintf('%s/%s.csv',opt$clean_directory,filename),...)
+    readsinglearea = function(filename,...) {
+      read.csv(sprintf('%s/%s.csv',opt$singlearea_directory,filename),...)
     }
 
     #########################################################
@@ -69,24 +66,24 @@ Rmap_read_data = function(env) {
     colnames(AllCount) <- dates
     rownames(AllCount) <- areas
 
-    if (!identical(opt$stage, "clean")) {
-      if (opt$cleaned_sample_id>0) {
-        sample_id = opt$cleaned_sample_id
-        Clean_latent = readclean(paste('Clatent_sample',sample_id,sep=''), 
+    if (!identical(opt$approximation, "singlearea")) {
+      if (opt$singlearea_sample_id>0) {
+        sample_id = opt$singlearea_sample_id
+        Clean_latent = readsinglearea(paste('Clatent_sample',sample_id,sep=''), 
           row.names=1)
-        Clean_recon = readclean(paste('Crecon_sample',sample_id,sep=''), 
+        Clean_recon = readsinglearea(paste('Crecon_sample',sample_id,sep=''), 
           row.names=1)
         print(paste(
          'Using samples from ',
-         opt$clean_directory,'/Clatent_sample',sample_id,'.csv',
+         opt$singlearea_directory,'/Clatent_sample',sample_id,'.csv',
          sep=''
         ))
       } else {
-        Clean_latent <- readclean('Clatent_median', row.names=1)
-        Clean_recon <- readclean('Crecon_median', row.names=1)
+        Clean_latent <- readsinglearea('Clatent_median', row.names=1)
+        Clean_recon <- readsinglearea('Crecon_median', row.names=1)
         print(paste(
           'Using samples from ',
-          opt$clean_directory,'/Clatent_median',
+          opt$singlearea_directory,'/Clatent_median',
           sep=''
         ))
       }
@@ -125,6 +122,4 @@ Rmap_read_data = function(env) {
     print(env$areas)
   }
   env
-}# Rmap_read_data
-##########################################################################
-##########################################################################
+}

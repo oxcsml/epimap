@@ -1,9 +1,8 @@
 #!/bin/bash
-results_directory=fits/full-test-spatial10km
+results_directory=fits/test-regional
+singlearea_directory=fits/test-singlearea
 options=" \
-    --stage full \
-    --iterations 3000 \
-    --clean_directory fits/clean-1221 \
+    --iterations 30 \
     --globalkernel none \
     --spatialkernel matern12 \
     --fixed_gp_time_length_scale 100.0 \
@@ -13,5 +12,5 @@ options=" \
     #--last_day_modelled 2020-10-30 \
     #--limit_area Oxford \
     #--limit_radius 0.8 \
-slurm/submit-full-generic.sh $results_directory $options
+slurm/submit-run-regional.sh $results_directory $singlearea_directory $options
 

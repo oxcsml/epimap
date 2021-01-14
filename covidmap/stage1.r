@@ -1,9 +1,9 @@
 library(optparse)
 library(gsubfn)
 library(plyr)
-source("dataprocessing/read_data.r")
+source("covidmap/read_data.r")
 source("covidmap/utils.r")
-source("epimap/epiclean.r")
+source("epimap/epimap.r")
 
 rstan_options(auto_write = FALSE)
 
@@ -14,7 +14,7 @@ covidmap_stage1_options = function(
 
   first_day_modelled = "2020-07-01",
   last_day_modelled  = NULL,
-  weeks_modelled     = 35,
+  weeks_modelled     = NULL,
   days_ignored       = 7,
   days_per_step      = 7,
   days_predicted     = 2,
@@ -25,9 +25,9 @@ covidmap_stage1_options = function(
   num_chains         = 1,
 
   data_directory     = "data/",
-  clean_directory    = "fits/clean",
+  results_directory    = "fits/singlearea",
   produce_plots      = FALSE,
-  stage              = "clean",
+  approximation      = "singlearea",
 
   limit_area         = NULL,
   limit_radius       = NULL
@@ -96,7 +96,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   if (area_index==0) {
     stop("Area index 0.")
   }
-  Rmap_read_data(environment())
+  covidmap_read_data(environment())
 
   numiters = opt$iterations
 
@@ -126,8 +126,10 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   resultdelayalpha = resultdelaystrength * resultdelaydecay^(1:Trdp)
 
   start_time <- Sys.time()
-  fit = epiclean(
-    Count = Count,
+  fit = epimap_singlearea(
+    iter = opt$num_iterations,
+    chains = opt$num_chains,
+    cases = Count,
     Tcond = Tcond,
     Nstep = Nstep,
     Nproj = opt$num_steps_forecasted,
@@ -139,34 +141,12 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
     gp_time_scale = opt$gp_time_scale,
     gp_time_decay_scale = opt$gp_time_decay_scale,
     fixed_gp_time_length_scale = opt$fixed_gp_time_length_scale,
-    num_iterations = opt$num_iterations,
-    num_chains = opt$num_chains,
   )
   end_time <- Sys.time()
   
  
-  dir.create(paste(opt$clean_directory,'/stanfits',sep=''), showWarnings = FALSE) 
-  saveRDS(fit$stanfit, paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
-  
-  #################################################################
-  # Summary of fit
-  print(summary(fit$stanfit, 
-    pars=c(
-      "mu",
-      "sigma",
-      "alpha",
-      "gp_time_length_scale",
-      "phi_latent",
-      "phi_observed",
-      "xi",
-      "Noutliers",
-      "meandelay",
-      "resultdelayprofile",
-      "Rx",
-      "Rt"
-    ),
-    probs=c(0.5)
-  )$summary)
+  dir.create(paste(opt$results_directory,'/stanfits',sep=''), showWarnings = FALSE) 
+  saveRDS(fit, paste(opt$results_directory, '/stanfits/',area,'.rds',sep=''))
 
   message(paste(
     "Time to run:",
@@ -176,7 +156,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
 
   if (opt$produce_plots) {
     covidmap_stage1_plots(
-      area,Count,fit$stanfit,paste(opt$clean_directory,"/pdfs",sep=""),
+      area,Count,fit,paste(opt$results_directory,"/pdfs",sep=""),
       Tcond,Tstep,Nstep,Nsample
     )
   }
@@ -185,7 +165,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
 
 
 covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
-  Rmap_read_data(environment())
+  covidmap_read_data(environment())
 
   # work out days to be modelled
   list[Nstep, Tstep, Tcond, Tlik, Tcur, Tignore] = process_dates_modelled(
@@ -259,7 +239,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     area <- areas[area_index]
     print(area)
   
-    fit <- readRDS(paste(opt$clean_directory, '/stanfits/',area,'.rds',sep=''))
+    fit <- readRDS(paste(opt$results_directory, '/stanfits/',area,'.rds',sep=''))
   
     skip <- numiters / 2 / Nsample
     ####################################################################
@@ -312,22 +292,22 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
 
   rownames(Clatent_mean) <- quoted_areas
   colnames(Clatent_mean) <- days_proj
-  write.csv(Clatent_mean, paste(opt$clean_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
+  write.csv(Clatent_mean, paste(opt$results_directory, "/Clatent_mean.csv", sep=""), quote = FALSE)
   rownames(Clatent_median) <- quoted_areas
   colnames(Clatent_median) <- days_proj
-  write.csv(Clatent_median, paste(opt$clean_directory, "/Clatent_median.csv", sep=""), quote = FALSE)
+  write.csv(Clatent_median, paste(opt$results_directory, "/Clatent_median.csv", sep=""), quote = FALSE)
   rownames(Crecon_median) <- quoted_areas
   colnames(Crecon_median) <- days
-  write.csv(Crecon_median, paste(opt$clean_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
+  write.csv(Crecon_median, paste(opt$results_directory, "/Crecon_median.csv", sep=""), quote = FALSE)
   for (i in 1:Nsample) {
     cc <- Clatent_sample[, , i]
     rownames(cc) <- quoted_areas
     colnames(cc) <- days_proj
-    write.csv(cc, paste(opt$clean_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
+    write.csv(cc, paste(opt$results_directory, "/Clatent_sample", i, ".csv", sep = ""), quote = FALSE)
     cc <- Crecon_sample[, , i]
     rownames(cc) <- quoted_areas
     colnames(cc) <- days
-    write.csv(cc, paste(opt$clean_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
+    write.csv(cc, paste(opt$results_directory, "/Crecon_sample", i, ".csv", sep = ""), quote = FALSE)
   }
 
   # days_modelled = days[seq(from=Tcond+1, by=Tstep, to=Tcond+Tlik)]
@@ -347,7 +327,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
       "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
   )
-  write.csv(Rt, paste(opt$clean_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(Rt, paste(opt$results_directory, "/Rt.csv", sep=""), quote=FALSE, row.names=FALSE)
 
   thresholds = c(.8, .9, 1.0, 1.1, 1.2, 1.5, 2.0)
   numthresholds = length(thresholds)
@@ -369,12 +349,12 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
       format(round(Pexceedance,2),nsmall=2),
       c("P_08","P_09","P_10","P_11","P_12","P_15","P_20")
   )
-  write.csv(Pexceedance, paste(opt$clean_directory, "/Pexceed.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(Pexceedance, paste(opt$results_directory, "/Pexceed.csv", sep=""), quote=FALSE, row.names=FALSE)
 
   logpred = data.frame(area = areas, logpred = logpred, provenance=rep('inferred', length(areas)))
   for (i in 1:Tpred)
       colnames(logpred)[i+1] <- sprintf('logpred_day%d',i)
-  write.csv(logpred, paste(opt$clean_directory, "/logpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(logpred, paste(opt$results_directory, "/logpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
   Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
@@ -403,7 +383,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Cweekly,
     c("C_weekly")
   )
-  write.csv(Cweekly, paste(opt$clean_directory, "/Cweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(Cweekly, paste(opt$results_directory, "/Cweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   Cpred = aperm(Cpred, c(2,1,3))
@@ -415,7 +395,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Cpred,
     c("C_025","C_25","C_50","C_75","C_975")
   )
-  write.csv(Cpred, paste(opt$clean_directory, "/Cpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(Cpred, paste(opt$results_directory, "/Cpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   Cproj = aperm(Cproj, c(2,1,3))
@@ -427,7 +407,7 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Cproj,
     c("C_025","C_25","C_50","C_75","C_975")
   )
-  write.csv(Cproj, paste(opt$clean_directory, "/Cproj.csv", sep=""), quote=FALSE, row.names=FALSE)
+  write.csv(Cproj, paste(opt$results_directory, "/Cproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   list(
@@ -523,10 +503,10 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
     ),
 
     make_option(
-      c("--clean_directory"), 
+      c("--results_directory"), 
       type="character", 
-      default=opt$clean_directory, 
-      help=paste("Directory to put cleaned results in, default ",opt$clean_directory)
+      default=opt$results_directory, 
+      help=paste("Directory to put cleaned results in, default ",opt$results_directory)
     ),
 
     make_option(

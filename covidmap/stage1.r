@@ -14,7 +14,7 @@ covidmap_stage1_options = function(
 
   first_day_modelled = "2020-07-01",
   last_day_modelled  = NULL,
-  weeks_modelled     = 35,
+  weeks_modelled     = NULL,
   days_ignored       = 7,
   days_per_step      = 7,
   days_predicted     = 2,

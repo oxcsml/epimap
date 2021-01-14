@@ -22,9 +22,9 @@ make preprocess-data
 today=$(date +'%Y-%m-%d')
 clean_directory="fits/clean-${today}"
 results_directory="fits/map-${today}"
-mkdir -p $results_directory
+# mkdir -p $results_directory
 # mkdir -p $results_directory-cori
-git rev-parse HEAD > $results_directory/git-hash.txt
+# git rev-parse HEAD > $results_directory/git-hash.txt
 # git rev-parse HEAD > $results_directory-cori/git-hash.txt
 
 # clean 
@@ -34,7 +34,7 @@ slurm/submit-clean.sh $clean_directory
 rm -f mapping/stan_files/Rmap.rds
 
 # run full model
-full_options = "\
+full_options="\
     --globalkernel none \
     --spatialkernel matern12 \
     --fixed_gp_time_length_scale 100.0 \

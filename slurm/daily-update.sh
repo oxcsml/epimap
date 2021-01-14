@@ -41,6 +41,16 @@ full_options="\
     --fixed_gp_space_length_scale 0.2 \
 "
 slurm/submit-run-full.sh $results_directory-full "--clean_directory $clean_directory $full_options" &
+
+full_options_10km = "\
+    --globalkernel none \
+    --spatialkernel matern12 \
+    --fixed_gp_time_length_scale 100.0 \
+    --fixed_gp_space_length_scale 0.1 \
+"
+slurm/submit-run-full.sh $results_directory-full-10km "--clean_directory $clean_directory $full_options_10km" &
+
+
 # run 2 stage model
 # slurm/submit-run.sh $results_directory-two-stage "--clean_directory $clean_directory" &
 # run cori model
@@ -61,7 +71,7 @@ git add docs/assets/data/$today/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
 git add docs/assets/data/site_data.csv
-git add -f data/*
+git add -f data/uk_cases.csv
 git commit -m "daily update $today"
 git pull
 git push

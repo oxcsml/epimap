@@ -25,7 +25,7 @@ covidmap_stage1_options = function(
   num_chains         = 1,
 
   data_directory     = "data/",
-  results_directory    = "fits/singlearea",
+  results_directory  = "fits/fit",
   produce_plots      = FALSE,
   approximation      = "singlearea",
 
@@ -96,7 +96,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   if (area_index==0) {
     stop("Area index 0.")
   }
-  covidmap_read_data(environment())
+  env = covidmap_read_data(environment())
 
   numiters = opt$iterations
 

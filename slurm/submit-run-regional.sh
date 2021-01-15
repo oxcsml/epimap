@@ -3,7 +3,7 @@
 trap 'echo submit-run-regional: Failed before finishing with exit code $? && exit $?' ERR
 
 if [ $# -lt 2 ]; then
-  echo Usage: submit-run-regional results_directory singlearea_directory options
+  echo Usage: submit-run-regional results_directory options
   exit 1
 fi
 
@@ -12,20 +12,21 @@ echo submit-run-regional: Inferring for each single area sample
 results_directory=$1
 echo results_directory = $results_directory
 mkdir -p $results_directory
-mkdir -p $results_directory/output
+mkdir -p $results_directory/regional
+mkdir -p $results_directory/regional/output
 git rev-parse HEAD > $results_directory/git-hash.txt
-options="--approximation regional --results_directory $results_directory --singlearea_directory $2 ${@:3}"
+options="--approximation regional --results_directory $results_directory ${@:2}"
 echo $options
 
 echo submit-run-regional: compiling
-Rscript mapping/compile.r
+Rscript epimap/compile.r
 
 echo submit-run-regional: running regions
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap_run \
-    --output=$results_directory/output/run_%A_%a.out \
+    --output=$results_directory/regional/output/run_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \
@@ -42,7 +43,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap_merge \
-    --output=$results_directory/output/merge_%A_%a.out \
+    --output=$results_directory/regional/output/merge_%A_%a.out \
     --partition=ziz-large \
     --ntasks=1 \
     --cpus-per-task=1 \

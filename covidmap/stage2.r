@@ -40,7 +40,6 @@ covidmap_stage2_options = function(
   iterations           = 3000, 
 
   data_directory       = "data/",
-  singlearea_directory = "fits/singlearea", 
   results_directory    = NULL,
 
   limit_area           = NULL,
@@ -943,12 +942,6 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
       type="character",
       default=opt$results_directory,
       help="If specified, store outputs in directory, otherwise use a unique directory"
-    ),
-    make_option(
-      c("-r", "--singlearea_directory"),
-      type="character",
-      default=opt$singlearea_directory,
-      help="Directory from which to load single area approximation epidemic samples"
     ),
     make_option(
       c("--data_directory"),

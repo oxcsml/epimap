@@ -18,9 +18,12 @@ options="\
 "
 
 mkdir -p $results_directory
-mkdir -p $results_directory/pdfs
-mkdir -p $results_directory/stanfits
-mkdir -p $results_directory/output
+mkdir -p $results_directory/singlearea
+mkdir -p $results_directory/singlearea/pdfs
+mkdir -p $results_directory/singlearea/stanfits
+mkdir -p $results_directory/singlearea/output
+
+cp data/cases.csv $results_directory
 
 echo submit-run-singlearea: compiling
 Rscript epimap/compile.r
@@ -30,7 +33,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=clean_ts \
-    --output=$results_directory/output/clean_%A_%a.out \
+    --output=$results_directory/singlearea/output/clean_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \
@@ -47,7 +50,7 @@ sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=combine_areas \
-    --output=$results_directory/output/combine_%A_%a.out \
+    --output=$results_directory/singlearea/output/combine_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \

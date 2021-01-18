@@ -48,7 +48,7 @@ full_options_10km = "\
     --fixed_gp_time_length_scale 100.0 \
     --fixed_gp_space_length_scale 0.1 \
 "
-slurm/submit-run-full.sh $results_directory-full-10km "--clean_directory $clean_directory $full_options_10km" &
+#slurm/submit-run-full.sh $results_directory-full-10km "--clean_directory $clean_directory $full_options_10km" &
 
 
 # run 2 stage model

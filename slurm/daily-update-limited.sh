@@ -35,6 +35,9 @@ wait
 # unlink docs/assets/data/default
 # cd docs/assets/data/ && ln -s $today/ default && cd -
 
+rm -f $clean_directory/*.rds
+rm -f $results_directory/*_samples.csv
+
 # # Update the git repo
 git add docs/assets/data/$today/*
 # git add docs/assets/data/$today-cori/*

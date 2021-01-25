@@ -40,7 +40,7 @@ full_options="\
     --fixed_gp_time_length_scale 100.0 \
     --fixed_gp_space_length_scale 0.2 \
 "
-slurm/submit-run-full.sh $results_directory-full "--clean_directory $clean_directory $full_options" &
+slurm/submit-run-full.sh $results_directory-full "--clean_directory $clean_directory $full_options"
 
 full_options_10km = "\
     --globalkernel none \
@@ -55,12 +55,11 @@ full_options_10km = "\
 # slurm/submit-run.sh $results_directory-two-stage "--clean_directory $clean_directory" &
 # run cori model
 # slurm/submit-run-cori.sh $results_directory-cori "--clean_directory $clean_directory" &
-wait
+
 
 # reinflate results to the website dir
-dataprocessing/reinflate.sh $results_directory-full/merged_ $today &
+dataprocessing/reinflate.sh $results_directory-full/merged_ $today
 # dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
-wait
 
 # softlink to defaults
 unlink docs/assets/data/default

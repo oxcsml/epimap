@@ -205,9 +205,7 @@ data {
   matrix[Nall,Nall] flux[F];      // fluxes for radiation metapopulation model
 
   int<lower=1> N_region;               // number of regions
-  matrix[Nall,N_region] sparse_region; 
-  real area_modelled[Nall];
-  real area_inferred[Nall];
+  matrix[Nall,N_region] sparse_region;
 
   matrix[Nall,Nall] geodist_all;      // distance between locations
   matrix[Mstep+Mproj,Mstep+Mproj] timedist;     // distance between time samples

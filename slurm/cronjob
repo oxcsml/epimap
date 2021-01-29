@@ -1,0 +1,2 @@
+0 18 * * * cd /data/ziz/software/Rmap/Rmap-daily-update && slurm/daily-update.sh > /data/ziz/not-backed-up/scratch/Rmap/cron_output/`date +\%Y-\%m-\%d.log` 2>&1
+

@@ -2,7 +2,7 @@
 
 set -e
 
-trap 'echo submit-clean: Failed before finishing with exit code $? && exit $?' ERR
+trap 'echo submit-run-singlearea: Failed before finishing with exit code $? && exit $?' ERR
 
 if [ $# -ne 1 ]; then
   echo Usage: submit-run results_directory
@@ -32,8 +32,8 @@ echo submit-run-singlearea: running areas
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
-    --job-name=clean_ts \
-    --output=$results_directory/singlearea/output/clean_%A_%a.out \
+    --job-name=Rmap-singlearea \
+    --output=$results_directory/singlearea/output/run_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
     --time=18:00:00 \
@@ -41,15 +41,13 @@ sbatch --wait \
     --cpus-per-task=1 \
     --array=1-348 \
     --wrap \
-    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo clean_area: DONE"
-
-wait
+    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo Rmap-singlearea: DONE"
 
 echo submit-run-singlearea: combining areas
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
-    --job-name=combine_areas \
+    --job-name=Rmap-combineareas \
     --output=$results_directory/singlearea/output/combine_%A_%a.out \
     --partition=ziz-medium \
     --ntasks=1 \
@@ -57,8 +55,8 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    "Rscript covidmap/stage1_combine.r $options && echo combine_areas: DONE"
+    "Rscript covidmap/stage1_combine.r $options && echo Rmap-combineareas: DONE"
 
 wait
 
-echo submit-clean: DONE
+echo submit-run-singlearea: DONE

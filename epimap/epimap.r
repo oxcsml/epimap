@@ -10,7 +10,7 @@ library(plyr)
 #' @param globalkernel The string represnetative of the global kernel to use.
 #' 
 #' @return A list containing the integer representations of the given kernels expected by STAN.
-pasre_kernels = function(
+parse_kernels = function(
   spatialkernel,
   temporalkernel,
   localkernel,
@@ -318,7 +318,7 @@ epimap_region = function(
   full_cases_dist = False
 ) {
 
-  kernels = pasre_kernels(
+  kernels = parse_kernels(
     spatialkernel, 
     temporalkernel, 
     localkernel, 
@@ -534,7 +534,7 @@ epimap_twostage = function(
   full_cases_dist = False
 ) {
 
-  kernels = pasre_kernels(
+  kernels = parse_kernels(
       spatialkernel, 
       temporalkernel, 
       localkernel, 

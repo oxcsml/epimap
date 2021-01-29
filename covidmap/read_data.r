@@ -6,11 +6,11 @@ covidmap_read_data = function(env) {
     readdata = function(filename,...) {
       read.csv(sprintf('%s/%s.csv',opt$data_directory,filename),...)
     }
-    readsinglearea = function(filename,...) {
-      read.csv(sprintf('%s/singlearea/%s.csv',opt$results_directory,filename),...)
-    }
     readresults = function(filename,...) {
       read.csv(sprintf('%s/%s.csv',opt$results_directory,filename),...)
+    }
+    readsinglearea = function(filename,...) {
+      read.csv(sprintf('%s/singlearea/%s.csv',opt$results_directory,filename),...)
     }
 
     #########################################################
@@ -116,8 +116,6 @@ covidmap_read_data = function(env) {
     alt_traffic_flux[,,2] <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
     colnames(alt_traffic_flux) <- areas
     rownames(alt_traffic_flux) <- areas
-
-    opt$results_directory = sprintf('%s/%s',opt$results_directory,opt$approximation)
 
   })
   if (!is.null(env$opt$limit_area) && !is.null(env$opt$limit_radius)) {

@@ -1,5 +1,5 @@
 SHELL=/bin/bash
-CONDAROOT=/data/ziz/mhutchin/miniconda3
+CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
 
 environment:
 	source $(CONDAROOT)/bin/activate && conda env create -f environment.yml

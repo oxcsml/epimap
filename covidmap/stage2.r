@@ -113,16 +113,17 @@ covidmap_stage2_setup = function(opt = covidmap_stage2_options()) {
         sep=''
       )
     }
-    dir.create(opt$results_directory, showWarnings = FALSE)
+    dir.create(paste(opt$results_directory,opt$approximation,sep='/'), recursive=TRUE, showWarnings = FALSE)
     if (opt$singlearea_sample_id>0 || opt$region_id>0) {
       runname = paste(
         opt$results_directory,'/',
+        opt$approximation,'/',
         opt$region_id,'_',
         opt$singlearea_sample_id,'_',
         sep=''
       )
     } else {
-      runname = paste(opt$results_directory,'/',sep='')
+      runname = paste(opt$results_directory,'/',opt$approximation,'/',sep='')
     }
     message("runname = ",runname)
 
@@ -490,7 +491,7 @@ covidmap_stage2_merge = function(
   with(env, {
 
   writemergedresults = function(data,filename,...) {
-    write.csv(data,sprintf('%s/merged_%s.csv',opt$results_directory,filename),...)
+    write.csv(data,sprintf('%s/%s/merged_%s.csv',opt$results_directory,opt$approximation,filename),...)
   }
 
   numruns = length(singlearea_sample_ids)
@@ -499,6 +500,7 @@ covidmap_stage2_merge = function(
     samples = do.call(rbind, lapply(1:numruns, function(i) {
       read.csv(paste(
         opt$results_directory,
+        '/',opt$approximation,
         '/',region_id,
         '_',singlearea_sample_ids[i],
         '_',pars,

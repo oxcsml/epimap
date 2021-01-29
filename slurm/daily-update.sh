@@ -70,6 +70,8 @@ dataprocessing/reinflate.sh $results_directory/regional/merged_ $today
 unlink docs/assets/data/default
 cd docs/assets/data/ && ln -s $today default && cd -
 
+python dataprocessing/process_site_data.py
+
 # Update the git repo
 git add docs/assets/data/$today/*
 # git add docs/assets/data/$today-cori/*

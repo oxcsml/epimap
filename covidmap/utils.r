@@ -113,3 +113,37 @@ process_dates_modelled = function(
   ))
     
 }
+
+time_distances = function(
+    time_steps,
+    Tstep,
+    days,
+    lockdown_day=as.Date("2020-03-23")
+) {
+    # time steps
+    times = 1:(time_steps)
+    timedist = matrix(0, time_steps, time_steps)
+    for (i in 1:(time_steps)) {
+      for (j in 1:(time_steps)) {
+        timedist[i, j] = abs(times[i] - times[j]) * Tstep
+      }
+    }
+
+    # precompute lockdown cutoff kernel
+    lockdown_day = as.Date("2020-03-23")
+    days_period_start = days[seq(1, length(days), Tstep)]
+    days_period_start = vapply(days_period_start, (function (day) as.Date(day, format="%Y-%m-%d")), double(1))
+    day_pre_lockdown = vapply(days_period_start, (function (day) day < lockdown_day), logical(1))
+    
+    time_corellation_cutoff = matrix(0,time_steps,time_steps)
+    for (i in 1:(time_steps)) {
+      for (j in 1:(time_steps)) {
+        time_corellation_cutoff[i, j] = !xor(day_pre_lockdown[i], day_pre_lockdown[j])
+      }
+    }
+
+    list(
+        time_distances = timedist,
+        time_correlations = time_corellation_cutoff
+    )
+}

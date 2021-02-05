@@ -21,7 +21,7 @@ df['Date'] = pd.to_datetime(df['Date'])
 
 # Remove the last 5 days of actual cases which are exluded in the modelling due to being unreliable
 max_date = df['Date'].max()
-df = df[df['Date'] < max_date - pd.offsets.Day(0)]
+df = df[df['Date'] <= max_date - pd.offsets.Day(0)]
 
 df.to_csv(OUTPUT_PATH, index=False)
 print('Wrote', OUTPUT_PATH)

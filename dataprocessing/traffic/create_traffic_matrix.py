@@ -1,3 +1,5 @@
+import os
+import sys
 import pandas as pd
 import numpy as np
 
@@ -25,7 +27,9 @@ def get_flow(code_from, code_to):
         if (code_from not in list(traffic_raw["From"])) or (
             code_to not in list(traffic_raw["To"])
         ):
-            print(f"Didn't find one of the codes at all in the table.") # shouldn't happen
+            print(
+                f"Didn't find one of the codes at all in the table."
+            )  # shouldn't happen
         return 0
     else:
         return flow.sum()
@@ -46,7 +50,7 @@ def region2code(region):
     if len(codes) == 1:
         return codes.item()
     else:
-        assert region == "Highland" # should only happen for this?
+        assert region == "Highland"  # should only happen for this?
         return list(codes)[0]
 
 
@@ -64,6 +68,11 @@ def get_subregions(region):
 
 
 if __name__ == "__main__":
+
+    if os.path.exists("data/uk_traffic.csv"):
+        print("Traffic data file already created. Not regenerating.")
+        sys.exit(0)
+
     NN = len(traffic.index) * len(traffic.columns)
     k = 0
     for i, region_from in enumerate(traffic.index):

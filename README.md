@@ -23,7 +23,7 @@ To run a singlearea approximation, the script `scripts/submit-run-singlearea.sh`
 
 After running a singlearea approximation, you can then run either a `twostage` or a `regional` approximation via the `scripts/submit-run-twostage.sh` and `scripts/submit-run-regional.sh` scripts, supplying the same results directory as for the single area approximation in order to load the correct singlearea results.
 
-After running these models, the output director structure will look like:
+After running these models, the output directory structure will look like:
 ```
 +-- singlearea
 |   +-- ...
@@ -42,8 +42,6 @@ and places the post processed results in `docs/assets/data`. To start the websit
 
 To run the models as per the website, see the script `scripts/daily_update.sh` for the workflow.
 
-Next steps to be tracked in Issues: https://github.com/rs-delve/Rmap/issues
-
 ## Repo structure
 
 * `covidmap` - contains code to run models specifically for COVID19 in the UK. The code here calls general models defined in `epimap` after loading the data and doing any preprocessing required for the specific scenario.
@@ -55,3 +53,6 @@ Next steps to be tracked in Issues: https://github.com/rs-delve/Rmap/issues
 * `evaluation` - contains code to evaluate the performance of models.
 * `sandbox` - contains misc non-critical code.
 * `scripts` - contains scripts for running models on UK data using SLURM job management.
+
+
+Next steps to be tracked in Issues: https://github.com/rs-delve/Rmap/issues

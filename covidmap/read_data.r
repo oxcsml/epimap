@@ -1,5 +1,11 @@
 library("rjson")
 
+#' Read in the data required to run the covid map models.
+#' Loads basic data from opt$data_directory.
+#' Loads cases data from opt$results_directory, ensuring that results and the case
+#' counts used to create them are coupled.
+#' Loads single area approximation results from opt$results_directory/singlearea in
+#' order to run more complex models.
 covidmap_read_data = function(env) { 
   with(env,{
 
@@ -14,12 +20,14 @@ covidmap_read_data = function(env) {
     }
 
     #########################################################
+    # Read infection profile data
     infprofile <- readdata("serial_interval")$fit
     Tip <- 30
     infprofile <- infprofile[1:Tip]
     infprofile <- infprofile/sum(infprofile)
     D <- length(infprofile)
 
+    # Compute the testing delay profile
     Tdp <- 21
     presymptomdays <- 2
     Tdpnz <- Tdp - presymptomdays
@@ -30,7 +38,7 @@ covidmap_read_data = function(env) {
     testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdpnz-1)])
     testdelayprofile <- c(rep(0, presymptomdays), testdelayprofile)
 
-    # data about areas
+    # Read non-temporal data about areas
     df <- readdata("areas",row.names=1)
     N <- nrow(df)
     areas <- rownames(df)
@@ -45,10 +53,11 @@ covidmap_read_data = function(env) {
     regions <- rownames(region_df)
     quoted_regions <- sapply(regions,function(s) paste('"',s,'"',sep=''))
 
+    # Read on precomputed distances between region centres.
     geodist <- readdata("distances",row.names=1)
     colnames(geodist) <- areas
 
-    # read data about how to split UK into regions to model for full model
+    # Read data about how to split UK into regions to model for full model
     js = fromJSON(file="data/region-groupings.json") ### TODO FIX
     inferred_region = sparse_region
     modelled_region = 0*sparse_region
@@ -57,7 +66,8 @@ covidmap_read_data = function(env) {
     }
     stopifnot(all(inferred_region<=modelled_region))
 
-    # Use counts from uk_cases in case updated
+    # Read case data from the results folder. This ensures that the case data
+    # and results are generasted from are saved together
     cases <- readresults("cases")
     ind <- sapply(cases[,2], function(s)
         !(s %in% c('Outside Wales','Unknown','...17','...18'))
@@ -69,6 +79,10 @@ covidmap_read_data = function(env) {
     colnames(AllCount) <- dates
     rownames(AllCount) <- areas
 
+    # All methods except the singlearea approximation require the results of a 
+    # singlearea approximation to compute. If we are running such a method, load
+    # a particular sample from the related singlearea results, run on the same cases
+    # data.
     if (!identical(opt$approximation, "singlearea")) {
       if (opt$singlearea_sample_id>0) {
         sample_id = opt$singlearea_sample_id
@@ -92,25 +106,14 @@ covidmap_read_data = function(env) {
       }
     }
 
-    #########################################################
-    # Radiation fluxes have also been tried, but found to not be significantly different from traffic models.
-    # radiation_length_scales <- c(.1,.2,.5)
-    # radiation_flux <- array(0,dim=c(N,N,length(radiation_length_scales)))
-    # for (i in 1:length(radiation_length_scales)) {
-    #   ls <- radiation_length_scales[i]
-    #   df <- data.matrix(readdata(sprintf('radiation_flux_ls=%1.1f',ls),row.names=1))
-    #   radiation_flux[,,i] <- df
-    # }
-    # colnames(radiation_flux) <- areas
-    # rownames(radiation_flux) <- areas
-    # dimnames(radiation_flux)[[3]] <- radiation_length_scales
-
+    # Load traffic flux data between regions
     traffic_flux <- array(0, dim=c(N,N,2))
     traffic_flux[,,1] <- data.matrix(readdata('traffic_flux_row-normed', row.names=1))
     traffic_flux[,,2] <- data.matrix(readdata('traffic_flux_transpose_row-normed', row.names=1))
     colnames(traffic_flux) <- areas
     rownames(traffic_flux) <- areas
 
+    # Load alternative commuter flow data for intra region flux
     alt_traffic_flux <- array(0, dim=c(N,N,2))
     alt_traffic_flux[,,1] <- data.matrix(readdata('uk_forward_commute_flow', row.names=1))
     alt_traffic_flux[,,2] <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
@@ -118,6 +121,8 @@ covidmap_read_data = function(env) {
     rownames(alt_traffic_flux) <- areas
 
   })
+  # If desired, limit the number of regions used in the computation based on a central region
+  # and a radius around it.
   if (!is.null(env$opt$limit_area) && !is.null(env$opt$limit_radius)) {
     source("sandbox/limit_data.r")
     limit_data_by_distance(env, env$opt$limit_area, env$opt$limit_radius)

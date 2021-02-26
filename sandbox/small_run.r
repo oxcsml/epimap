@@ -17,19 +17,11 @@ opt = Rmap_options(
     days_ignored=NULL,
     days_per_step = 7,
     num_steps_forecasted = 3,
-<<<<<<< HEAD
-    iterations=30,
-    fixed_gp_time_length_scale = -1,
-    fixed_gp_space_length_scale = -1,
-    clean_directory='fits/clean-1221',
-    results_directory='fits/small-run'
-=======
     iterations=3000,
     fixed_gp_time_length_scale = -1,
     fixed_gp_space_length_scale = -1,
     clean_directory='fits/clean-1215',
     results_directory='fits/test-weekly-northeast-newrt-local'
->>>>>>> 52e3216bcbca82f3c36a56d70a4d5b44214b47d9
 )
 
 env = Rmap_setup(opt)

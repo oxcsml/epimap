@@ -19,9 +19,9 @@ Before running models, run `make preprocess-data` to pull the latest case data a
 
 NOTE: In the following, many of the scripts are designed for use with a SLURM job management system. If your system does not have one of these, then please consult the scripts for the required workflow, and adapt to your specific system. In general some kind of parallelism is required when running these models. Running each subtask sequentially would take prohibitively long.
 
-To run a singlearea approximation, the script `scripts/submit-run-singlearea.sh` will automatically dispatch SLURM jobs to compute the models over the individual regions and then recombine them, saving the results and the cases file used in the specified directory, and using the options string specified.
+To run a `singlearea` approximation, the script `scripts/submit-run-singlearea.sh` will automatically dispatch SLURM jobs to compute the models over the individual regions and then recombine them, saving the results and the cases file used in the specified directory, and using the options string specified.
 
-After running a singlearea approximation, you can then run either a `twostage` or a `regional` approximation via the `scripts/submit-run-twostage.sh` and `scripts/submit-run-regional.sh` scripts, supplying the same results directory as for the single area approximation in order to load the correct singlearea results.
+After running a `singlearea` approximation, you can then run either a `twostage` or a `regional` approximation via the `scripts/submit-run-twostage.sh` and `scripts/submit-run-regional.sh` scripts, supplying the same results directory as for the single area approximation in order to load the correct singlearea results.
 
 After running these models, the output directory structure will look like:
 ```

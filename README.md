@@ -1,8 +1,37 @@
 # Rmap
 
-## Approximations
+Repository containing the code for the models used by the website [locvalcovid.info](https://localcovid.info).
+
+## Models
+
+A brief description of the models are listed here. For more info please see the technical report. 
+
+### Singlearea
+
+Runs a renewal equation model on an individual area, using an AR1 process / Matern12 kernel Gaussian Process as the prior for the Rt through time.
+
+Dispatch via `slurm/submit-run-singlearea.sh`
+
+For parameter options, see `covidmap/stage1.r:covidmap_stage1_options`
+
+### Twostage
+
+Using a samples from the inferred underlying infections in each area (computed by the singlearea approximaton), this model inferes the Rt from these underlying infections in each area. A Kronecker factored Gaussian Process prior is placed over the Rt. It also incorporated metapopulation effects to include intra area transfer of cases. This effect is based on commuter flow data, and the prevalence of this intra area transfer is inferred. 
+
+We infer over 10 samples of the underlying infections and then recombine the samples from each inference.
+
+Dispatch via `slurm/submit-run-twostage.sh`, pointing to the same results directory as the single area results.
+
+For parameter options, see `covidmap/stage2.r:covidmap_stage2_options`
 
 
+### Regional
+
+This model breaks the country into a number of regions for more efficient computation. It computes the Rt for areas in the specified region from the cases observed in the areas. In addition to performing inference on the areas in the region, additional areas are modelled to get a more accurate approximation. The additional areas added are the areas the contribute the top 80% of commuter flow into the region. The infered values of Rt for these additionally modelled regions are thrown away at the end. The metapopulation effects for areas not included in this extra modelling set are approximated from the results of a singlearea approximation of each of those areas.
+
+Dispatch via `slurm/submit-run-regional.sh`, pointing to the same results directory as the single area results.
+
+For parameter options, see `covidmap/stage2.r:covidmap_stage2_options`
 
 ## Installation
 

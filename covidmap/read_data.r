@@ -83,7 +83,7 @@ covidmap_read_data = function(env) {
     # singlearea approximation to compute. If we are running such a method, load
     # a particular sample from the related singlearea results, run on the same cases
     # data.
-    if (!identical(opt$approximation, "singlearea")) {
+    if (identical(opt$approximation, "regional") | identical(opt$approximation, "twostage")) {
       if (opt$singlearea_sample_id>0) {
         sample_id = opt$singlearea_sample_id
         Clean_latent = readsinglearea(paste('Clatent_sample',sample_id,sep=''), 

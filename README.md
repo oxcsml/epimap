@@ -1,11 +1,18 @@
 # Rmap
 
+## Approximations
+
+
+
 ## Installation
 
 * Clone this repository with `git clone https://github.com/oxcsml/Rmap.git`.
 * Install [conda](https://docs.conda.io/en/latest/) if not already installed.
 * In the `Makefile`, set the `CONDAROOT` variable to the install path of conda. 
 * Run `make environment`.
+
+
+If you wish to run the alternative methods, EpiEstim must be installed manually by running `install.packages("EpiEstim")` in R.
 
 ## Requirements
 
@@ -19,9 +26,9 @@ Before running models, run `make preprocess-data` to pull the latest case data a
 
 NOTE: In the following, many of the scripts are designed for use with a SLURM job management system. If your system does not have one of these, then please consult the scripts for the required workflow, and adapt to your specific system. In general some kind of parallelism is required when running these models. Running each subtask sequentially would take prohibitively long.
 
-To run a `singlearea` approximation, the script `scripts/submit-run-singlearea.sh` will automatically dispatch SLURM jobs to compute the models over the individual regions and then recombine them, saving the results and the cases file used in the specified directory, and using the options string specified.
+To run a singlearea approximation, the script `scripts/submit-run-singlearea.sh` will automatically dispatch SLURM jobs to compute the models over the individual regions and then recombine them, saving the results and the cases file used in the specified directory, and using the options string specified.
 
-After running a `singlearea` approximation, you can then run either a `twostage` or a `regional` approximation via the `scripts/submit-run-twostage.sh` and `scripts/submit-run-regional.sh` scripts, supplying the same results directory as for the single area approximation in order to load the correct singlearea results.
+After running a singlearea approximation, you can then run either a `twostage` or a `regional` approximation via the `scripts/submit-run-twostage.sh` and `scripts/submit-run-regional.sh` scripts, supplying the same results directory as for the single area approximation in order to load the correct singlearea results.
 
 After running these models, the output directory structure will look like:
 ```
@@ -38,7 +45,7 @@ After running the models, the data can be postprocessed to be displayed on the w
 ```
 dataprocessing/reinflate.sh [path to results output] [name of postprocessed results]
 ```
-and places the post processed results in `docs/assets/data`. To start the website locally see `docs/README.md`.
+and places the post processed results in `docs/assets/data`. In order to update the underlying cases data on the website run `python dataprocessing/process_site_data.py`. To start the website locally see `docs/README.md`.
 
 To run the models as per the website, see the script `scripts/daily_update.sh` for the workflow.
 

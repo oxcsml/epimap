@@ -354,7 +354,7 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
         caseProjTimeseries.set(d.area, []);
     }
     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    if (d.C_025) {
+    if (d.C_025 != undefined) {
       d.C_lower = +d.C_025;
       d.C_median = +d.C_50;
       d.C_upper = +d.C_975;
@@ -364,7 +364,7 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
       d.C_upper = +d.C_upper;
     }  
 
-    if (d.C_25) {
+    if (d.C_25 != undefined) {
         d.C_lower2 = +d.C_lower;
         d.C_upper2 = +d.C_upper;
         d.C_lower = +d.C_25;

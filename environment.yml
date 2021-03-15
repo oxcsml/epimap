@@ -1,24 +1,20 @@
 name: Rmap
 dependencies:
-  - numpy
   - pandas
-  - pandas-datareader
-  - xlrd >= 1.0.0
-  - pycountry
   - openpyxl
-  - plotly
-  - geopy
-  - matplotlib
   - r-base
   - r-essentials
   - r-data.table
+  - r-rstan
+  - r-rjson
+  - r-StanHeaders
   - r-envstats
   - r-ggplot2
   - r-geosphere
   - r-optparse
   - r-codetools
+  - r-gsubfn
+  - r-plyr
   - r-BH
-  - r-StanHeaders
-  - r-rstan
 channels:
   - conda-forge

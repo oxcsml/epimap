@@ -7,6 +7,8 @@ source("epimap/epimap.r")
 
 rstan_options(auto_write = FALSE)
 
+# Function defining the defualt arguments for the covidmap
+# stage1 computations
 covidmap_stage1_options = function(
   gp_time_scale        = 28.0, # units of 1 day
   gp_time_decay_scale  = .1,
@@ -36,6 +38,16 @@ covidmap_stage1_options = function(
   as.list(environment())
 }
 
+#' Produce plots to instect the results of the stage 1 model 
+#' 
+#' @param area index of the area to plot
+#' @param Count The count data inference is done from
+#' @param fit The stanfit from the stage 1 model
+#' @param directory The directory to save the plots in 
+#' @param Tcond The number of days conditioned on
+#' @param Tstep The days per constant R step
+#' @param Nstep The number of model steps
+#' @param Nsample The number of samples take from the model
 covidmap_stage1_plots = function(area,Count,fit,directory,Tcond,Tstep,Nstep,Nsample) {
 
   dir.create(directory, recursive=TRUE) 
@@ -95,7 +107,10 @@ covidmap_stage1_plots = function(area,Count,fit,directory,Tcond,Tstep,Nstep,Nsam
   dev.off()
 }
 
-
+#' Run a single area under the singlearea approximation
+#' 
+#' @param area_index The index of the area to run
+#' @param opt A set options to run the model for, based on covidmap_stage1_options
 covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) {
   if (area_index==0) {
     stop("Area index 0.")
@@ -129,6 +144,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   resultdelaystrength = Trdp
   resultdelayalpha = resultdelaystrength * resultdelaydecay^(1:Trdp)
 
+  # fit model using epimap
   start_time <- Sys.time()
   fit = epimap_singlearea(
     iter = opt$num_iterations,
@@ -148,7 +164,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
   )
   end_time <- Sys.time()
   
- 
+  # save results
   dir.create(paste(opt$results_directory,'/singlearea/stanfits',sep=''), recursive=TRUE) 
   saveRDS(fit, paste(opt$results_directory, '/singlearea/stanfits/',area,'.rds',sep=''))
 
@@ -158,6 +174,7 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
     "hours")
   )
 
+  # optionally prodice plots
   if (opt$produce_plots) {
     covidmap_stage1_plots(
       area,Count,fit,paste(opt$results_directory,"/singlearea/pdfs",sep=""),

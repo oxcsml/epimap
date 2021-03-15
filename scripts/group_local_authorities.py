@@ -16,7 +16,7 @@ def read_flux(fpath):
 def top_thresh(arr, threshold, lookup=None):
     idx = np.argsort(arr)[::-1]
     lookup = lookup if lookup is not None else arr
-    return lookup[idx[: np.argmax(np.cumsum(arr[idx]) >= threshold) + 1]]
+    return lookup[idx[: np.argmax((np.cumsum(arr[idx]) >= threshold).values) + 1]]
 
 
 if __name__ == "__main__":
@@ -47,11 +47,13 @@ if __name__ == "__main__":
     flux_t = read_flux(args.flux_t)
 
     top_exports = flux.apply(
-        partial(top_thresh, threshold=args.threshold, lookup=flux.index.values), axis=1,
+        partial(top_thresh, threshold=args.threshold, lookup=flux.index.values),
+        axis=1,
     ).apply(list)
 
     top_imports = flux_t.apply(
-        partial(top_thresh, threshold=args.threshold, lookup=flux.index.values), axis=1,
+        partial(top_thresh, threshold=args.threshold, lookup=flux.index.values),
+        axis=1,
     ).apply(list)
 
     closest = top_exports.add(top_imports).apply(lambda x: list(dict.fromkeys(x)))
@@ -80,4 +82,3 @@ if __name__ == "__main__":
 
     with open(args.output, "w") as f:
         json.dump(groups, f)
-

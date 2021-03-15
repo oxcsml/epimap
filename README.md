@@ -2,6 +2,21 @@
 
 Repository containing the code for the models used by the website [localcovid.info](https://localcovid.info).
 
+## Repo structure
+
+* `epimap` - contains the basic library of models used. These models could be applied more generally than to the UK, if supplied with the correct data.
+* `covidmap` - contains code to run models specifically for COVID19 in the UK. The code here calls general models defined in `epimap` after loading the data and doing any preprocessing required for the specific scenario.
+* `data` - contains data specific to the UK.
+* `dataprocessing` - contains scripts for preprocessing specifc data about the UK.
+* `doc` - contains misc documents about the project. No code.
+* `docs` - contains the source code and data for the public website.
+* `evaluation` - contains code to evaluate the performance of models.
+* `sandbox` - contains misc non-critical code.
+* `scripts` - contains scripts for running models on UK data using SLURM job management.
+
+
+Next steps to be tracked in Issues: https://github.com/rs-delve/Rmap/issues
+
 ## Models
 
 A brief description of the models are listed here. For more info please see the technical report. 
@@ -78,17 +93,3 @@ and places the post processed results in `docs/assets/data`. In order to update 
 
 To run the models as per the website, see the script `scripts/daily_update.sh` for the workflow.
 
-## Repo structure
-
-* `covidmap` - contains code to run models specifically for COVID19 in the UK. The code here calls general models defined in `epimap` after loading the data and doing any preprocessing required for the specific scenario.
-* `data` - contains data specific to the UK.
-* `dataprocessing` - contains scripts for preprocessing specifc data about the UK.
-* `doc` - contains misc documents about the project. No code.
-* `docs` - contains the source code and data for the public website.
-* `epimap` - contains the basic library of models used. These models could be applied more generally than to the UK, if supplied with the correct data.
-* `evaluation` - contains code to evaluate the performance of models.
-* `sandbox` - contains misc non-critical code.
-* `scripts` - contains scripts for running models on UK data using SLURM job management.
-
-
-Next steps to be tracked in Issues: https://github.com/rs-delve/Rmap/issues

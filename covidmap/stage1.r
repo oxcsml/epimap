@@ -23,7 +23,7 @@ covidmap_stage1_options = function(
   num_steps_forecasted = 3,
 
   num_samples        = 20,
-  num_iterations     = 3000,
+  num_iterations     = 5000,
   num_chains         = 1,
 
   data_directory     = "data/",

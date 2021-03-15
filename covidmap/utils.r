@@ -32,7 +32,7 @@ process_dates_modelled = function(
   Tall = length(alldates)
   first_day_of_data = alldates[1]
   last_day_of_data = alldates[Tall]
-  #print(paste("last_day_of_data",last_day_of_data))
+  print(paste("last_day_of_data",last_day_of_data))
   if (!is.null(last_day_modelled)) {
     last_day_modelled = as.Date(last_day_modelled)
     if (!is.null(days_ignored) &&
@@ -45,7 +45,7 @@ process_dates_modelled = function(
     }
   } else if (!is.null(days_ignored)) {
     last_day_modelled = last_day_of_data - days_ignored
-    #print(paste("last_day_modelled",last_day_modelled))
+    print(paste("last_day_modelled",last_day_modelled))
   } else {
     last_day_modelled = NULL
   }
@@ -59,7 +59,7 @@ process_dates_modelled = function(
         last_day_modelled = first_day_modelled + 7*opt$weeks_modelled - 1
       }
     } else {
-      weeks = floor((last_day_modelled-first_day_modelled)/7)
+      weeks = floor((last_day_modelled-first_day_modelled+1)/7)
       if (!is.null(weeks_modelled) && weeks != weeks_modelled) {
         stop(paste("First/last day modelled and weeks modelled inconsistent", list_args, sep=""))
       }

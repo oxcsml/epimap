@@ -114,7 +114,7 @@ transformed data {
   int Nnotmodelled = Nall-Narea;
   int inferred[Ninferred];
   int area[Narea];
-  int notmodelled[Nall-Narea];
+  int notmodelled[Nnotmodelled];
   int Tlik = Mstep*Tstep;     // Number of days to use for the likelihood computation
   int Tproj = Mproj*Tstep;    // The number of days to project forward
   int Tcond = Tcur-Tlik;    // index of day on which we are estimating Rt
@@ -206,9 +206,13 @@ transformed data {
     //}
   }
 
-  { // flux matrices
-    matrix[Nnotmodelled,Tlik+Tproj] Zt_ext;
     fluxt[1,] = to_row_vector(diag_matrix(rep_vector(1.0,Narea)));
+  for (f in 2:F1) {
+    fluxt[f,] = to_row_vector(flux[f-1][area,area]');
+  }
+
+  if (Nnotmodelled > 0) { // flux matrices
+    matrix[Nnotmodelled,Tlik+Tproj] Zt_ext;
     for (s in 1:Tlik+Tproj) {
       int t = Tcond + s;
       int L = min(Tip,t-1);
@@ -217,12 +221,15 @@ transformed data {
       FZt_ext[s][1,] = rep_row_vector(0.0,Narea);
     }
     for (f in 2:F1) {
-      fluxt[f,] = to_row_vector(flux[f-1][area,area]');
       for (s in 1:Tlik+Tproj) {
         int t = Tcond + s;
         FZt_ext[s][f,] = Zt_ext[,s]' * flux[f-1][notmodelled,area];
       }
     } 
+  } else {
+    for (s in 1:Tlik+Tproj) {
+      FZt_ext[s] = rep_matrix(0.0, F1, Narea);
+  }
   }
 
   { // GP

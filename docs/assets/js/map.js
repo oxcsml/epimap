@@ -650,7 +650,7 @@ function ready(data) {
 	maxCases = 800;
     maxColorCases = 800;
 		
-	const caseColorDomain = [0, 100, maxCases];	
+	const caseColorDomain = [0, 200, maxCases];	
 	const caseColorScale = d3.scaleDiverging(t => d3.interpolateViridis(1 - t))
         .domain(caseColorDomain);
 	
@@ -791,7 +791,7 @@ function ready(data) {
         .attr("stop-color", d => d.color);
 
     caseGradient.selectAll("stop")       
-		.data([1, 10, 50, 100, 200, 400, 800].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
+		.data([0, 200, 800].map((t, i, n) => ({ offset: `${100 * i / n.length}%`, color: caseColorScale(t) })))
         .enter().append("stop")
         .attr("offset", d => d.offset)
         .attr("stop-color", d => d.color);		

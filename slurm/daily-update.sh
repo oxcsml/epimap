@@ -32,6 +32,8 @@ mkdir -p $results_directory
 git rev-parse HEAD > $results_directory/git-hash.txt
 # git rev-parse HEAD > $results_directory-cori/git-hash.txt
 
+cp data/cases.csv $results_directory
+
 # clean 
 slurm/submit-run-singlearea.sh $results_directory
 
@@ -44,6 +46,10 @@ options_regional_20km="\
     --spatialkernel matern12 \
     --fixed_gp_time_length_scale 100.0 \
     --fixed_gp_space_length_scale 0.2 \
+    --weeks_modelled 15 \
+    --days_ignored 7 \
+    --days_predicted 2 \
+    --num_steps_forcasted 3 \
 "
 slurm/submit-run-regional.sh $results_directory $options_regional_20km &
 

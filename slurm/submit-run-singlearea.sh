@@ -4,26 +4,44 @@ set -e
 
 trap 'echo submit-run-singlearea: Failed before finishing with exit code $? && exit $?' ERR
 
-if [ $# -ne 1 ]; then
-  echo Usage: submit-run results_directory
+if [ $# == 1 ]
+then
+  results_directory=$1
+  options="\
+    --produce_plots TRUE \
+    --results_directory $results_directory \
+  "
+  N=348
+elif [ $# == 2 ]
+then
+  results_directory=$1
+  options="\
+    --produce_plots TRUE \
+    --results_directory $results_directory \
+    $2
+  "
+  N=348
+elif [ $# == 3 ]
+then
+  results_directory=$1
+  options="\
+    --produce_plots TRUE \
+    --results_directory $results_directory \
+    $2
+  "
+  N=$3
+else
+  echo Usage: submit-run results_directory [options] [N]
   exit 1
 fi
 
-results_directory=$1
 echo "results_directory = $results_directory"
-
-options="\
-  --produce_plots TRUE \
-  --results_directory $results_directory \
-"
 
 mkdir -p $results_directory
 mkdir -p $results_directory/singlearea
 mkdir -p $results_directory/singlearea/pdfs
 mkdir -p $results_directory/singlearea/stanfits
 mkdir -p $results_directory/singlearea/output
-
-cp data/cases.csv $results_directory
 
 echo submit-run-singlearea: compiling
 Rscript epimap/compile.r
@@ -39,9 +57,9 @@ sbatch --wait \
     --time=18:00:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
-    --array=1-348 \
+    --array=1-$N \
     --wrap \
-    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options && echo Rmap-singlearea: DONE"
+    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
 
 echo submit-run-singlearea: combining areas
 sbatch --wait \
@@ -55,7 +73,7 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \
-    "Rscript covidmap/stage1_combine.r $options && echo Rmap-combineareas: DONE"
+    "Rscript covidmap/stage1_combine.r $options"
 
 wait
 

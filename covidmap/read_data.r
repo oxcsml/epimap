@@ -47,7 +47,7 @@ covidmap_read_data = function(env) {
     population <- df[,3]
 
     # NHS region data
-    sparse_region <- df[,4:12]
+    sparse_region <- df[,-3:-1, drop=FALSE]
     N_region <- ncol(sparse_region)
     region_df <- readdata("nhs_regions", row.names=1)
     regions <- rownames(region_df)
@@ -56,15 +56,6 @@ covidmap_read_data = function(env) {
     # Read on precomputed distances between region centres.
     geodist <- readdata("distances",row.names=1)
     colnames(geodist) <- areas
-
-    # Read data about how to split UK into regions to model for full model
-    js = fromJSON(file="data/region-groupings.json") ### TODO FIX
-    inferred_region = sparse_region
-    modelled_region = 0*sparse_region
-    for (i in 1:9) {
-      modelled_region[js[[i]],i]=1
-    }
-    stopifnot(all(inferred_region<=modelled_region))
 
     # Read case data from the results folder. This ensures that the case data
     # and results are generasted from are saved together
@@ -104,6 +95,15 @@ covidmap_read_data = function(env) {
           sep=''
         ))
       }
+
+      # Read data about how to split UK into regions to model for full model
+      js = fromJSON(file=sprintf('%s/%s',opt$data_directory,"region-groupings.json")) ### TODO FIX
+      inferred_region = sparse_region
+      modelled_region = 0*sparse_region
+      for (i in 1:opt$num_regions) {
+        modelled_region[js[[i]],i]=1
+      }
+      stopifnot(all(inferred_region<=modelled_region))
     }
 
     # Load traffic flux data between regions

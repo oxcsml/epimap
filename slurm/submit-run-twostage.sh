@@ -2,8 +2,31 @@
 
 trap 'echo submit-twostage: Failed before finishing with exit code $? && exit $?' ERR
 
-if [ $# -lt 2 ]; then
-  echo Usage: submit-run-twostage results_directory options
+if [ $# == 1 ]
+then
+  results_directory=$1
+  options="\
+    --results_directory $results_directory \
+  "
+  N=9
+elif [ $# == 2 ]
+then
+  results_directory=$1
+  options="\
+    --results_directory $results_directory \
+    $2
+  "
+  N=9
+elif [ $# == 3 ]
+then
+  results_directory=$1
+  options="\
+    --results_directory $results_directory \
+    $2
+  "
+  N=$3
+else
+  echo Usage: submit-run-regional results_directory [options] [N]
   exit 1
 fi
 
@@ -15,7 +38,7 @@ mkdir -p $results_directory
 mkdir -p $results_directory/twostage
 mkdir -p $results_directory/twostage/output
 git rev-parse HEAD > $results_directory/git-hash.txt
-options="--approximation twostage --results_directory $results_directory ${@:2}"
+options="--approximation twostage --num_samples $N $options"
 echo $options
 
 echo submit-run-twostage: compiling
@@ -31,7 +54,7 @@ sbatch --wait \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=10G \
-    --array=1-10 \
+    --array=1-$N \
     --wrap \
     "Rscript covidmap/stage2_run.r $options \
         --singlearea_sample_id \$SLURM_ARRAY_TASK_ID \

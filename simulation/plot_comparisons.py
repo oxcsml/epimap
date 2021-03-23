@@ -222,107 +222,26 @@ if __name__ == "__main__":
     # os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
     # from simulation.plot_comparisons import *
 
-    actuals = load_parameter("Rt", "simulation/latent_epidemic/tehtropolis")
+    actuals = load_parameter("Rt", "simulation/latent_epidemic/tehtropolis/sample")
     estimates = {
-        "Clean": load_all("fits/simulation/clean"),
-        "Cleaned Latent": load_all("fits/simulation/cleaned-latent"),
-        "Latent Reports": load_all("fits/simulation/latent-reports"),
-        "Cori": load_all("fits/simulation/cori"),
-        "Cleaned Latent No GP": load_all("fits/simulation/cleaned-latent-no-gp"),
-        "Cleaned Latent No Metapop": load_all(
-            "fits/simulation/cleaned-latent-no-metapop"
-        ),
-        "Latent Reports No GP": load_all("fits/simulation/latent-reports-no-gp"),
-        "Latent Reports No Metapop": load_all(
-            "fits/simulation/latent-reports-no-metapop"
-        ),
+        "EpiEstim": load_all("simulation_fits/test/epiestim"),
+        "SingleArea": load_all("simulation_fits/test/singlearea"),
+        "TwoStage": load_all("simulation_fits/test/twostage"),
+        "Regional": load_all("simulation_fits/test/regional"),
     }
 
-    cases = load_cases("simulation/latent_epidemic/tehtropolis")
+    cases = load_cases("simulation/latent_epidemic/tehtropolis/sample")
 
     title = "All"
     fig, axes = plot_comparison(actuals, estimates, title=title, par_name="Rt")
+    for ax in axes:
+        ax.set_ylim([0, 2])
     fig.savefig(
         f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
     )
     fig, axes = plot_comparison(
         cases,
         estimates,
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Cleaned Latent Ablation"
-    subset = ["Cleaned Latent", "Cleaned Latent No GP", "Cleaned Latent No Metapop"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Latent Reports Ablation"
-    subset = ["Latent Reports", "Latent Reports No GP", "Latent Reports No Metapop"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Method Comparison"
-    subset = ["Latent Reports", "Cleaned Latent", "Clean", "Cori"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
         title=title,
         par_name="C",
         lower="_25",

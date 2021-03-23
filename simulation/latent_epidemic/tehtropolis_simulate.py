@@ -6,22 +6,23 @@ import pandas as pd
 from simulation import simulate
 from plotting import plot_epidemic
 from utils import save_simulation_with_data
+# from ..latent_epidemic import *
 
 append = ""
 # append = "simulation/latent_epidemic/"
 
-areas = pd.read_csv(append + "data/areas.csv")
-counts = pd.read_csv(append + "data/cases.csv")
-metadata = pd.read_csv(append + "data/metadata.csv")
-distances = pd.read_csv(append + "data/distances.csv")
+areas = pd.read_csv(append + "tehtropolis/data/areas.csv")
+counts = pd.read_csv(append + "tehtropolis/data/cases.csv").set_index('area')
+metadata = pd.read_csv(append + "tehtropolis/data/metadata.csv")
+distances = pd.read_csv(append + "tehtropolis/data/distances.csv")
 # radiation_fluxes_01 = pd.read_csv(append + "data/radiation_flux_ls=0.1.csv")
 # radiation_fluxes_02 = pd.read_csv(append + "data/radiation_flux_ls=0.2.csv")
 # radiation_fluxes_05 = pd.read_csv(append + "data/radiation_flux_ls=0.5.csv")
-traffic_flux = pd.read_csv(append + "data/traffic_flux_row-normed.csv")
+traffic_flux = pd.read_csv(append + "tehtropolis/data/traffic_flux_row-normed.csv")
 traffic_flux_transpose = pd.read_csv(
-    append + "data/traffic_flux_transpose_row-normed.csv"
+    append + "tehtropolis/data/traffic_flux_transpose_row-normed.csv"
 )
-serial_interval = pd.read_csv(append + "data/serial_interval.csv")
+serial_interval = pd.read_csv(append + "tehtropolis/data/serial_interval.csv")
 
 # radiation_fluxes_01 = radiation_fluxes_01.to_numpy()[:, 1:].astype(np.float)
 # radiation_fluxes_02 = radiation_fluxes_02.to_numpy()[:, 1:].astype(np.float)
@@ -34,11 +35,11 @@ N = len(areas)
 
 R_interp = "stepwise"
 R_noise = "none"
-initial_infection_profile = "one_start"
+initial_infection_profile = "real"
 
 R_weekly = [
-    2.5,
-    2.5,
+    # 2.5,
+    # 2.5,
     2.5,
     2.5,
     2.5,
@@ -65,10 +66,31 @@ R_weekly = [
     1.4,
     1.4,
     1.4,
+    1.3,
+    1.2,
+    1.1,
+    1.0,
+    1.0,
+    1.0,
+    0.9,
+    0.9,
+    0.9,
+    0.8,
+    0.8,
+    0.8,
+    0.9,
+    0.9,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0
 ]
 
 if initial_infection_profile == "real":
-    initial_infections = counts[counts.columns[1:60]].to_numpy()
+    # initial_infections = counts[counts.columns[1:60]].to_numpy()
+    initial_infections = counts[counts.columns[0:45]].to_numpy()
 elif initial_infection_profile == "one_start":
     initial_infections = counts[counts.columns[1:60]].to_numpy()
     initial_infections[0:2, :] = 0
@@ -167,5 +189,9 @@ params = {
     "mixing_proportions": list(mixing_proportions),
 }
 
-save_simulation_with_data(X, C, R, params, "tehtropolis")
+save_simulation_with_data(X, C, R, params, "tehtropolis/sample", base_data_dir="tehtropolis/data")
+plt.savefig("tehtropolis/sample/cases_r.pdf")
+
+# %%
+
 # %%

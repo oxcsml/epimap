@@ -1027,7 +1027,7 @@ generated quantities {
         "; sigmas gp ", gp_sigma," g ", global_sigma," l ", local_scale,
         "; dispersion X ",infection_dispersion," C ",case_dispersion,
         "; last Rt ", Rt_all[Mstep-1], ", ", Rt_all[Mstep], ", ", Rt_all[Mstep+Mforw],
-        "; last Rin ", Rin[Mstep-1][1], ", ", Rin[Mstep][1], ", ", Rin[Mstep+Mforw][1]
+        "; last Rin ", Rin[1, Mstep-1], ", ", Rin[1, Mstep], ", ", Rin[1, Mstep+Mforw]
       );
     }
   }

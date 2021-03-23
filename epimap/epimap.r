@@ -2,6 +2,15 @@ library(rstan)
 library(gsubfn)
 library(plyr)
 
+
+#' Stop R without throwing errors. Allows for exiting if nothing to do in a way
+#' that doesn't break bash scripts.
+stop_quietly <- function() {
+  opt <- options(show.error.messages = FALSE)
+  on.exit(options(opt))
+  stop()
+}
+
 #' Parse kernel arguments from user-friendly strings to integers for STAN.
 #' 
 #' @param spatialkernel The string represnetative of the spatial kernel to use. 
@@ -317,6 +326,11 @@ epimap_region = function(
   constant_forward_rt = False,
   full_cases_dist = False
 ) {
+
+  if (sum(area_inferred) == 0) {
+    message("Skipping region, no areas to be inferred")
+    stop_quietly()
+  }
 
   kernels = parse_kernels(
     spatialkernel, 

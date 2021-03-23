@@ -23,13 +23,13 @@ covidmap_stage2_options = function(
   approximation        = "twostage",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
-  singlearea_sample_id    = 0, 
+  singlearea_sample_id = 0, 
   region_id            = 0,
 
   first_day_modelled   = NULL,
   last_day_modelled    = NULL,
-  weeks_modelled       = 15,
-  days_ignored         = 7,
+  weeks_modelled       = NULL,
+  days_ignored         = NULL,
   days_per_step        = 7,
   days_predicted       = 2,
   steps_ignored_stage2 = 1,
@@ -38,6 +38,9 @@ covidmap_stage2_options = function(
   thinning             = 10,
   chains               = 1,
   iterations           = 3000, 
+
+  num_samples          = 1,
+  num_regions          = 1,
 
   data_directory       = "data/",
   results_directory    = NULL,
@@ -694,6 +697,10 @@ covidmap_stage2_merge = function(
 
 
   # Rt_region posterior
+  # TODO: with simulation data, nans end up in the region Rts. Need to investigate. MH.
+  Rt_region_samples_0 = load_samples(0,'Rt_region')
+  if (sum(is.na(Rt_region_samples_0)) == 0 ){
+
   Rt_region = do.call(rbind,lapply(region_ids,function(region_id) {
     Rt_region_samples = load_samples(region_id,'Rt_region')
     t(apply(Rt_region_samples,2,quantile,
@@ -713,6 +720,9 @@ covidmap_stage2_merge = function(
   )
   writemergedresults(df, 'Rt_region', row.names=FALSE, quote=FALSE)
   message('done Rt_region')
+  } else {
+    message('skipping Rt_region due to NaNs')
+  }
 
   # Cproj_region posterior predictive
   Cproj_region = do.call(rbind,lapply(region_ids,function(region_id) {
@@ -890,7 +900,6 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
       default=opt$region_id,
       help=paste("id of region to model; default =", opt$region_id)
     ),
-
     make_option(
       c("-c", "--chains"),
       type="integer",
@@ -968,6 +977,18 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
       type="double", 
       default=opt$limit_radius, 
       help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
+    ),
+    make_option(
+      c("--num_samples"), 
+      type="integer", 
+      default=opt$num_samples, 
+      help=paste("Number of samples from the singlearea approximation to use in the twostage approximation ; default",opt$num_samples)
+    ),
+    make_option(
+      c("--num_regions"), 
+      type="integer", 
+      default=opt$num_regions, 
+      help=paste("Number of regionsin the regional approximation ; default",opt$num_regions)
     )
   )
 }

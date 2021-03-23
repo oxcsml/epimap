@@ -10,11 +10,11 @@ source("covidmap/utils.r")
 epiestim_options = function(
   first_day_modelled   = NULL,
   last_day_modelled    = NULL,
-  weeks_modelled       = 15,
-  days_ignored         = 7,
+  weeks_modelled       = NULL,
+  days_ignored         = NULL,
   days_per_step        = 7,
   days_predicted       = 0,
-  num_steps_forecasted = 0,
+  num_steps_forecasted = 3,
 
   num_samples        = 20,
   num_iterations     = 3000,
@@ -34,6 +34,8 @@ epiestim_run = function(area_index = 0, opt = epiestim_options()) {
   if (area_index==0) {
     stop("Area index 0.")
   }
+
+  print(opt)
   env = covidmap_read_data(environment())
 
   numiters = opt$iterations

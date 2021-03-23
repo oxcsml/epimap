@@ -14,10 +14,10 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = "2020-07-01",
+  first_day_modelled = NULL,
   last_day_modelled  = NULL,
   weeks_modelled     = NULL,
-  days_ignored       = 7,
+  days_ignored       = NULL,
   days_per_step      = 7,
   days_predicted     = 2,
   num_steps_forecasted = 3,
@@ -129,7 +129,6 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
     weeks_modelled     = opt$weeks_modelled,
     days_per_step      = opt$days_per_step
   )
-  message("Nproj = ", opt$num_steps_forecasted)
 
   area = areas[area_index]
   Count <- AllCount[area,]

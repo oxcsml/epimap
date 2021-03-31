@@ -1,0 +1,105 @@
+library(EpiNow2)
+library(data.table)
+library(optparse)
+
+
+option_list <- list(
+            make_option(
+                    "--first_day_modelled",
+                    action = "store",
+                    default = NA,
+                    type = "character",
+                    help = "First date of date to use"
+                ),
+            make_option(
+                    "--weeks_modelled",
+                    action = "store",
+                    default = NA,
+                    type = "integer",
+                    help = "Number of weeks to model"
+                ),
+            make_option(
+                    "--forecast_horizon",
+                    action = "store",
+                    default = NA,
+                    type = "integer",
+                    help = "Number of days for which to forecast"
+                ),
+            make_option(
+                    "--area",
+                    action = "store",
+                    default = NA,
+                    type = "character",
+                    help = "Name of the area to model, case sensitive!"
+                ),
+            make_option(
+                    "--case_counts",
+                    action = "store",
+                    default = NA,
+                    type = "character",
+                    help = "Path to preprocessed input data"
+                ),
+            make_option(
+                    "--ncores",
+                    action = "store",
+                    default = NA,
+                    type = "integer",
+                    help = "Number of cores to tell stan to use"
+                ),
+            make_option(
+                    "--output_folder",
+                    action = "store",
+                    default = NA,
+                    type = "character",
+                    help = "Where to store raw results"
+                ),
+            make_option(
+                    "--verbose",
+                    action = "store_true",
+                    default = FALSE,
+                    type = "logical",
+                    help = "Whether stan should be verbose"
+                )
+        )
+
+opt <- parse_args(OptionParser(option_list = option_list))
+
+start_date <- as.IDate(opt$first_day_modelled) 
+df <- fread(opt$case_counts)
+end_date <- start_date + opt$weeks_modelled * 7
+region_data <- subset(df[df$region == opt$area], select = c("date", "confirm"))
+input_data <- region_data[region_data$date >= start_date & region_data$date <= end_date] 
+input_data$date <- as.Date(input_data$date) # for compat with epinow2
+
+# These are just the default parameters that the package suggests in the README
+reporting_delay <- estimate_delay(rlnorm(1000,  log(3), 1), max_value = 15, bootstraps = 1)
+generation_time <- get_generation_time(disease = "SARS-CoV-2", source = "ganyani")
+incubation_period <- get_incubation_period(disease = "SARS-CoV-2", source = "lauer")
+rt_options <- rt_opts(prior = list(mean = 2, sd = 0.2))
+stan_options <- stan_opts(cores = opt$ncores)
+
+estimates <- epinow(reported_cases = input_data,
+                    generation_time = generation_time,
+                    delays = delay_opts(incubation_period, reporting_delay),
+                    rt = rt_options,
+                    stan = stan_options,
+                    horizon = opt$forecast_horizon,
+                    verbose = opt$verbose)
+
+standata <- rstan::extract(estimates$estimates$fit)
+fitted_r_samples = standata$R # this looks like the correct thing
+fitted_case_samples <- standata$imputed_reports
+
+write.table(
+            fitted_r_samples,
+            file = file.path(opt$output_folder, sprintf("%s_r_samples.txt", opt$area)),
+            row.names = FALSE,
+            col.names = FALSE
+        )
+
+write.table(
+            fitted_case_samples,
+            file = file.path(opt$output_folder, sprintf("%s_case_samples.txt", opt$area)),
+            row.names = FALSE,
+            col.names = FALSE
+        )

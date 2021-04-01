@@ -54,6 +54,13 @@ option_list <- list(
                     help = "Where to store raw results"
                 ),
             make_option(
+                    "--region_codes",
+                    action = "store",
+                    default = NA,
+                    type = "character",
+                    help = "Path to JSON file with region codes. Format area_name -> code."
+                ),
+            make_option(
                     "--verbose",
                     action = "store_true",
                     default = FALSE,
@@ -66,6 +73,8 @@ opt <- parse_args(OptionParser(option_list = option_list))
 
 start_date <- as.IDate(opt$first_day_modelled) 
 df <- fread(opt$case_counts)
+region_codes <- rjson::fromJSON(file = opt$region_codes)
+area_code <- region_codes[[opt$area]]
 end_date <- start_date + opt$weeks_modelled * 7
 region_data <- subset(df[df$region == opt$area], select = c("date", "confirm"))
 input_data <- region_data[region_data$date >= start_date & region_data$date <= end_date] 
@@ -87,19 +96,19 @@ estimates <- epinow(reported_cases = input_data,
                     verbose = opt$verbose)
 
 standata <- rstan::extract(estimates$estimates$fit)
-fitted_r_samples = standata$R # this looks like the correct thing
+fitted_r_samples <- standata$R 
 fitted_case_samples <- standata$imputed_reports
 
 write.table(
             fitted_r_samples,
-            file = file.path(opt$output_folder, sprintf("%s_r_samples.txt", opt$area)),
+            file = file.path(opt$output_folder, sprintf("%d_r_samples.txt", area_code)),
             row.names = FALSE,
             col.names = FALSE
         )
 
 write.table(
             fitted_case_samples,
-            file = file.path(opt$output_folder, sprintf("%s_case_samples.txt", opt$area)),
+            file = file.path(opt$output_folder, sprintf("%d_case_samples.txt", area_code)),
             row.names = FALSE,
             col.names = FALSE
         )

@@ -707,8 +707,16 @@ covidmap_stage2_merge = function(
       probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
     ))
   }))
+  
+  if (identical(opt$approximation, "regional")) {
+      reg_idx = rep(c(1:dim(Rt_region)[1]), each=Tstep)
+  } else if (identical(opt$approximation, "twostage")) {
+      reg_idx = sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep))
+  } else {
+      stop(cat("Unrecognised approximation: ", opt$approximation))
+  }
 
-  Rt_region = Rt_region[sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
+  Rt_region = Rt_region[reg_idx,]
   df <- area_date_dataframe(
       quoted_regions,
       days_all,

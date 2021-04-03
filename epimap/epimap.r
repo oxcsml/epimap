@@ -166,8 +166,7 @@ parse_epimap_init = function(
       local_time_sigma = .1,
       gp_space_decay = gp_space_decay,
       gp_time_decay = gp_time_decay,
-      infection_dispersion = 1.0,
-      case_dispersion = 1.0
+      infection_dispersion = 1.0
     ))
     setval = function(par,val,...) {
       env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
@@ -197,7 +196,7 @@ parse_epimap_init = function(
       })
     })
     lapply(1:F, function(f) setval('flux_probs', 1/F, f))
-    lapply(1:N, function(j) setval('case_precision', 0.1, j))
+    lapply(1:N, function(j) setval('case_dispersion', 1.0, j))
     as.list(env)
   })
 }
@@ -207,7 +206,7 @@ parse_epimap_init = function(
 #' @param stan_file The STAN file to run.
 #' @param stan_data The data for the STAN model.
 #' @param stan_init The parameter initialisation for the STAN model.
-#' @param stan_pars 
+#' @param stan_pars Parameters to output and keep.
 #' @param iter The number of HMC iterations to run.
 #' @param chain The number of chains to run.
 #' @param control The control parameters to apply.
@@ -437,6 +436,8 @@ epimap_region = function(
   epimap_pars = c(
     epimap_summary_pars,
     "Ppred",
+    "Xpred",
+    "Xproj",
     "Cpred",
     "Cproj",
     "fluxproportions",
@@ -444,7 +445,7 @@ epimap_region = function(
     "Rt_region",
     "Cproj_region",
     "Cpred_region",
-    "case_precision"
+    "case_dispersion"
   )
 
   print("Epimap control")
@@ -710,7 +711,7 @@ epimap_twostage = function(
 #' @param mu_scale Scale of prior on the prior mean of log(Rt)
 #' @param sigma_scale Scale of prior on the prior standard deviation of log(Rt)
 #' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process; default 5.0
-#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts; default 5.0
+#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts; default 10.0
 #' @param xi_scale Scale of prior on exegeneous infection rate
 #' @param reconstruct_infections Whether to reconstruct infection day for each case; default True
 #' @param outlier_prob_threshold Probability hreshold to determine if a diagnosis count is an outlier; default 1.0
@@ -736,8 +737,8 @@ epimap_singlearea = function(
   fixed_gp_time_length_scale = -1.0,
   mu_scale = 0.5,
   sigma_scale = 1.0,
-  phi_latent_scale = 5.0,
-  phi_observed_scale = 5.0,
+  phi_latent_scale = 10.0,
+  phi_observed_scale = 10.0,
   xi_scale = 0.01,
   outlier_prob_threshold = 1.0,
   outlier_count_threshold = 10,
@@ -823,10 +824,12 @@ epimap_singlearea = function(
     epimap_summary_pars,
     "Crecon",
     "Cpred",
+    "Cproj",
+    "Xpred",
+    "Xproj",
     "Noutliers",
     "Xt",
     "Xt_proj",
-    "Count_proj",
     "Ppred"
   )
 

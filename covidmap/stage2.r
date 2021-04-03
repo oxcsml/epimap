@@ -20,7 +20,7 @@ covidmap_stage2_options = function(
   full_cases_distribution = 1,
   metapop              = "in,alt_traffic_forward,alt_traffic_reverse",
   #metapop              = "traffic_forward,traffic_reverse,radiation1,radiation2,radiation3,uniform,in",
-  approximation        = "twostage",
+  approximation        = "regional",
   observation_data     = "cleaned_latent_sample",
   observation_model    = "gaussian",
   singlearea_sample_id = 0, 
@@ -305,6 +305,8 @@ covidmap_stage2_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
+    save_samples("Xpred",areafirst=TRUE)
+    save_samples("Xproj",areafirst=TRUE)
     if (opt$region_id>0) {
       nregion = 1
     } else {
@@ -393,9 +395,9 @@ covidmap_stage2_postprocess = function(env) {
 
 
     #################################################################
-    # posterior predictives and projections
-    s <- summary(fit, pars=c("Cpred"), probs=c(0.025, .25, .5, .75, .975))$summary
-    Cpred <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
+    # posterior predictives and projections of cases
+    s <- summary(fit, pars=c("Cpred"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Cpred <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
     #Cpred <- s[,c("2.5%", "50%", "97.5%")]
     Cpred <- t(t(Cpred))
     message(sprintf("median Cpred range: [%f, %f]",min(Cpred[,"50%"]),max(Cpred[,"50%"])))
@@ -405,7 +407,8 @@ covidmap_stage2_postprocess = function(env) {
       rep('inferred',Tlik),
       format(round(Cpred,1),nsmall=1),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_2_5","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60","C_70","C_75","C_80","C_90","C_97_5")
     )
     writeresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
 
@@ -443,8 +446,8 @@ covidmap_stage2_postprocess = function(env) {
 
 
 
-    s <- summary(fit, pars=c("Cproj"), probs=c(0.025, .25, .5, .75, .975))$summary
-    Cproj <- s[,c("2.5%","25%", "50%","75%", "97.5%")]
+    s <- summary(fit, pars=c("Cproj"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Cproj <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
     #Cproj <- s[,c("2.5%", "50%", "97.5%")]
     Cproj <- t(t(Cproj))
     message(sprintf("median Cproj range: [%f, %f]",min(Cproj[,"50%"]),max(Cproj[,"50%"])))
@@ -454,9 +457,47 @@ covidmap_stage2_postprocess = function(env) {
       rep('projected',Tproj),
       format(round(Cproj,1),digits=5),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_2_5","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60","C_70","C_75","C_80","C_90","C_97_5")
     )
     writeresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
+
+
+    #################################################################
+    # posterior predictives and projections of infections
+    s <- summary(fit, pars=c("Xpred"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Xpred <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+    #Xpred <- s[,c("2.5%", "50%", "97.5%")]
+    Xpred <- t(t(Xpred))
+    message(sprintf("median Cpred range: [%f, %f]",min(Xpred[,"50%"]),max(Xpred[,"50%"])))
+    df <- area_date_dataframe(
+      quoted_areas[inferred_areas],
+      seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
+      rep('inferred',Tlik),
+      format(round(Xpred,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("X_2_5","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60","X_70","X_75","X_80","X_90","X_97_5")
+    )
+    writeresults(df, 'Xpred', row.names=FALSE, quote=FALSE)
+
+
+    s <- summary(fit, pars=c("Xproj"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Xproj <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+    #Xproj <- s[,c("2.5%", "50%", "97.5%")]
+    Xproj <- t(t(Xproj))
+    message(sprintf("median Xproj range: [%f, %f]",min(Xproj[,"50%"]),max(Xproj[,"50%"])))
+    df <- area_date_dataframe(
+      quoted_areas[inferred_areas], 
+      seq(dates[Tcur]+1,by=1,length.out=Tproj),
+      rep('projected',Tproj),
+      format(round(Xproj,1),digits=5),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("X_2_5","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60","X_70","X_75","X_80","X_90","X_97_5")
+    )
+    writeresults(df, 'Xproj', row.names=FALSE, quote=FALSE)
+
 
 
     #################################################################
@@ -576,8 +617,8 @@ covidmap_stage2_merge = function(
       provenance,
       format(round(Rt,2),nsmall=2),
       #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
-      c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
-        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
+      c("Rt_025","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_975")
   )
   writemergedresults(df, 'Rt', row.names=FALSE, quote=FALSE)
   message('done Rt')
@@ -623,7 +664,7 @@ covidmap_stage2_merge = function(
   Cpred = do.call(rbind,lapply(region_ids, function(region_id) {
     Cpred_samples = load_samples(region_id,'Cpred')
     t(apply(Cpred_samples,2,quantile,
-      probs=c(0.025, 0.25, .5, 0.75, .975)
+      probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
     ))
   }))
 
@@ -633,7 +674,8 @@ covidmap_stage2_merge = function(
       rep('inferred',Tlik),
       format(round(Cpred,1),nsmall=1),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
   message('done Cpred')
@@ -681,7 +723,7 @@ covidmap_stage2_merge = function(
   Cproj = do.call(rbind,lapply(region_ids,function(region_id) {
     Cproj_samples = load_samples(region_id,'Cproj')
     t(apply(Cproj_samples,2,quantile,
-        probs=c(.025,.25,.5,.75,.975)
+        probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
     ))
   }))
   df <- area_date_dataframe(
@@ -690,16 +732,58 @@ covidmap_stage2_merge = function(
       rep('projected',Tproj),
       format(round(Cproj,1),nsmall=1),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
   message('done Cproj')
 
+  #################################################################
+  # posterior predictives and projections
+  Xpred = do.call(rbind,lapply(region_ids, function(region_id) {
+    Xpred_samples = load_samples(region_id,'Xpred')
+    t(apply(Xpred_samples,2,quantile,
+      probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+    ))
+  }))
 
+  df <- area_date_dataframe(
+      quoted_areas_by_regions,
+      seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
+      rep('inferred',Tlik),
+      format(round(Xpred,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  writemergedresults(df, 'Xpred', row.names=FALSE, quote=FALSE)
+  message('done Xpred')
+
+  Xproj = do.call(rbind,lapply(region_ids,function(region_id) {
+    Xproj_samples = load_samples(region_id,'Xproj')
+    t(apply(Xproj_samples,2,quantile,
+        probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+    ))
+  }))
+  df <- area_date_dataframe(
+      quoted_areas_by_regions,
+      seq(dates[Tcur]+1,by=1,length.out=Tproj),
+      rep('projected',Tproj),
+      format(round(Xproj,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  writemergedresults(df, 'Xproj', row.names=FALSE, quote=FALSE)
+  message('done Xproj')
+
+
+
+  ####################################################################################
   # Rt_region posterior
   # TODO: with simulation data, nans end up in the region Rts. Need to investigate. MH.
-  Rt_region_samples_0 = load_samples(0,'Rt_region')
-  if (sum(is.na(Rt_region_samples_0)) == 0 ){
+  #Rt_region_samples_0 = load_samples(0,'Rt_region')
+  #if (sum(is.na(Rt_region_samples_0)) == 0 ){
 
   Rt_region = do.call(rbind,lapply(region_ids,function(region_id) {
     Rt_region_samples = load_samples(region_id,'Rt_region')
@@ -720,9 +804,9 @@ covidmap_stage2_merge = function(
   )
   writemergedresults(df, 'Rt_region', row.names=FALSE, quote=FALSE)
   message('done Rt_region')
-  } else {
-    message('skipping Rt_region due to NaNs')
-  }
+  #} else {
+  #  message('skipping Rt_region due to NaNs')
+  #}
 
   # Cproj_region posterior predictive
   Cproj_region = do.call(rbind,lapply(region_ids,function(region_id) {

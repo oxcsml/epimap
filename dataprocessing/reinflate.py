@@ -5,13 +5,18 @@ import sys
 def process_csvs(input_r_filename: str='fits/0_Rt.csv',
                  input_exceed_filename: str='fits/0_Pexceed.csv',
                  input_weekly_filename: str='fits/0_Cweekly.csv',
-                 input_pred_filename: str='fits/0_Cpred.csv',
-                 input_proj_filename: str='fits/0_Cproj.csv',
+                 input_Cpred_filename: str='fits/0_Cpred.csv',
+                 input_Cproj_filename: str='fits/0_Cproj.csv',
+                 input_Xpred_filename: str='fits/0_Xpred.csv',
+                 input_Xproj_filename: str='fits/0_Xproj.csv',
                  output_r_filename: str='website/default/Rt.csv',
                  output_exceed_filename: str='website/default/Pexceed.csv',
                  output_weekly_filename: str='website/default/Cweekly.csv',
-                 output_pred_filename: str='website/default/Cpred.csv',
-                 output_proj_filename: str='website/default/Cproj.csv'):
+                 output_Cpred_filename: str='website/default/Cpred.csv',
+                 output_Cproj_filename: str='website/default/Cproj.csv',
+                 output_Xpred_filename: str='website/default/Xpred.csv',
+                 output_Xproj_filename: str='website/default/Xproj.csv'
+):
 
     reproduction_numbers = pd.read_csv(input_r_filename) \
                              .rename(columns={'Date': 'day'})
@@ -31,41 +36,56 @@ def process_csvs(input_r_filename: str='fits/0_Rt.csv',
     weekly = weekly.set_index(['area', 'day'])
 
 
-    predictions = pd.read_csv(input_pred_filename) \
+    Cpredictions = pd.read_csv(input_Cpred_filename) \
                     .rename(columns={'Date': 'day'})
-    predictions['day'] = pd.to_datetime(predictions['day'], format='%Y-%m-%d')
-    predictions = predictions.set_index(['area', 'day'])
+    Cpredictions['day'] = pd.to_datetime(Cpredictions['day'], format='%Y-%m-%d')
+    Cpredictions = Cpredictions.set_index(['area', 'day'])
 
-    projections = pd.read_csv(input_proj_filename) \
+    Cprojections = pd.read_csv(input_Cproj_filename) \
                     .rename(columns={'Date': 'day'})
-    projections['day'] = pd.to_datetime(projections['day'], format='%Y-%m-%d')
-    projections = projections.set_index(['area', 'day'])
+    Cprojections['day'] = pd.to_datetime(Cprojections['day'], format='%Y-%m-%d')
+    Cprojections = Cprojections.set_index(['area', 'day'])
 
-    (reproduction_numbers, exceedance_probs,
-     weekly, predictions, projections) = reinflate(reproduction_numbers,
-                                           exceedance_probs,
-                                           weekly,
-                                           predictions,
-                                           projections)
+    Xpredictions = pd.read_csv(input_Xpred_filename) \
+                    .rename(columns={'Date': 'day'})
+    Xpredictions['day'] = pd.to_datetime(Xpredictions['day'], format='%Y-%m-%d')
+    Xpredictions = Xpredictions.set_index(['area', 'day'])
+
+    Xprojections = pd.read_csv(input_Xproj_filename) \
+                    .rename(columns={'Date': 'day'})
+    Xprojections['day'] = pd.to_datetime(Xprojections['day'], format='%Y-%m-%d')
+    Xprojections = Xprojections.set_index(['area', 'day'])
+
+
+    (reproduction_numbers, exceedance_probs, weekly, 
+     Cpredictions, Cprojections, Xpredictions, Xprojections) = reinflate(
+     reproduction_numbers, exceedance_probs, weekly, 
+     Cpredictions, Cprojections, Xpredictions, Xprojections)
 
     reproduction_numbers.index.names = ['area', 'Date']
     exceedance_probs.index.names = ['area', 'Date']
     weekly.index.names = ['area', 'Date']
-    predictions.index.names = ['area', 'Date']
-    projections.index.names = ['area', 'Date']
+    Cpredictions.index.names = ['area', 'Date']
+    Cprojections.index.names = ['area', 'Date']
+    Xpredictions.index.names = ['area', 'Date']
+    Xprojections.index.names = ['area', 'Date']
 
     reproduction_numbers.to_csv(output_r_filename, float_format='%.2f')
     exceedance_probs.to_csv(output_exceed_filename, float_format='%.2f')
     weekly.to_csv(output_weekly_filename, float_format='%3d')
-    predictions.to_csv(output_pred_filename, float_format='%2.1f')
-    projections.to_csv(output_proj_filename, float_format='%2.1f')
+    Cpredictions.to_csv(output_Cpred_filename, float_format='%2.1f')
+    Cprojections.to_csv(output_Cproj_filename, float_format='%2.1f')
+    Xpredictions.to_csv(output_Xpred_filename, float_format='%2.1f')
+    Xprojections.to_csv(output_Xproj_filename, float_format='%2.1f')
 
 
 def reinflate(reproduction_numbers: pd.DataFrame,
               exceedance_probs: pd.DataFrame,
               weekly: pd.DataFrame,
-              predictions: pd.DataFrame,
-              projections: pd.DataFrame,
+              Cpredictions: pd.DataFrame,
+              Cprojections: pd.DataFrame,
+              Xpredictions: pd.DataFrame,
+              Xprojections: pd.DataFrame,
               divide_predictions_by_population_ratio: bool=False):
 
     england_map = pd.read_csv('data/england_meta_areas.csv')
@@ -109,6 +129,14 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     scotland_map = scotland_map.drop(columns=['POPULATION_x', 'POPULATION_y'])
 
     # Reproduction numbers
+    # `Highland` is both the name of an NHS Scotland Health Board and an area
+    # in the health board. To avoid a duplicate area key, we drop it as a
+    # health board, and keep it as a local area (in this case the two rows
+    # would have been equal in any event).
+    reproduction_numbers = reproduction_numbers.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+
     england = england_map.merge(reproduction_numbers.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
@@ -124,18 +152,18 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                            .drop(columns=['NHS Scotland Health Board',
                                           'ratio'])
 
-    # `Highland` is both the name of an NHS Scotland Health Board and an area
-    # in the health board. To avoid a duplicate area key, we drop it as a
-    # health board, and keep it as a local area (in this case the two rows
-    # would have been equal in any event).
-    if divide_predictions_by_population_ratio:
-        reproduction_numbers = reproduction_numbers.rename(
-            index={'Highland': 'Highland (NHS Scotland Health Board)'})
-
     reproduction_numbers = reproduction_numbers.append(england) \
                                                .append(scotland)
 
     # Exceedance probabilities
+    # `Highland` is both the name of an NHS Scotland Health Board and an area
+    # in the health board. To avoid a duplicate area key, we drop it as a
+    # health board, and keep it as a local area (in this case the two rows
+    # would have been equal in any event).
+    exceedance_probs = exceedance_probs.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+
     england = england_map.merge(exceedance_probs.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
@@ -150,14 +178,6 @@ def reinflate(reproduction_numbers: pd.DataFrame,
                            .set_index(['area', 'day']) \
                            .drop(columns=['NHS Scotland Health Board',
                                           'ratio'])
-
-    # `Highland` is both the name of an NHS Scotland Health Board and an area
-    # in the health board. To avoid a duplicate area key, we drop it as a
-    # health board, and keep it as a local area (in this case the two rows
-    # would have been equal in any event).
-    if divide_predictions_by_population_ratio:
-        exceedance_probs = exceedance_probs.rename(
-            index={'Highland': 'Highland (NHS Scotland Health Board)'})
 
     exceedance_probs = exceedance_probs.append(england) \
                                        .append(scotland)
@@ -193,74 +213,219 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     weekly = weekly.append(england) \
                    .append(scotland)
 
- 
     # Case predictions 
-    england = england_map.merge(predictions.reset_index(level=1),
+    england = england_map.merge(Cpredictions.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
                                 how='left')
 
     if divide_predictions_by_population_ratio:
         england['C_025'] = england['C_025'] * england['ratio']
+        england['C_10'] = england['C_10'] * england['ratio']
+        england['C_20'] = england['C_20'] * england['ratio']
         england['C_25'] = england['C_25'] * england['ratio']
+        england['C_30'] = england['C_30'] * england['ratio']
+        england['C_40'] = england['C_40'] * england['ratio']
         england['C_50'] = england['C_50'] * england['ratio']
+        england['C_60'] = england['C_60'] * england['ratio']
+        england['C_70'] = england['C_70'] * england['ratio']
         england['C_75'] = england['C_75'] * england['ratio']
+        england['C_80'] = england['C_80'] * england['ratio']
+        england['C_90'] = england['C_90'] * england['ratio']
         england['C_975'] = england['C_975'] * england['ratio']
 
     england = england.drop(columns=['Meta area', 'ratio']) \
                      .set_index(['area', 'day'])
 
-    scotland = scotland_map.merge(predictions.reset_index(level=1),
+    scotland = scotland_map.merge(Cpredictions.reset_index(level=1),
                                   left_on=['NHS Scotland Health Board'],
                                   right_on=['area'],
                                   how='left')
 
     if divide_predictions_by_population_ratio:
         scotland['C_025'] = scotland['C_025'] * scotland['ratio']
+        scotland['C_10'] = scotland['C_10'] * scotland['ratio']
+        scotland['C_20'] = scotland['C_20'] * scotland['ratio']
         scotland['C_25'] = scotland['C_25'] * scotland['ratio']
+        scotland['C_30'] = scotland['C_30'] * scotland['ratio']
+        scotland['C_40'] = scotland['C_40'] * scotland['ratio']
         scotland['C_50'] = scotland['C_50'] * scotland['ratio']
+        scotland['C_60'] = scotland['C_60'] * scotland['ratio']
+        scotland['C_70'] = scotland['C_70'] * scotland['ratio']
         scotland['C_75'] = scotland['C_75'] * scotland['ratio']
+        scotland['C_80'] = scotland['C_80'] * scotland['ratio']
+        scotland['C_90'] = scotland['C_90'] * scotland['ratio']
         scotland['C_975'] = scotland['C_975'] * scotland['ratio']
 
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
                        .set_index(['area', 'day'])
 
     # We only keep the case predictions for `Highland` as a local area, not
-    # predictions = predictions.drop(['Highland'])
-    if divide_predictions_by_population_ratio:
-        predictions = predictions.rename(
-            index={'Highland': 'Highland (NHS Scotland Health Board)'})
+    # Cpredictions = Cpredictions.drop(['Highland'])
+    Cpredictions = Cpredictions.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
 
-    predictions = predictions.append(england) \
+    Cpredictions = Cpredictions.append(england) \
                              .append(scotland)
 
     # Case projections 
-    england = england_map.merge(projections.reset_index(level=1),
+    england = england_map.merge(Cprojections.reset_index(level=1),
                                 left_on=['Meta area'],
                                 right_on=['area'],
                                 how='left')
 
     if divide_predictions_by_population_ratio:
         england['C_025'] = england['C_025'] * england['ratio']
+        england['C_10'] = england['C_10'] * england['ratio']
+        england['C_20'] = england['C_20'] * england['ratio']
         england['C_25'] = england['C_25'] * england['ratio']
+        england['C_30'] = england['C_30'] * england['ratio']
+        england['C_40'] = england['C_40'] * england['ratio']
         england['C_50'] = england['C_50'] * england['ratio']
+        england['C_60'] = england['C_60'] * england['ratio']
+        england['C_70'] = england['C_70'] * england['ratio']
         england['C_75'] = england['C_75'] * england['ratio']
+        england['C_80'] = england['C_80'] * england['ratio']
+        england['C_90'] = england['C_90'] * england['ratio']
         england['C_975'] = england['C_975'] * england['ratio']
+
 
     england = england.drop(columns=['Meta area', 'ratio']) \
                      .set_index(['area', 'day'])
 
-    scotland = scotland_map.merge(projections.reset_index(level=1),
+    scotland = scotland_map.merge(Cprojections.reset_index(level=1),
                                   left_on=['NHS Scotland Health Board'],
                                   right_on=['area'],
                                   how='left')
 
     if divide_predictions_by_population_ratio:
         scotland['C_025'] = scotland['C_025'] * scotland['ratio']
+        scotland['C_10'] = scotland['C_10'] * scotland['ratio']
+        scotland['C_20'] = scotland['C_20'] * scotland['ratio']
         scotland['C_25'] = scotland['C_25'] * scotland['ratio']
+        scotland['C_30'] = scotland['C_30'] * scotland['ratio']
+        scotland['C_40'] = scotland['C_40'] * scotland['ratio']
         scotland['C_50'] = scotland['C_50'] * scotland['ratio']
+        scotland['C_60'] = scotland['C_60'] * scotland['ratio']
+        scotland['C_70'] = scotland['C_70'] * scotland['ratio']
         scotland['C_75'] = scotland['C_75'] * scotland['ratio']
+        scotland['C_80'] = scotland['C_80'] * scotland['ratio']
+        scotland['C_90'] = scotland['C_90'] * scotland['ratio']
         scotland['C_975'] = scotland['C_975'] * scotland['ratio']
+
+
+    scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
+                       .set_index(['area', 'day'])
+
+    # We only keep the case projections for `Highland` as a local area, not
+    # projections = projections.drop(['Highland'])
+    Cprojections = Cprojections.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+    Cprojections = Cprojections.append(england) \
+                             .append(scotland)
+
+
+    # Infection predictions 
+    england = england_map.merge(Xpredictions.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
+
+    if divide_predictions_by_population_ratio:
+        england['C_025'] = england['C_025'] * england['ratio']
+        england['C_10'] = england['C_10'] * england['ratio']
+        england['C_20'] = england['C_20'] * england['ratio']
+        england['C_25'] = england['C_25'] * england['ratio']
+        england['C_30'] = england['C_30'] * england['ratio']
+        england['C_40'] = england['C_40'] * england['ratio']
+        england['C_50'] = england['C_50'] * england['ratio']
+        england['C_60'] = england['C_60'] * england['ratio']
+        england['C_70'] = england['C_70'] * england['ratio']
+        england['C_75'] = england['C_75'] * england['ratio']
+        england['C_80'] = england['C_80'] * england['ratio']
+        england['C_90'] = england['C_90'] * england['ratio']
+        england['C_975'] = england['C_975'] * england['ratio']
+
+    england = england.drop(columns=['Meta area', 'ratio']) \
+                     .set_index(['area', 'day'])
+
+    scotland = scotland_map.merge(Xpredictions.reset_index(level=1),
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left')
+
+    if divide_predictions_by_population_ratio:
+        scotland['C_025'] = scotland['C_025'] * scotland['ratio']
+        scotland['C_10'] = scotland['C_10'] * scotland['ratio']
+        scotland['C_20'] = scotland['C_20'] * scotland['ratio']
+        scotland['C_25'] = scotland['C_25'] * scotland['ratio']
+        scotland['C_30'] = scotland['C_30'] * scotland['ratio']
+        scotland['C_40'] = scotland['C_40'] * scotland['ratio']
+        scotland['C_50'] = scotland['C_50'] * scotland['ratio']
+        scotland['C_60'] = scotland['C_60'] * scotland['ratio']
+        scotland['C_70'] = scotland['C_70'] * scotland['ratio']
+        scotland['C_75'] = scotland['C_75'] * scotland['ratio']
+        scotland['C_80'] = scotland['C_80'] * scotland['ratio']
+        scotland['C_90'] = scotland['C_90'] * scotland['ratio']
+        scotland['C_975'] = scotland['C_975'] * scotland['ratio']
+
+    scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
+                       .set_index(['area', 'day'])
+
+    # We only keep the case predictions for `Highland` as a local area, not
+    # Xpredictions = Xpredictions.drop(['Highland'])
+    Xpredictions = Xpredictions.rename(
+        index={'Highland': 'Highland (NHS Scotland Health Board)'})
+
+    Xpredictions = Xpredictions.append(england) \
+                             .append(scotland)
+
+    # Infection projections 
+    england = england_map.merge(Xprojections.reset_index(level=1),
+                                left_on=['Meta area'],
+                                right_on=['area'],
+                                how='left')
+
+    if divide_predictions_by_population_ratio:
+        england['X_025'] = england['X_025'] * england['ratio']
+        england['X_10'] = england['X_10'] * england['ratio']
+        england['X_20'] = england['X_20'] * england['ratio']
+        england['X_25'] = england['X_25'] * england['ratio']
+        england['X_30'] = england['X_30'] * england['ratio']
+        england['X_40'] = england['X_40'] * england['ratio']
+        england['X_50'] = england['X_50'] * england['ratio']
+        england['X_60'] = england['X_60'] * england['ratio']
+        england['X_70'] = england['X_70'] * england['ratio']
+        england['X_75'] = england['X_75'] * england['ratio']
+        england['X_80'] = england['X_80'] * england['ratio']
+        england['X_90'] = england['X_90'] * england['ratio']
+        england['X_975'] = england['X_975'] * england['ratio']
+
+
+    england = england.drop(columns=['Meta area', 'ratio']) \
+                     .set_index(['area', 'day'])
+
+    scotland = scotland_map.merge(Xprojections.reset_index(level=1),
+                                  left_on=['NHS Scotland Health Board'],
+                                  right_on=['area'],
+                                  how='left')
+
+    if divide_predictions_by_population_ratio:
+        scotland['X_025'] = scotland['X_025'] * scotland['ratio']
+        scotland['X_10'] = scotland['X_10'] * scotland['ratio']
+        scotland['X_20'] = scotland['X_20'] * scotland['ratio']
+        scotland['X_25'] = scotland['X_25'] * scotland['ratio']
+        scotland['X_30'] = scotland['X_30'] * scotland['ratio']
+        scotland['X_40'] = scotland['X_40'] * scotland['ratio']
+        scotland['X_50'] = scotland['X_50'] * scotland['ratio']
+        scotland['X_60'] = scotland['X_60'] * scotland['ratio']
+        scotland['X_70'] = scotland['X_70'] * scotland['ratio']
+        scotland['X_75'] = scotland['X_75'] * scotland['ratio']
+        scotland['X_80'] = scotland['X_80'] * scotland['ratio']
+        scotland['X_90'] = scotland['X_90'] * scotland['ratio']
+        scotland['X_975'] = scotland['X_975'] * scotland['ratio']
+
 
     scotland = scotland.drop(columns=['NHS Scotland Health Board', 'ratio']) \
                        .set_index(['area', 'day'])
@@ -268,10 +433,10 @@ def reinflate(reproduction_numbers: pd.DataFrame,
     # We only keep the case projections for `Highland` as a local area, not
     # projections = projections.drop(['Highland'])
     if divide_predictions_by_population_ratio:
-        projections = projections.rename(
+        Xprojections = Xprojections.rename(
             index={'Highland': 'Highland (NHS Scotland Health Board)'})
 
-    projections = projections.append(england) \
+    Xprojections = Xprojections.append(england) \
                              .append(scotland)
 
     # The original reproduction numbers and case predictions data frames might
@@ -285,36 +450,48 @@ def reinflate(reproduction_numbers: pd.DataFrame,
         ~exceedance_probs.index.duplicated(keep='first')]
     weekly = weekly.loc[
         ~weekly.index.duplicated(keep='first')]
-    predictions = predictions.loc[
-        ~predictions.index.duplicated(keep='first')]
-    projections = projections.loc[
-        ~projections.index.duplicated(keep='first')]
+    Cpredictions = Cpredictions.loc[
+        ~Cpredictions.index.duplicated(keep='first')]
+    Cprojections = Cprojections.loc[
+        ~Cprojections.index.duplicated(keep='first')]
+    Xpredictions = Xpredictions.loc[
+        ~Xpredictions.index.duplicated(keep='first')]
+    Xprojections = Xprojections.loc[
+        ~Xprojections.index.duplicated(keep='first')]
 
     return reproduction_numbers.sort_index().dropna(), \
            exceedance_probs.sort_index().dropna(), \
            weekly.sort_index().dropna(), \
-           predictions.sort_index().dropna(), \
-           projections.sort_index().dropna()
+           Cpredictions.sort_index().dropna(), \
+           Cprojections.sort_index().dropna(), \
+           Xpredictions.sort_index().dropna(), \
+           Xprojections.sort_index().dropna() 
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    if len(args) == 10:
+    if len(args) == 14:
         process_csvs(input_r_filename=args[0],
                      input_exceed_filename=args[1],
                      input_weekly_filename=args[2],
-                     input_pred_filename=args[3],
-                     input_proj_filename=args[4],
-                     output_r_filename=args[5],
-                     output_exceed_filename=args[6],
-                     output_weekly_filename=args[7],
-                     output_pred_filename=args[8],
-                     output_proj_filename=args[9])
-    elif len(args) == 5:
+                     input_Cpred_filename=args[3],
+                     input_Cproj_filename=args[4],
+                     input_Xpred_filename=args[5],
+                     input_Xproj_filename=args[6],
+                     output_r_filename=args[7],
+                     output_exceed_filename=args[8],
+                     output_weekly_filename=args[9],
+                     output_Cpred_filename=args[10],
+                     output_Cproj_filename=args[11],
+                     output_Xpred_filename=args[12],
+                     output_Xproj_filename=args[13])
+    elif len(args) == 7:
         process_csvs(input_r_filename=args[0],
                      input_exceed_filename=args[1],
                      input_weekly_filename=args[2],
-                     input_pred_filename=args[3],
-                     input_proj_filename=args[4])
+                     input_Cpred_filename=args[3],
+                     input_Cproj_filename=args[4],
+                     input_Xpred_filename=args[5],
+                     input_Xproj_filename=args[6])
     else:
-        process_csvs()
+        raise Error("Number of arguments has to be 7 or 14")

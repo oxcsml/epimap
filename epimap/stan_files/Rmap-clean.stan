@@ -123,8 +123,8 @@ transformed parameters {
         //approximate poisson with log normal with same mean/variance
         Xt[t] = fabs(
           Einfection + 
-          //sqrt(Einfection) * Ceta[s] // Poisson
-          sqrt((1.0+phi_latent) * Einfection) * Ceta[s] // neg-binomial
+          sqrt(Einfection) * Ceta[s] // Poisson
+          //sqrt((1.0+1.0/phi_latent) * Einfection) * Ceta[s] // neg-binomial
         );
 
         Ecount[s] = dot_product(
@@ -144,7 +144,7 @@ model {
   xi ~ normal(0.0, xi_scale);
   Reta ~ std_normal();
   Ceta ~ std_normal();
-  weekly_case_variations ~ dirichlet(rep_vector(5.0,7));
+  weekly_case_variations ~ dirichlet(rep_vector(7.0,7));
 
   {
     resultdelayprofile ~ dirichlet(resultdelayalpha[1:Trdp]);
@@ -155,7 +155,7 @@ model {
       int s = t-Tcond;
       int d = (t % 7)+1;
       real ec = (7.0*weekly_case_variations[d]) * Ecount[s];
-      Count[1,t] ~ neg_binomial_2(ec, ec / phi_observed);
+      Count[1,t] ~ neg_binomial_2(fmax(1e-3, ec), fmax(1e-3,ec / phi_observed));
     }
     for (i in 2:Trdp) {
       int t = Tcur-Trdp+i;
@@ -163,7 +163,10 @@ model {
       int d = (t % 7)+1;
       real ec = (7.0*weekly_case_variations[d]) *
         Ecount[s] * resultdelayprofile_revcum[i];
-      Count[1,t] ~ neg_binomial_2(ec, ec / phi_observed);
+      Count[1,t] ~ neg_binomial_2(
+        fmax(1e-3, ec), 
+        fmax(1e-3, ec / phi_observed)
+      );
     }
   }
 }
@@ -171,12 +174,14 @@ model {
 generated quantities {
   vector[Nstep+Nproj] Rt;
   int Crecon[Tcur];
-  vector[Tstep*Nstep] Cpred;
   int Noutliers = 0;
   real meandelay = 0.0;
   real denomdelay = 0.0;
   vector[Tcur+Tstep*Nproj] Xt_proj;
-  vector[Tstep*Nproj] Count_proj;
+  vector[Tstep*Nstep] Cpred;
+  vector[Tstep*Nproj] Cproj;
+  vector[Tstep*Nstep] Xpred;
+  vector[Tstep*Nproj] Xproj;
   vector[Tpred] Ppred;
   real gp_time_length_scale = -Tstep/log(alpha);
 
@@ -192,16 +197,26 @@ generated quantities {
     int s = t-Tcond;
     int c = Count[1,t];
     real Ec = Ecount[s];
+    real ecpred;
     real psi = Ec / phi_observed;
     vector[Ttdp] Precon;
     int Crecon_t[Ttdp];
+    int d = (t % 7)+1;
     if (c>outlier_count_threshold && 
                neg_binomial_2_cdf(c,Ec,psi)>outlier_prob_threshold) {
       c = max(outlier_count_threshold,neg_binomial_2_rng(Ec,psi));
       Noutliers += 1;
     }
     Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
-    Cpred[s] = sum(Precon);
+    ecpred =  (7.0*weekly_case_variations[d]) * sum(Precon);
+    //if (ecpred<1e-3 || ecpred>1e3 || phi_observed<1e-3 || phi_observed>1e3) {
+    //  print("ecpred ",ecpred, " phi_observed ",phi_observed);
+    //}
+    Cpred[s] = neg_binomial_2_rng(
+      fmin(1e5, fmax(1e-3, ecpred)), 
+      fmax(1e-3, ecpred / phi_observed)
+    );
+
     if (c==0) continue;
     denomdelay += c;
     if (reconstruct_infections) {
@@ -225,6 +240,8 @@ generated quantities {
         int s = (i-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
+        int d = (t % 7)+1;
+        real ecproj;
         real Einfection = Rx[i] * (xi + dot_product(
             xlatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
@@ -232,16 +249,20 @@ generated quantities {
         //approximate poisson with log normal with same mean/variance
         xlatent[t] = fabs(
           Einfection + 
-          //sqrt(Einfection) * normal_rng(0.0,1.0) // Poisson
-          sqrt((1.0+phi_latent) * Einfection) * normal_rng(0.0,1.0) // NB
+          sqrt(Einfection) * normal_rng(0.0,1.0) // Poisson
+          //sqrt((1.0+1.0/phi_latent) * Einfection) * normal_rng(0.0,1.0) // NB
         );
 
-        Count_proj[t-Tcur] = dot_product(
-            xlatent[t-Ttdp+1:t], 
-            testdelayprofile_rev
+        ecproj = (7.0*weekly_case_variations[d]) * 
+          dot_product(xlatent[t-Ttdp+1:t], testdelayprofile_rev);
+        Cproj[t-Tcur] = neg_binomial_2_rng(
+          fmin(1e5, fmax(1e-3, ecproj)), 
+          fmax(1e-3, ecproj / phi_observed)
         );
     } } 
     Xt_proj = xlatent;
+    Xpred = xlatent[Tcond+1:Tcur];
+    Xproj = xlatent[Tcur+1:Tcur+Tstep*Nproj];
 
     for (m in 1:Nproj) {
       for (t in 1:Tstep) {
@@ -250,8 +271,8 @@ generated quantities {
           break;
         }
         Ppred[i] = exp(neg_binomial_2_lpmf(Count[1, Tcur + i] |
-            Count_proj[i],
-            1.0 / phi_observed
+            fmax(1e-3,Cproj[i]),
+            fmax(1e-3,Cproj[i]) / phi_observed
         ));
       }
     }
@@ -270,7 +291,7 @@ generated quantities {
         sumZ += Z;
         sumRZ += RZ;
         // sumRZ += Xt_proj[t];
-        // sumRZ += adjustedR(RZ,phi_latent);
+        // sumRZ += adjustedR(RZ,1.0/phi_latent);
       }
       Rt[i] = sumRZ / sumZ;
     }

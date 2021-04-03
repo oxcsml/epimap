@@ -773,6 +773,8 @@ generated quantities {
   vector[Nall] Rt[Mstep+Mproj];
   vector[N_region] Rt_region[Mstep+Mproj];
   matrix[Nall,Tpred] Ppred;
+  matrix[Nall,Mstep*Tstep] Xpred;
+  matrix[Nall,Mproj*Tstep] Xproj;
   matrix[Nall,Mstep*Tstep] Cpred;
   matrix[Nall,Mproj*Tstep] Cproj;
   matrix[N_region,Mstep*Tstep] Cpred_region;
@@ -874,6 +876,7 @@ generated quantities {
           { // Predictions are exactly the forward simulated model
             for (t in Tcond+1:Tcur) {
               int s = t-Tcond;
+              Xpred[,s] = Clatent[,t];
               Cpred[,s] = Clatent[,t];
               for (n in 1:N_region)
                 Cpred_region[n,s] = sum(Cpred[,s] .* sparse_region[,n]);
@@ -882,6 +885,7 @@ generated quantities {
           { // Projections are exactly the forward simulated model
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
+              Xproj[,s] = Clatent[,t];
               Cproj[,s] = Clatent[,t];
               for (n in 1:N_region)
                 Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
@@ -947,6 +951,7 @@ generated quantities {
           { // posterior predictive expected counts
             for (t in Tcond+1:Tcur) {
               int s = t-Tcond;
+              Xpred[,s] = Clatent[,t];
               Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {
@@ -959,6 +964,7 @@ generated quantities {
           { // forecasting expected counts given parameters
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
+              Xproj[,s] = Clatent[,t];
               Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {

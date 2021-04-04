@@ -11,6 +11,7 @@ today=$(date +'%Y-%m-%d')
 #clean_directory="fits/clean-${today}"
 results_directory="fits/${today}"
 mkdir -p $results_directory
+cp data/cases.csv $results_directory
 
 # clean 
 slurm/submit-run-singlearea.sh $results_directory

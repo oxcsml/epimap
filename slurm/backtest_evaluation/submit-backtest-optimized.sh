@@ -61,7 +61,7 @@ function merge { # options_clean = $1, first_day_modelled = $2, results_director
 }
 
 # TODO: turn these into positional args for this script later?
-backtest_directory="fits/backtests_4_apr_2021" # relative to Rmap working directory!
+backtest_directory="fits/backtests_5_apr_2021" # relative to Rmap working directory!
 
 first_day_modelled_array=("2020-06-29" "2020-08-10" "2020-09-07" "2020-10-05") 
 weeks_modelled=15

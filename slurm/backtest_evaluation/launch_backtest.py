@@ -65,17 +65,6 @@ def dict2args(dct):
 
 # %%
 
-# ---------------------------------------------------------------------------- #
-#                               group comparison                               #
-# ---------------------------------------------------------------------------- #
-
-# Rscript covidmap/stage2_run.r $4 \
-#             --region_id \$SLURM_ARRAY_TASK_ID \
-#             && echo run: DONE
-    # "#SBATCH --job-name=Rmap_regional_start_", 
-    # "#SBATCH --output="$3"/regional/output/run_%A_%a.out", 
-# DATA_NAME = "spring_dynamics"
-
 RUN_NAME = "Rmap_backtest_run_regions" 
 max_parallel_jobs = 100
 script_cmd = f"Rscript covidmap/stage2_run.r "

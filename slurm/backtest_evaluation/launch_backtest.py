@@ -189,6 +189,7 @@ for parameters_dict in grid:
     print(parameters_dict)
     print()
 
-if query_yes_no("Type 'yes' to execute the above runs, or type 'no' to abort."):
-    # Execute the sbatch file
-    os.system(f"sbatch {sbatch_filename}")
+# if query_yes_no("Type 'yes' to execute the above runs, or type 'no' to abort."):
+#     # Execute the sbatch file
+
+os.system(f"sbatch {sbatch_filename}")

@@ -58,7 +58,7 @@ function merge { # options_clean = $1, first_day_modelled = $2, results_director
 }
 
 # TODO: turn these into positional args for this script later?
-backtest_directory="fits/backtests" # relative to Rmap working directory!
+backtest_directory="fits/backtests_21_mar_2021" # relative to Rmap working directory!
 
 first_day_modelled_array=("2020-08-24" "2020-09-07" "2020-09-21" "2020-10-05" "2020-10-19") 
 weeks_modelled=15
@@ -143,7 +143,7 @@ for i in "${first_day_modelled_array[@]:1}"; do
 done
 
 source venv_py/bin/activate
-PYTHONPATH=. python slurm/backtest_evaluation/launch_backtest.py --space_scale_list=$space_scales_list --first_day_modelled_list=$first_day_modelled_array_list
+PYTHONPATH=. python slurm/backtest_evaluation/launch_backtest.py --space_scale_list=$space_scales_list --first_day_modelled_list=$first_day_modelled_array_list --backtest_directory=$backtest_directory
 
 echo "Runs over regions (using python) completed."
 
@@ -195,6 +195,6 @@ wait
 # get rid of all space consuming rds files.
 rm -rf /data/ziz/not-backed-up/scratch/szaidi/Rmap/${backtest_directory}/*/*/regional/*.rds
 
-echo "Completed all cleaning."
+echo "Completed."
 
 

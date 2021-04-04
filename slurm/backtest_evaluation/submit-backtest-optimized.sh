@@ -63,7 +63,7 @@ function merge { # options_clean = $1, first_day_modelled = $2, results_director
 # TODO: turn these into positional args for this script later?
 backtest_directory="fits/backtests_4_apr_2021" # relative to Rmap working directory!
 
-first_day_modelled_array=("2020-08-24" "2020-09-07" "2020-09-21" "2020-10-05" "2020-10-19") 
+first_day_modelled_array=("2020-06-29" "2020-08-10" "2020-09-07" "2020-10-05") 
 weeks_modelled=15
 
 space_scales=("0" "0.01" "0.05" "0.1" "0.2" "0.5" "1.0")
@@ -109,7 +109,7 @@ do
         --weeks_modelled $weeks_modelled \
     "
 
-    clean "$options_clean" "$weeks_modelled" "$results_directory" None &
+    clean "$options_clean" "$weeks_modelled" "$results_directory" "None" &
 done
 
 wait 
@@ -158,12 +158,12 @@ do
     for first_day_modelled in "${first_day_modelled_array[@]}"
     do
         results_directory="${backtest_directory}/space_${space_scale}/start_${first_day_modelled}_weeks_${weeks_modelled}"       
-        options_clean="\
-            --results_directory $results_directory \
-            --produce_plots FALSE \
-            --first_day_modelled $first_day_modelled \
-            --weeks_modelled $weeks_modelled \
-        "
+        # options_clean="\
+        #     --results_directory $results_directory \
+        #     --produce_plots FALSE \
+        #     --first_day_modelled $first_day_modelled \
+        #     --weeks_modelled $weeks_modelled \
+        # "
 
         if [ $space_scale == 0 ]
         then
@@ -189,7 +189,7 @@ do
             "
         fi
 
-        merge "$options_clean" "$weeks_modelled" "$results_directory" "$options_map" &
+        merge "None" "$weeks_modelled" "$results_directory" "$options_map" &
 
     done
 

@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO(SZ): need to clean up this script to make the cleaning and merging loops neater. 
 
 set -e
 

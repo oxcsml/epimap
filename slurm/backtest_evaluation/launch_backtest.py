@@ -94,6 +94,7 @@ def get_grid(space_scale_list, first_day_modelled_list, backtest_directory="fits
         "fixed_gp_space_length_scale": space_scale_list,
         "first_day_modelled": first_day_modelled_list,
         "weeks_modelled": ["15"],
+        "num_regions": ["9"],
         "region_id": list(range(1, 10)),
     }
 

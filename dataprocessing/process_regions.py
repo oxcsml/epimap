@@ -6,7 +6,9 @@ import os
 import numpy as np
 import pandas as pd
 
-import utils
+# import pdb; pdb.set_trace()
+from scripts import utils
+
 
 
 def read_flux(fpath):

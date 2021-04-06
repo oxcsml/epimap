@@ -35,7 +35,11 @@ git rev-parse HEAD > $results_directory/git-hash.txt
 cp data/cases.csv $results_directory
 
 # clean 
-slurm/submit-run-singlearea.sh $results_directory
+options_clean="\
+    --weeks_modelled 20 \
+    --days_ignored 7 \
+"
+slurm/submit-run-singlearea.sh $results_directory $options_clean
 
 # Force recomplie to avoid mysterious bug
 # rm -f mapping/stan_files/Rmap.rds

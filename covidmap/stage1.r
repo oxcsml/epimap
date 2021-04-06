@@ -247,11 +247,11 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Rt_samples = array(0.0, c(N, Nstep+Nproj, num_samples))
   logpred = array(0.0, c(N, Tpred))
 
-  C_percentiles = c(.025,.25,.5,.75,.975)
-  C_str_percentiles = c("2.5%","25%","50%","75%","97.5%")
-  num_C_percentiles = length(C_percentiles)
-  Cpred = array(0.0, c(N, Nstep*Tstep, num_C_percentiles))
-  Cproj = array(0.0, c(N, Nproj*Tstep, num_C_percentiles))
+  Cpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Cproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
+
+  Xpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Xproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
   
 
   # Loop over areas, loading area RDS files and filling the arrays
@@ -300,11 +300,18 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Ppred <- s[,"mean"]
     logpred[area_index,] = log(Ppred)
 
-    s <- summary(fit, pars="Cpred", probs=C_percentiles)$summary
-    Cpred[area_index,,] = s[,C_str_percentiles]
+    s <- summary(fit, pars="Cpred", probs=percentiles)$summary
+    Cpred[area_index,,] = s[,str_percentiles]
 
-    s <- summary(fit, pars="Count_proj", probs=C_percentiles)$summary
-    Cproj[area_index,,] = s[,C_str_percentiles]
+    s <- summary(fit, pars="Cproj", probs=percentiles)$summary
+    Cproj[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Xpred", probs=percentiles)$summary
+    Xpred[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Xproj", probs=percentiles)$summary
+    Xproj[area_index,,] = s[,str_percentiles]
+ 
   }
   
   days <- colnames(Count)
@@ -407,27 +414,54 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
 
 
   Cpred = aperm(Cpred, c(2,1,3))
-  dim(Cpred) <- c(N*Nstep*Tstep, num_C_percentiles)
+  dim(Cpred) <- c(N*Nstep*Tstep, num_percentiles)
   Cpred <- area_date_dataframe(
     quoted_areas,
     days_likelihood,
     rep('inferred',Nstep*Tstep),
     Cpred,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cpred, paste(opt$results_directory, "/singlearea/Cpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   Cproj = aperm(Cproj, c(2,1,3))
-  dim(Cproj) <- c(N*Nproj*Tstep, num_C_percentiles)
+  dim(Cproj) <- c(N*Nproj*Tstep, num_percentiles)
   Cproj <- area_date_dataframe(
     quoted_areas,
     seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
     Cproj,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cproj, paste(opt$results_directory, "/singlearea/Cproj.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+  Xpred = aperm(Xpred, c(2,1,3))
+  dim(Xpred) <- c(N*Nstep*Tstep, num_percentiles)
+  Xpred <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    rep('inferred',Nstep*Tstep),
+    Xpred,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xpred, paste(opt$results_directory, "/singlearea/Xpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Xproj = aperm(Xproj, c(2,1,3))
+  dim(Xproj) <- c(N*Nproj*Tstep, num_percentiles)
+  Xproj <- area_date_dataframe(
+    quoted_areas,
+    seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    Xproj,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xproj, paste(opt$results_directory, "/singlearea/Xproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   list(

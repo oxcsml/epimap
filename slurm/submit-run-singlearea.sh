@@ -31,11 +31,12 @@ then
   "
   N=$3
 else
-  echo Usage: submit-run results_directory [options] [N]
+  echo Usage: submit-run results_directory \"[options]\" [N]
   exit 1
 fi
 
 echo "results_directory = $results_directory"
+echo $options
 
 mkdir -p $results_directory
 mkdir -p $results_directory/singlearea

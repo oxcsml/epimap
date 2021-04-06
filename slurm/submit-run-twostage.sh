@@ -56,9 +56,9 @@ sbatch --wait \
     --mem-per-cpu=10G \
     --array=1-$N \
     --wrap \
-    "Rscript covidmap/stage2_run.r $options \
+    "Rscript covidmap/stage2_run.r \
         --singlearea_sample_id \$SLURM_ARRAY_TASK_ID \
-        && echo run: DONE"
+        $options"
 
 echo submit-run-twostage: Merging results
 
@@ -72,6 +72,6 @@ sbatch --wait \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \
     --wrap \
-    "Rscript covidmap/stage2_merge.r $options && echo merge: DONE"
+    "Rscript covidmap/stage2_merge.r $options"
 
 echo submit-run: DONE

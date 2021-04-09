@@ -9,18 +9,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
+# need a better solution for this in the long run..
 import utils
 
 # import scripts.utils as utils
-
-
-def nicename(run_name):
-    name, hps = run_name.split("_", maxsplit=1)
-    space = re.search("space_([0-9]*)", hps).group(1)
-    time = re.search("time_([0-9]*)", hps).group(1)
-    return f"{name[0].upper()}({space},{time})"
 
 
 def read_csv(pth):
@@ -49,132 +42,113 @@ def align_dates_areas(projections, truth, pred_key="c_50"):
 
 
 class Sample:
-    def __init__(self, percentiles, truth):  # pred_key="c_50"
-        self._dates = pd.Index.intersection(percentiles.index, truth.index)
-        self.predictions = percentiles.reindex(index=self._dates)
-        # self.predictions = self._get_predictions(self.percentiles, pred_key)
+    def __init__(self, predictions, truth):
+        self._dates = pd.Index.intersection(predictions.index, truth.index)
+        self.predictions = predictions.reindex(index=self._dates)
         self.truth = truth.reindex(index=self._dates)
 
-    # @staticmethod
-    # def _get_predictions(percentiles, pred_key):
-    #     return (
-    #         projections.reset_index().set_index(["date", "area"])[pred_key].unstack(-1) # SZ: doesn't depend on percentiles?
-    #     )
+        self.delta = self.predictions - self.truth
+        # Alternative option?
+        # self.log_delta = np.log(self.predictions + 1) - np.log(self.truth + 1)
 
-    @property
-    def delta(self):
-        return (
-            self.predictions - self.truth
-        )  # np.log(self.predictions + 1) - np.log(self.truth + 1) #
+    def logmean_rmse(self):
+        return self._logmean_stat(err=np.power(self.delta, 2), pipefunc=np.sqrt)
 
-    def logmean_rmse(self, weekly=False):
-        return self._logmean_stat(
-            err=np.power(self.delta, 2), weekly=weekly, pipefunc=np.sqrt
+    def logmean_mae(self):
+        return self._logmean_stat(err=np.abs(self.delta), pipefunc=None)
+
+    def _logmean_stat(self, err, pipefunc=None):
+        grouped = err.groupby(pd.Grouper(freq="1W")).mean()
+        grouped = pipefunc(grouped) if pipefunc is not None else grouped
+        weekly = (
+            grouped.reset_index(drop=True).rename(index=lambda x: f"W{x+1}").transpose()
         )
+        means = pipefunc(err.mean(0)) if pipefunc is not None else err.mean(0)
+        means.name = "Mean"
+        return np.log(pd.concat([weekly, means], axis=1) + 1)
 
-    def logmean_mae(self, weekly=False):
-        return self._logmean_stat(
-            err=np.abs(self.delta), weekly=weekly, pipefunc=lambda x: x
+
+def bar_chart(ax, df, colors):
+    c1 = itertools.cycle(colors)
+    n_run_names = df.index.get_level_values("model").nunique()
+    dates = df.index.get_level_values("start_date").unique().values
+    width = 1 / (n_run_names + 1)
+
+    for run_name_idx, (run_name, srs) in enumerate(df.groupby(level="model")):
+        srs = srs.droplevel("model").squeeze()
+        style = dict(color=next(c1), width=width)
+        offset = width * run_name_idx - 0.5 + width
+        ax.bar(np.arange(len(srs)) + offset, srs, label=run_name, **style)
+    ax.set_xticks(np.arange(len(dates)))
+    ax.set_xticklabels(dates)
+    ax.grid(alpha=0.25)
+
+
+def violinplot(ax, data):
+    ax.violinplot(data, showmeans=True, showextrema=False)
+    ax.set_xticks(np.arange(data.columns.shape[0]) + 1)
+    ax.set_xticklabels(data.columns, fontsize=7)
+    ax.grid(alpha=0.25)
+
+
+def make_plots(df, bar_colors):
+    nmetrics = df.columns.get_level_values("metric").nunique()
+
+    # the bar charts
+    area_means = df.mean(0).to_frame()
+    for freq, stats in area_means.groupby(level="freq"):
+        fig, axarr = plt.subplots(nmetrics, 1, constrained_layout=True)
+        for ax, (metric, results) in zip(axarr.flat, stats.groupby(level="metric")):
+            bar_chart(ax, results.droplevel(["freq", "metric"]), colors=bar_colors)
+            ax.set_ylabel(f"{metric} of log(# + 1)")
+        ax.set_xlabel("Start date of 15 week modelled period.")
+        axarr.flatten()[0].legend(
+            loc="upper left", fontsize=7, ncol=2, title="Models", framealpha=0.5
         )
+        fig.suptitle(f"All runs: {freq}")
+        yield fig
+        plt.close()
 
-    def _logmean_stat(
-        self, err, weekly, pipefunc
-    ):  # SZ: no square root if weekly = False?
-        stat = (
-            err.groupby(pd.Grouper(freq="1W"))
-            .mean()
-            .pipe(pipefunc)
-            .reset_index(drop=True)
-            .rename(index=lambda x: f"W{x+1}")
-            .transpose()
-            if weekly
-            else err.mean(0).pipe(pipefunc)
-        )
-        return np.log(stat + 1)
+    # scatter plots should go here
 
-
-def plot_aggregations(all_samples, metrics_dct):
-    """
-    Args:
-        all_samples (dict): dict runs -> area -> weeks -> sample
-        metrics_dct (dict): dict str -> func (the metric)
-    """
-    means = defaultdict(dict)
-    for lookback, sample_dct in tqdm(all_samples.items(), desc="Plotting aggregations"):
-        fig, axarr = plt.subplots(len(metrics_dct), 1, constrained_layout=True)
-        for ax, (mname, metric) in zip(axarr.flatten(), metrics_dct.items()):
-            data = pd.concat(utils.map_lowest(metric, sample_dct), axis=1)
-            ax.violinplot(data, showmeans=True, showextrema=False)
-            ax.set_xticks(np.arange(data.columns.shape[0]) + 1)
-            ax.set_xticklabels(data.columns, fontsize=7)
-            # ax.set_ylabel(f"log({mname} + 1)")
-            ax.set_ylabel(f"{mname} of log(# + 1)")
-            ax.grid(alpha=0.25)
-            means[mname][lookback] = data.mean(0)
+    # violin plots
+    mow = df.transpose().query("freq=='Mean'").droplevel("freq")
+    for start_date, stats in mow.groupby(level="start_date"):
+        fig, axarr = plt.subplots(nmetrics, 1, constrained_layout=True)
+        for ax, (metric, results) in zip(axarr.flat, stats.groupby(level="metric")):
+            data = results.droplevel(["start_date", "metric"]).transpose()
+            violinplot(ax, data)
+            ax.set_ylabel(f"{metric} of log(# + 1)")
         ax.set_xlabel("Model")
-        predictions_start = str(sample_dct["stage1"]._dates[0].date())
+        forecast_start = (
+            pd.Timestamp(start_date) + pd.Timedelta(7, unit="W")
+        ).strftime("%Y-%m-%d")
         fig.suptitle(
-            f"Modelled period: {lookback} + 15 weeks. \nPredictions period: {predictions_start} + 3 weeks. \nViolins across regional errors."
+            (
+                "Modelled period: "
+                f"{start_date} + 15 weeks.\nPredictions period: {forecast_start} + 3 weeks."
+                "\nViolins across regional errors."
+            )
         )
         yield fig
         plt.close()
-    means = {mname: pd.concat(v, axis=1).T for mname, v in means.items()}
-
-    fig, axarr = plt.subplots(len(means), 1, constrained_layout=True)
-    for ax, (mname, df) in zip(axarr.flatten(), means.items()):
-        # c1 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
-        c1 = itertools.cycle(colors)
-        # c2 = itertools.cycle(plt.rcParams["axes.prop_cycle"].by_key()["color"])
-
-        for run_name_idx, (run_name, srs) in enumerate(df.items()):
-            if line_plot:
-                style = (
-                    dict(
-                        marker="o", color=next(c1), ls="-", linewidth=0.5, markersize=2
-                    )
-                    # if run_name.lower().startswith("l")
-                    # else dict(marker="^", color=next(c2), ls=":")
-                )
-                ax.plot(srs.index, srs, label=run_name, **style)
-            else:
-                style = (
-                    dict(color=next(c1), width=width)
-                    # if run_name.lower().startswith("l")
-                    # else dict(marker="^", color=next(c2), ls=":")
-                )
-                offset = width * run_name_idx - 0.5 + width
-                ax.bar(np.arange(len(srs.index)) + offset, srs, label=run_name, **style)
-        ax.set_xticks(np.arange(len(srs.index)))
-        ax.set_xticklabels(srs.index)
-        # ax.set_ylabel(f"log({mname} + 1)")
-        ax.set_ylabel(f"{mname} of log(# + 1)")
-        ax.grid(alpha=0.25)
-    ax.set_xlabel("Start date of 15 week modelled period.")
-    axarr.flatten()[0].legend(
-        loc="upper left", fontsize=7, ncol=2, title="Models", framealpha=0.5
-    )
-    fig.suptitle(f"All runs")
-    yield fig
-    plt.close()
 
 
 if __name__ == "__main__":
+    class Args:
+        def populate(self, uk_cases, backtests, output):
+            """
+            Args:
+                uk_cases: path to uk_cases.csv
+                backtests: path to backtests folder
+                output: folder to save outputs
+            """
+            self.uk_cases_pth = uk_cases
+            self.backtests_dir = backtests
+            self.outputs_dir = output
 
-    args = SimpleNamespace()
-
-    def cmd_args(uk_cases, backtests, output, weekly=False):
-        """
-        Args:
-            uk_cases: path to uk_cases.csv
-            backtests: path to backtests folder
-            output: folder to save outputs
-        """
-        args.uk_cases_pth = uk_cases
-        args.backtests_dir = backtests
-        args.outputs_dir = output
-        args.weekly = weekly
-
-    fire.Fire(cmd_args)
+    args = Args()
+    fire.Fire(args.populate)
 
     # todo: just infer this from the filenames
     start_dates = [
@@ -206,7 +180,8 @@ if __name__ == "__main__":
             "regional",
             "merged_Cproj.csv",
         )
-        for name in run_names if name.startswith("space")
+        for name in run_names
+        if name.startswith("space")
     }
     path_dct.update(
         {
@@ -243,6 +218,7 @@ if __name__ == "__main__":
     width = 1 / (len(run_names) + 1)
     pred_key = "c_50"
 
+    print("Organising data...")
     uk_cases = load_uk_cases(args.uk_cases_pth)
     all_samples = defaultdict(dict)
     for folder, start_date in itertools.product(run_names, start_dates):
@@ -257,7 +233,9 @@ if __name__ == "__main__":
 
         if folder == "last_case_count":
             aligned_projections *= np.nan
-            aligned_projections.iloc[0] = uk_cases[aligned_projections.columns].loc[aligned_projections.index[0]]
+            aligned_projections.iloc[0] = uk_cases[aligned_projections.columns].loc[
+                aligned_projections.index[0]
+            ]
             aligned_projections.ffill(inplace=True)
 
         all_samples[start_date][folder] = Sample(
@@ -265,42 +243,32 @@ if __name__ == "__main__":
             aligned_true_cases,
         )
 
-    # Weekly: split one week per chart so you can see it
-    #  maybe also just do this automatically, then add the extra charts in the deck
-    #  and take out the weekly flag
-
-    metrics_dct = {
-        "RMSE": lambda x: x.logmean_rmse(weekly=args.weekly),
-        "MAE": lambda x: x.logmean_mae(weekly=args.weekly),
+    data = {
+        "RMSE": utils.map_lowest(lambda x: x.logmean_rmse(), all_samples),
+        "MAE": utils.map_lowest(lambda x: x.logmean_mae(), all_samples),
     }
 
+    data = utils.collapse(data, axis=1, names=["metric", "start_date", "model", "freq"])
+
+    print("Making charts...")
     deck = utils.PdfDeck()
-    for fig in plot_aggregations(all_samples, metrics_dct):
+    for fig in make_plots(data, bar_colors=colors):
         deck.add_figure(fig)
-    deck.figs.insert(
-        0, deck.figs.pop(-1)
-    )  # put the average over areas one at the front
-    print("Writing pdf...")
+
     deck.make(
         os.path.join(
             args.outputs_dir,
-            f"backtest_evaluation_aggregations{'_weekly' if args.weekly else ''}.pdf",
+            f"backtest_evaluation_aggregations.pdf",
         )
     )
 
     print("Making table...")
-    weekly_rmse = utils.map_lowest(
-        lambda x: x.logmean_rmse(weekly=True).mean(0), all_samples
-    )
-    weekly_mae = utils.map_lowest(
-        lambda x: x.logmean_mae(weekly=True).mean(0), all_samples
+    out_table = (
+        data.mean(0)
+        .unstack(0)
+        .unstack(-1)
+        .rename_axis(["", ""], axis=1)
+        .rename_axis(["lookback", "counts(time,space)"], axis=0)
     )
 
-    out_table = pd.concat(
-        {
-            "RMSE": utils.stack_table(weekly_rmse).unstack(-1),
-            "MAE": utils.stack_table(weekly_mae).unstack(-1),
-        },
-        axis=1,
-    ).rename_axis(index=["lookback", "counts(time,space)"])
     out_table.to_csv(os.path.join(args.outputs_dir, "table.csv"))

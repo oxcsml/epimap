@@ -17,18 +17,20 @@ def swaplevel(dct_of_dct):
     return {in_k: {out_k: v[in_k] for out_k, v in dct_of_dct.items()} for in_k in keys}
 
 
-def stack_table(dct, axis=0, stack_func=None):
-    "recursively concat dict of dict of ... of dataframes"
-    stacker = stack_func or partial(pd.concat, axis=axis)
-    return stacker(
-        {
-            k: stack_table(v)
-            if isinstance(next(iter(v.values())), dict)
-            else stacker(v)
-            for k, v in dct.items()
-        }
-    )
+def collapse(dct, axis=0, names=None):
+    """collapse.
+    Collapse nested dictionary of dataframes into MultiIndex DataFrame
 
+    Args:
+        dct (dict): nested dictionary of dataframes.
+        axis (int): axis on which to concat, default 0.
+        names (list, optional): index names to pass to pd.concat, default None.
+    """
+    if isinstance(next(iter(dct.values())), dict):
+        return collapse({k: collapse(v, axis=axis, names=None) for k, v in dct.items()}, axis=axis, names=names)
+    else:
+        return pd.concat(dct, axis=axis, names=names)
+    
 
 class PdfDeck:
     def __init__(self, figs=None, names=None):

@@ -655,6 +655,8 @@ epimap_twostage = function(
       "Ppred",
       "Cpred",
       "Cproj",
+      "Xpred",
+      "Xproj",
       "fluxproportions",
       "Rt",
       "Rt_region",

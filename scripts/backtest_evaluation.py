@@ -91,6 +91,11 @@ def violinplot(ax, data):
     ax.grid(alpha=0.25)
 
 
+def scatter(ax, x, y):
+    ax.scatter(x, y, marker=".", alpha=0.25)
+    ax.grid(alpha=0.25)
+
+
 def make_plots(df, bar_colors):
     nmetrics = df.columns.get_level_values("metric").nunique()
 
@@ -110,6 +115,21 @@ def make_plots(df, bar_colors):
         plt.close()
 
     # scatter plots should go here
+    comparator = "stage1"
+    nomean = df.transpose().drop("Mean", level="freq")
+    levels = ["metric", "start_date", "freq"]
+    for (metric, start_date, freq), res in nomean.groupby(level=levels):
+        stats = res.droplevel(levels)
+        xaxis = stats.loc[comparator]
+        stats = stats.drop(comparator)
+        fig, axarr = plt.subplots(3, 3, constrained_layout=True, sharex=True)
+        for ax, (method, results) in zip(axarr.flat, stats.iterrows()):
+            scatter(ax, xaxis, results)
+            ax.set_xlabel(comparator)
+            ax.set_ylabel(method)
+        fig.suptitle(f"{metric}, start date: {start_date}, {freq}")
+        yield fig
+        plt.close()
 
     # violin plots
     mow = df.transpose().query("freq=='Mean'").droplevel("freq")
@@ -135,6 +155,7 @@ def make_plots(df, bar_colors):
 
 
 if __name__ == "__main__":
+
     class Args:
         def populate(self, uk_cases, backtests, output):
             """

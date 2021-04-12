@@ -28,7 +28,7 @@ function epinow2 { # $1 = options, $2 = first_day_modelled, $3 = log_folder
 }
 
 
-backtest_directory="fits/backtests_6_apr_epinow2" # relative to Rmap working directory!
+backtest_directory="fits/backtests_8_apr_2021_epinow2" # relative to Rmap working directory!
 first_day_modelled_array=("2020-06-29" "2020-08-10" "2020-09-07" "2020-10-05") 
 weeks_modelled=15
 

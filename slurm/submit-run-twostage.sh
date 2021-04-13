@@ -2,6 +2,9 @@
 
 trap 'echo submit-twostage: Failed before finishing with exit code $? && exit $?' ERR
 
+source ./slurm/cluster-config
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+
 if [ $# == 1 ]
 then
   results_directory=$1
@@ -46,11 +49,11 @@ Rscript epimap/compile.r
 
 echo submit-run-twostage: running samples
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap_run \
     --output=$results_directory/twostage/output/run_%A_%a.out \
-    --partition=ziz-large \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=10G \
@@ -63,11 +66,11 @@ sbatch --wait \
 echo submit-run-twostage: Merging results
 
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap_merge \
     --output=$results_directory/twostage/output/merge_%A_%a.out \
-    --partition=ziz-large \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \

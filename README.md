@@ -68,7 +68,7 @@ First update the `CONDAROOT` variable in `Makefile` to point to the conda conda 
 
 Before running models, run `make preprocess-data` to pull the latest case data and regenerate various files. Note if the the file `data/uk_traffic.csv` already exists, then it will not be regenerated as this is very slow and does not need to be done regularly. To force a regeneration for whatever reason, simply delete the file.
 
-NOTE: In the following, many of the scripts are designed for use with a SLURM job management system. If your system does not have one of these, then please consult the scripts for the required workflow, and adapt to your specific system. In general some kind of parallelism is required when running these models. Running each subtask sequentially would take prohibitively long.
+NOTE: In the following, many of the scripts are designed for use with a SLURM job management system. The main submission scripts, i.e. `slurm/submit-run-*`, import configuration variables from `slurm/cluster-config` which should be specific to your system. Ammend this file before submitting jobs to SLURM. If your system does not have SLURM, then please consult the scripts for the required workflow, and adapt to your specific system. In general some kind of parallelism is required when running these models. Running each subtask sequentially would take prohibitively long.
 
 To run a singlearea approximation, the script `scripts/submit-run-singlearea.sh` will automatically dispatch SLURM jobs to compute the models over the individual regions and then recombine them, saving the results and the cases file used in the specified directory, and using the options string specified.
 

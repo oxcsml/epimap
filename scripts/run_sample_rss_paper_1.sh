@@ -45,23 +45,23 @@ epimap_stage2_options="\
 
 
 
-library(EpiEstim) 
-library(optparse) 
-library(gsubfn) 
-library(plyr) 
-library(data.table)  
-source("covidmap/read_data.r") 
-source("covidmap/utils.r")   
-source("alternate_methods/epiestim.r")                                                                                                                                       
+# library(EpiEstim) 
+# library(optparse) 
+# library(gsubfn) 
+# library(plyr) 
+# library(data.table)  
+# source("covidmap/read_data.r") 
+# source("covidmap/utils.r")   
+# source("alternate_methods/epiestim.r")                                                                                                                                       
 
-opt = epiestim_options()                                                                                                                                                     
-opt$data_directory = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1"     
-opt$results_directory = "simulation_fits/sample_rss_paper_1"                                                                                                    
-opt$first_day_modelled = "2020-04-09"                                                                                                                                        
-opt$days_ignored = 21                                                                                                                                                        
-opt$days_predicted = 21                                                                                                                                                      
-opt$num_steps_forecast = 3    
-opt$num_samples = 10 
+# opt = epiestim_options()                                                                                                                                                     
+# opt$data_directory = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1"     
+# opt$results_directory = "simulation_fits/sample_rss_paper_1"                                                                                                    
+# opt$first_day_modelled = "2020-04-09"                                                                                                                                        
+# opt$days_ignored = 21                                                                                                                                                        
+# opt$days_predicted = 21                                                                                                                                                      
+# opt$num_steps_forecast = 3    
+# opt$num_samples = 10 
 
 # opt = epinow2_options()
 # opt$data_directory = "simulation/latent_epidemic/tehtropolis/sample"     

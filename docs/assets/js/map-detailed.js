@@ -4,13 +4,21 @@ const SITE_DATA_PATH = "assets/data/site_data.csv";
 const NHS_SCOTLAND_MAP = "assets/data/nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "assets/data/england_meta_areas.csv";
 const METADATA_PATH = "assets/data/metadata.csv";
+
+// Load parameters
+
+const urlParams = new URLSearchParams(window.location.search);
 const MAP_PATH = 'default';
+const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
+const CASE_TYPE = "B";
+const case_type = urlParams.get("casetype") || CASE_TYPE
+
 const RT_PATH = "Rt.csv";
-const CASE_PROJECTION_PATH = "Cproj.csv";
-const CASE_PREDICTION_PATH = "Cpred.csv";
+const CASE_PROJECTION_PATH = case_type.concat("proj.csv");
+const CASE_PREDICTION_PATH = case_type.concat("pred.csv");
+const CASE_WEEKLY_PATH = case_type.concat("weekly.csv");
 const INFECTION_PROJECTION_PATH = "Xproj.csv";
 const INFECTION_PREDICTION_PATH = "Xpred.csv";
-const CASE_WEEKLY_PATH = "Cweekly.csv";
 const PEXCEED_PATH = "Pexceed.csv";
 
 const MONTHS = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
@@ -363,8 +371,6 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 
-const urlParams = new URLSearchParams(window.location.search);
-const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
 const rt_path = map_path.concat("/", RT_PATH);
 const case_projection_path = map_path.concat("/", CASE_PROJECTION_PATH);
 const case_prediction_path = map_path.concat("/", CASE_PREDICTION_PATH);

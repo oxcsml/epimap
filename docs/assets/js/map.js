@@ -4,13 +4,22 @@ const SITE_DATA_PATH = "assets/data/site_data.csv";
 const NHS_SCOTLAND_MAP = "assets/data/nhs_scotland_health_boards.csv";
 const ENGLAND_META_AREA_MAP = "assets/data/england_meta_areas.csv";
 const METADATA_PATH = "assets/data/metadata.csv";
+
+// Load parameters
+
+const urlParams = new URLSearchParams(window.location.search);
 const MAP_PATH = 'default';
+const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
+const CASE_TYPE = "B";
+const case_type = urlParams.get("casetype") || CASE_TYPE
+
 const RT_PATH = "Rt.csv";
-const CASE_PROJECTION_PATH = "Cproj.csv";
-const CASE_PREDICTION_PATH = "Cpred.csv";
-const INFECTION_PROJECTION_PATH = "Xproj.csv";
-const INFECTION_PREDICTION_PATH = "Xpred.csv";
-const CASE_WEEKLY_PATH = "Cweekly.csv";
+const CASE_PROJECTION_PATH = case_type.concat("proj.csv");
+const CASE_PREDICTION_PATH = case_type.concat("pred.csv");
+const CASE_WEEKLY_PATH = case_type.concat("weekly.csv");
+// const INFECTION_PROJECTION_PATH = "Xproj.csv";
+// const INFECTION_PREDICTION_PATH = "Xpred.csv";
+// const CASE_WEEKLY_PATH = "Cweekly.csv";
 const PEXCEED_PATH = "Pexceed.csv";
 
 const MONTHS = ["Jan", "Feb", "March", "April", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"];
@@ -73,7 +82,7 @@ const chartMargin = { top: 30, right: 30, bottom: 30, left: 30 };
 console.log("#rt-chart");
 
 
-const caseChartSvg = d3.select("#case-chart");
+const caseChartSvg = d3.select("#chart");
 // Note: Assuming the two charts are the same size! 
 const chartWidth = Math.max(500+caseChartSvg.attr("width") - chartMargin.left - chartMargin.right, 0);
 const chartHeight = Math.max(200+caseChartSvg.attr("height") - chartMargin.top - chartMargin.bottom, 0);
@@ -105,44 +114,46 @@ const projectedCInnerArea = caseChartSvg.append("path")
 const projectedCOuterArea = caseChartSvg.append("path")
     .attr("class", "projected-cases-outer-area");
 
-// Note: Assuming the two charts are the same size! 
-const infectionChartSvg = d3.select("#infection-chart");
-
-const chartXG = infectionChartSvg.append("g")
-    .attr("transform", "translate(" + chartMargin.left + "," + chartMargin.top + ")");
-
-const actualXChartLine = infectionChartSvg.append("path")
-    .attr("class", "actual-cases-line")
-
-const smoothedXChartLine = infectionChartSvg.append("path")
-    .attr("class", "smoothed-cases-line")
-
-
-const predictedXChartLine = infectionChartSvg.append("path")
-    .attr("class", "predicted-infections-median-line");
-
-const predictedXInnerArea = infectionChartSvg.append("path")
-    .attr("class", "predicted-infections-inner-area");
-
-const predictedXOuterArea = infectionChartSvg.append("path")
-    .attr("class", "predicted-infections-outer-area");
-
-const projectedXChartLine = infectionChartSvg.append("path")
-    .attr("class", "projected-infections-median-line");
-
-const projectedXInnerArea = infectionChartSvg.append("path")
-    .attr("class", "projected-infections-inner-area");
-
-const projectedXOuterArea = infectionChartSvg.append("path")
-    .attr("class", "projected-infections-outer-area");
-
-
-const infectionCurrentDateLine = infectionChartSvg.append("g");
+const caseCurrentDateLine = caseChartSvg.append("g");
 
 caseCurrentDateLine.append("line")
     .attr("class", "current-date-line")
     .attr("y1", 0)
     .attr("y2", chartHeight);
+
+// // Note: Assuming the two charts are the same size! 
+// const infectionChartSvg = d3.select("#infection-chart");
+
+// const chartXG = infectionChartSvg.append("g")
+//     .attr("transform", "translate(" + chartMargin.left + "," + chartMargin.top + ")");
+
+// const actualXChartLine = infectionChartSvg.append("path")
+//     .attr("class", "actual-cases-line")
+
+// const smoothedXChartLine = infectionChartSvg.append("path")
+//     .attr("class", "smoothed-cases-line")
+
+
+// const predictedXChartLine = infectionChartSvg.append("path")
+//     .attr("class", "predicted-infections-median-line");
+
+// const predictedXInnerArea = infectionChartSvg.append("path")
+//     .attr("class", "predicted-infections-inner-area");
+
+// const predictedXOuterArea = infectionChartSvg.append("path")
+//     .attr("class", "predicted-infections-outer-area");
+
+// const projectedXChartLine = infectionChartSvg.append("path")
+//     .attr("class", "projected-infections-median-line");
+
+// const projectedXInnerArea = infectionChartSvg.append("path")
+//     .attr("class", "projected-infections-inner-area");
+
+// const projectedXOuterArea = infectionChartSvg.append("path")
+//     .attr("class", "projected-infections-outer-area");
+
+
+// const infectionCurrentDateLine = infectionChartSvg.append("g");
 
 const rtChartSvg = d3.select("#rt-chart");
 
@@ -275,8 +286,8 @@ const rtData = d3.map();
 const caseTimeseries = d3.map();          // The real historical cases
 const caseProjTimeseries = d3.map();
 const casePredTimeseries = d3.map();
-const infectionProjTimeseries = d3.map();
-const infectionPredTimeseries = d3.map();
+// const infectionProjTimeseries = d3.map();
+// const infectionPredTimeseries = d3.map();
 const caseWeeklyTimeseries = d3.map();    // Actual and projected cases: plotted.
                                           // TODO: The data in CASE_WEEKLY_PATH give the provenance of the weekly cases as `inferred`
                                           // and `projected`. However, epimap.r takes data from the Count (observed) matrix. The labels
@@ -338,13 +349,13 @@ const loadCases = d3.csv(SITE_DATA_PATH).then(data => {
 });
 
 
-const urlParams = new URLSearchParams(window.location.search);
-const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
+// const urlParams = new URLSearchParams(window.location.search);
+// const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
 const rt_path = map_path.concat("/", RT_PATH);
 const case_projection_path = map_path.concat("/", CASE_PROJECTION_PATH);
 const case_prediction_path = map_path.concat("/", CASE_PREDICTION_PATH);
-const infection_projection_path = map_path.concat("/", INFECTION_PROJECTION_PATH);
-const infection_prediction_path = map_path.concat("/", INFECTION_PREDICTION_PATH);
+// const infection_projection_path = map_path.concat("/", INFECTION_PROJECTION_PATH);
+// const infection_prediction_path = map_path.concat("/", INFECTION_PREDICTION_PATH);
 const case_weekly_path = map_path.concat("/", CASE_WEEKLY_PATH);
 const pexceed_path = map_path.concat("/", PEXCEED_PATH);
 
@@ -433,48 +444,47 @@ const loadCaseProjections = d3.csv(case_projection_path).then(data => data.forEa
     });
 });
 
-const loadInfectionProjections = d3.csv(infection_projection_path).then(data => data.forEach(d => {
-    if (!infectionProjTimeseries.has(d.area)) {
-        infectionProjTimeseries.set(d.area, []);
-    }
-    d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    if (d.X_025 != undefined) {
-      d.X_lower95 = +d.X_025;
-      d.X_median = +d.X_50;
-      d.X_upper95 = +d.X_975;
-    }  
+// const loadInfectionProjections = d3.csv(infection_projection_path).then(data => data.forEach(d => {
+//     if (!infectionProjTimeseries.has(d.area)) {
+//         infectionProjTimeseries.set(d.area, []);
+//     }
+//     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
+//     if (d.X_025 != undefined) {
+//       d.X_lower95 = +d.X_025;
+//       d.X_median = +d.X_50;
+//       d.X_upper95 = +d.X_975;
+//     }  
 
-    if (d.C_25 != undefined) {
-      d.X_lower50 = +d.X_25;
-      d.X_upper50 = +d.X_75; 
-    } 
+//     if (d.C_25 != undefined) {
+//       d.X_lower50 = +d.X_25;
+//       d.X_upper50 = +d.X_75; 
+//     } 
 
-    infectionProjTimeseries.get(d.area).push(d);
-}))
-.then(() => {
-    firstProjectionDate = d3.min(infectionProjTimeseries.get(infectionProjTimeseries.keys()[0]).map(r=>r.Date));
-    console.log('First projection date: '+firstProjectionDate);
-})
-.then(() => {
-    infectionProjTimeseries.each((projections, area) => {
-        let infectionProjLower = 0, infectionProjMedian = 0, infectionProjUpper = 0;
-        for (let i = 0; i < 7; i++) {
-            infectionProjLower += projections[i].C_lower95;
-            infectionProjMedian += projections[i].C_median;
-            infectionProjUpper += projections[i].C_upper95;
-        }
-        nextWeekInfectionProj.set(area, {
-            infectionProjLower: Math.round(infectionProjLower),
-			// TODO: The data from Cweekly.csv used for the tooltip is rounded down. It means that the
-			//       displayed total projected cases could differ by one depending on rouning up or
-			//       down. The `floor` ensures that the displayed values matches the tooltip.
-            infectionProjMedian: Math.floor(infectionProjMedian),
-            infectionProjUpper: Math.round(infectionProjUpper)
-        });
-    });
-});
+//     infectionProjTimeseries.get(d.area).push(d);
+// }))
+// .then(() => {
+//     firstProjectionDate = d3.min(infectionProjTimeseries.get(infectionProjTimeseries.keys()[0]).map(r=>r.Date));
+//     console.log('First projection date: '+firstProjectionDate);
+// })
+// .then(() => {
+//     infectionProjTimeseries.each((projections, area) => {
+//         let infectionProjLower = 0, infectionProjMedian = 0, infectionProjUpper = 0;
+//         for (let i = 0; i < 7; i++) {
+//             infectionProjLower += projections[i].C_lower95;
+//             infectionProjMedian += projections[i].C_median;
+//             infectionProjUpper += projections[i].C_upper95;
+//         }
+//         nextWeekInfectionProj.set(area, {
+//             infectionProjLower: Math.round(infectionProjLower),
+// 			// TODO: The data from Cweekly.csv used for the tooltip is rounded down. It means that the
+// 			//       displayed total projected cases could differ by one depending on rouning up or
+// 			//       down. The `floor` ensures that the displayed values matches the tooltip.
+//             infectionProjMedian: Math.floor(infectionProjMedian),
+//             infectionProjUpper: Math.round(infectionProjUpper)
+//         });
+//     });
+// });
 
-/
 // Cpred.csv, ending at the last prediction date.
 // This is the last predicted (not projected!) date. Predicted is from observations,
 // projected is into the future.
@@ -503,28 +513,28 @@ const loadCasePredictions = d3.csv(case_prediction_path).then(data => data.forEa
     console.log('Last prediction date: '+lastPredictionDate);
 });
 
-const loadInfectionPredictions = d3.csv(infection_prediction_path).then(data => data.forEach(d => {
-    if (!infectionPredTimeseries.has(d.area)) {
-        infectionPredTimeseries.set(d.area, []);
-    }
-    d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
-    if (d.X_025) {
-      d.X_lower95 = +d.X_025;
-      d.X_median = +d.X_50;
-      d.X_upper95 = +d.X_975;
-    }  
+// const loadInfectionPredictions = d3.csv(infection_prediction_path).then(data => data.forEach(d => {
+//     if (!infectionPredTimeseries.has(d.area)) {
+//         infectionPredTimeseries.set(d.area, []);
+//     }
+//     d.Date = d3.timeParse("%Y-%m-%d")(d.Date);
+//     if (d.X_025) {
+//       d.X_lower95 = +d.X_025;
+//       d.X_median = +d.X_50;
+//       d.X_upper95 = +d.X_975;
+//     }  
 
-    if (d.X_25) {
-        d.X_lower50 = +d.X_25;
-        d.X_upper50 = +d.X_75; 
-    }
+//     if (d.X_25) {
+//         d.X_lower50 = +d.X_25;
+//         d.X_upper50 = +d.X_75; 
+//     }
 
-    infectionPredTimeseries.get(d.area).push(d);	
-}))
-.then(() => {
-    lastPredictionDate = d3.max(infectionPredTimeseries.get(infectionPredTimeseries.keys()[0]).map(r=>r.Date));
-    console.log('Last prediction date: '+lastPredictionDate);
-});
+//     infectionPredTimeseries.get(d.area).push(d);	
+// }))
+// .then(() => {
+//     lastPredictionDate = d3.max(infectionPredTimeseries.get(infectionPredTimeseries.keys()[0]).map(r=>r.Date));
+//     console.log('Last prediction date: '+lastPredictionDate);
+// });
 
 
 const loadCaseWeekly = d3.csv(case_weekly_path).then(data => data.forEach(d => {
@@ -1609,16 +1619,16 @@ function selectArea(selectedArea) {
         console.log("ERROR: No prediction cases data found for area ", area);
         return;
     }
-    const projectionInfectionsData = infectionProjTimeseries.get(area);
-    if (!projectionData) {
-        console.log("ERROR: No projection infections found for area ", area);
-        return;
-    }
-    const predictionInfectionsData = infectionPredTimeseries.get(area);
-    if (!predictionInfectionsData) {
-        console.log("ERROR: No prediction infections found for area ", area);
-        return;
-    }
+    // const projectionInfectionsData = infectionProjTimeseries.get(area);
+    // if (!projectionData) {
+    //     console.log("ERROR: No projection infections found for area ", area);
+    //     return;
+    // }
+    // const predictionInfectionsData = infectionPredTimeseries.get(area);
+    // if (!predictionInfectionsData) {
+    //     console.log("ERROR: No prediction infections found for area ", area);
+    //     return;
+    // }
 
 
     const rtChartData = rtData.get(area);
@@ -1628,8 +1638,8 @@ function selectArea(selectedArea) {
     }
 
     plotCaseChart(chartData, projectionCasesData, predictionCasesData, area);
-    plotInfectionChart(chartData, projectionInfectionsData, predictionInfectionsData, area);
-    plotRtChart(rtChartData, chartData, projectionData, predictionData, area);
+    // plotInfectionChart(chartData, projectionInfectionsData, predictionInfectionsData, area);
+    plotRtChart(rtChartData, chartData, projectionCasesData, predictionCasesData, area);
 
 	function formatdate(date) {
 		return date.getDate()+' '+MONTHS[date.getMonth()]

@@ -26,7 +26,7 @@ then
   "
   N=$3
 else
-  echo Usage: submit-run-regional results_directory [options] [N]
+  echo Usage: submit-run-twostage results_directory [options] [N]
   exit 1
 fi
 

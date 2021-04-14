@@ -8,7 +8,6 @@ if [ $# == 1 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
   "
   N=348
@@ -16,7 +15,6 @@ elif [ $# == 2 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
     $2
   "
@@ -25,13 +23,12 @@ elif [ $# == 3 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
     $2
   "
   N=$3
 else
-  echo Usage: submit-run results_directory [options] [N]
+  echo Usage: submit-run-epiestim results_directory [options] [N]
   exit 1
 fi
 
@@ -39,7 +36,6 @@ echo "results_directory = $results_directory"
 
 mkdir -p $results_directory
 mkdir -p $results_directory/epiestim
-mkdir -p $results_directory/epiestim/pdfs
 mkdir -p $results_directory/epiestim/fits
 mkdir -p $results_directory/epiestim/output
 
@@ -52,9 +48,9 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap-epiestim \
     --output=$results_directory/epiestim/output/run_%A_%a.out \
-    --partition=ziz-medium \
+    --partition=ziz-small \
     --ntasks=1 \
-    --time=18:00:00 \
+    --time=00:30:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
     --array=1-$N \
@@ -67,9 +63,9 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap-combineareas \
     --output=$results_directory/epiestim/output/combine_%A_%a.out \
-    --partition=ziz-medium \
+    --partition=ziz-small \
     --ntasks=1 \
-    --time=18:00:00 \
+    --time=00:30:00 \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \

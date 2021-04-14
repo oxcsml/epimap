@@ -180,6 +180,8 @@ generated quantities {
   vector[Tcur+Tstep*Nproj] Xt_proj;
   vector[Tstep*Nstep] Cpred;
   vector[Tstep*Nproj] Cproj;
+  vector[Tstep*Nstep] Bpred;
+  vector[Tstep*Nproj] Bproj;
   vector[Tstep*Nstep] Xpred;
   vector[Tstep*Nproj] Xproj;
   vector[Tpred] Ppred;
@@ -197,7 +199,8 @@ generated quantities {
     int s = t-Tcond;
     int c = Count[1,t];
     real Ec = Ecount[s];
-    real ecpred;
+    real EBt;
+    real ECt;
     real psi = Ec / phi_observed;
     vector[Ttdp] Precon;
     int Crecon_t[Ttdp];
@@ -208,13 +211,18 @@ generated quantities {
       Noutliers += 1;
     }
     Precon = testdelayprofile_rev .* Xt[t-Ttdp+1:t];
-    ecpred =  (7.0*weekly_case_variations[d]) * sum(Precon);
-    //if (ecpred<1e-3 || ecpred>1e3 || phi_observed<1e-3 || phi_observed>1e3) {
-    //  print("ecpred ",ecpred, " phi_observed ",phi_observed);
+    EBt =  sum(Precon);
+    ECt =  (7.0*weekly_case_variations[d]) * sum(Precon);
+    //if (ECt<1e-3 || ECt>1e3 || phi_observed<1e-3 || phi_observed>1e3) {
+    //  print("ECt ",ECt, " phi_observed ",phi_observed);
     //}
+    Bpred[s] = neg_binomial_2_rng(
+      fmin(1e5, fmax(1e-3, EBt)), 
+      fmax(1e-3, EBt / phi_observed)
+    );
     Cpred[s] = neg_binomial_2_rng(
-      fmin(1e5, fmax(1e-3, ecpred)), 
-      fmax(1e-3, ecpred / phi_observed)
+      fmin(1e5, fmax(1e-3, ECt)), 
+      fmax(1e-3, ECt / phi_observed)
     );
 
     if (c==0) continue;
@@ -241,7 +249,8 @@ generated quantities {
         int t = Tcond + s;
         int L = min(Tip,t-1);
         int d = (t % 7)+1;
-        real ecproj;
+        real EBt;
+        real ECt;
         real Einfection = Rx[i] * (xi + dot_product(
             xlatent[t-L:t-1], 
             infprofile_rev[Tip-L+1:Tip]
@@ -252,12 +261,16 @@ generated quantities {
           sqrt(Einfection) * normal_rng(0.0,1.0) // Poisson
           //sqrt((1.0+1.0/phi_latent) * Einfection) * normal_rng(0.0,1.0) // NB
         );
-
-        ecproj = (7.0*weekly_case_variations[d]) * 
+        EBt = dot_product(xlatent[t-Ttdp+1:t], testdelayprofile_rev);
+        ECt = (7.0*weekly_case_variations[d]) * 
           dot_product(xlatent[t-Ttdp+1:t], testdelayprofile_rev);
+        Bproj[t-Tcur] = neg_binomial_2_rng(
+          fmin(1e5, fmax(1e-3, EBt)), 
+          fmax(1e-3, EBt / phi_observed)
+        );
         Cproj[t-Tcur] = neg_binomial_2_rng(
-          fmin(1e5, fmax(1e-3, ecproj)), 
-          fmax(1e-3, ecproj / phi_observed)
+          fmin(1e5, fmax(1e-3, ECt)), 
+          fmax(1e-3, ECt / phi_observed)
         );
     } } 
     Xt_proj = xlatent;

@@ -438,11 +438,15 @@ epimap_region = function(
     "Ppred",
     "Xpred",
     "Xproj",
+    "Bpred",
+    "Bproj",
     "Cpred",
     "Cproj",
     "fluxproportions",
     "Rt",
     "Rt_region",
+    "Bproj_region",
+    "Bpred_region",
     "Cproj_region",
     "Cpred_region",
     "case_dispersion"
@@ -653,6 +657,8 @@ epimap_twostage = function(
   epimap_pars = c(
       epimap_summary_pars,
       "Ppred",
+      "Bpred",
+      "Bproj",
       "Cpred",
       "Cproj",
       "Xpred",
@@ -661,7 +667,9 @@ epimap_twostage = function(
       "Rt",
       "Rt_region",
       "Cproj_region",
-      "Cpred_region"
+      "Cpred_region",
+      "Bproj_region",
+      "Bpred_region"
   )
 
   print("Epimap control")
@@ -827,6 +835,8 @@ epimap_singlearea = function(
     "Crecon",
     "Cpred",
     "Cproj",
+    "Bpred",
+    "Bproj",
     "Xpred",
     "Xproj",
     "Noutliers",

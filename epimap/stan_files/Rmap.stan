@@ -376,6 +376,7 @@ parameters {
   real<lower=0,upper=1> coupling_alpha1; // 1-autocorrelation for sigmoid^-1(coupling_rate) 
   vector[DO_METAPOP ? (Mstep+Mforw) : 1] coupling_eta; // noise for sigmoid^-1(coupling_rate) 
 
+  simplex[7] weekly_case_variations;
   simplex[max(1,F)] flux_probs;
 }
 
@@ -607,12 +608,12 @@ model {
     local_exp[1,1] ~ exponential(1.0);
   }
   
-
-  
   coupling_mu_eta ~ std_normal();
   coupling_sigma ~ normal(0.0, coupling_sigma_scale);
   coupling_alpha1 ~ normal(0.0, coupling_alpha_scale);
   coupling_eta ~ std_normal();
+
+  weekly_case_variations ~ dirichlet(rep_vector(7.0,7));
 
   // compute likelihoods
   // TODO INFECTION_REPORTS and CLEANED_LATENT code below can be merged to mostly not be duplicated
@@ -635,11 +636,12 @@ model {
     }
     for (s in 1:Tlik) {
       int t = Tcond+s;
-      vector[Nall] Ereport = Elatent[,t-Tdp+1:t] * delayprofile_rev;
+      int d = (t % 7)+1;
+      vector[Nall] ECt = (7.0*weekly_case_variations[d]) * (Elatent[,t-Tdp+1:t] * delayprofile_rev);
       for (j in 1:Nall) {
         Ct_all[j,t] ~ neg_binomial_2(
-              Ereport[j],
-              Ereport[j] / case_dispersion
+              ECt[j],
+              ECt[j] / case_dispersion
         ); 
       }
     }
@@ -673,11 +675,12 @@ model {
       }
       for (s in 1:Tlik) {
         int t = Tcond+s;
-        vector[Nall] Ereport = Xt[,t-Tdp+1:t] * delayprofile_rev;
+        int d = (t % 7)+1;
+        vector[Nall] ECt = (7.0*weekly_case_variations[d]) * (Xt[,t-Tdp+1:t] * delayprofile_rev);
         for (j in 1:Nall) {
           Ct_all[j,t] ~ neg_binomial_2(
-                Ereport[j],
-                Ereport[j] / case_dispersion
+                ECt[j],
+                ECt[j] / case_dispersion
           );
         }
       }
@@ -779,6 +782,10 @@ generated quantities {
   matrix[Nall,Mproj*Tstep] Cproj;
   matrix[N_region,Mstep*Tstep] Cpred_region;
   matrix[N_region,Mproj*Tstep] Cproj_region;
+  matrix[Nall,Mstep*Tstep] Bpred;
+  matrix[Nall,Mproj*Tstep] Bproj;
+  matrix[N_region,Mstep*Tstep] Bpred_region;
+  matrix[N_region,Mproj*Tstep] Bproj_region;
 
   {
     matrix[Nall,Tcur+Tforw] Clatent;     // Latent epidemic values
@@ -951,34 +958,45 @@ generated quantities {
           { // posterior predictive expected counts
             for (t in Tcond+1:Tcur) {
               int s = t-Tcond;
+              int d = (t % 7)+1;
               Xpred[,s] = Clatent[,t];
-              Cpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              Bpred[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              Cpred[,s] = (7.0*weekly_case_variations[d]) * (Clatent[,t-Tdp+1:t] * delayprofile_rev);
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {
+                Bpred[,s] = to_vector(neg_binomial_2_rng(Bpred[,s], Bpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
                 Cpred[,s] = to_vector(neg_binomial_2_rng(Cpred[,s], Cpred[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
-              for (n in 1:N_region)
+              for (n in 1:N_region) {
+                Bpred_region[n,s] = sum(Bpred[,s] .* sparse_region[,n]);
                 Cpred_region[n,s] = sum(Cpred[,s] .* sparse_region[,n]);
+              }
             }
           }
           { // forecasting expected counts given parameters
             for (t in Tcur+1:Tcur+Tproj) {
               int s = t-Tcur;
+              int d = (t % 7)+1;
               Xproj[,s] = Clatent[,t];
-              Cproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              Bproj[,s] = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              Cproj[,s] = (7.0*weekly_case_variations[d]) * (Clatent[,t-Tdp+1:t] * delayprofile_rev);
               // Draw sample from observation model
               if (FULL_CASES_DISTRIBUTION) {
+                Bproj[,s] = to_vector(neg_binomial_2_rng(Bproj[,s], Bproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
                 Cproj[,s] = to_vector(neg_binomial_2_rng(Cproj[,s], Cproj[,s] / case_dispersion)); //*** TODO use better estimated dispersion ***//
               }
-              for (n in 1:N_region)
+              for (n in 1:N_region) {
+                Bproj_region[n,s] = sum(Bproj[,s] .* sparse_region[,n]);
                 Cproj_region[n,s] = sum(Cproj[,s] .* sparse_region[,n]);
+              }
             }
           }
           // Compute predictive likelihood of observed future case observations
           {
             for (t in Tcur+1:Tcur+Tpred) {
               int i = t-Tcur;
-              vector[Nall] cc = Clatent[,t-Tdp+1:t] * delayprofile_rev;
+              int d = (t % 7)+1;
+              vector[Nall] cc = (7.0*weekly_case_variations[d]) * (Clatent[,t-Tdp+1:t] * delayprofile_rev);
               for (j in 1:Nall) {
                 Ppred[j,i] = exp(neg_binomial_2_lpmf(Ct_all[j,t] |
                     cc[j],

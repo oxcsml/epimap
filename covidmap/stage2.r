@@ -305,6 +305,8 @@ covidmap_stage2_postprocess = function(env) {
     save_samples("Rt")
     save_samples("Cpred",areafirst=TRUE)
     save_samples("Cproj",areafirst=TRUE)
+    save_samples("Bpred",areafirst=TRUE)
+    save_samples("Bproj",areafirst=TRUE)
     save_samples("Xpred",areafirst=TRUE)
     save_samples("Xproj",areafirst=TRUE)
     if (opt$region_id>0) {
@@ -313,6 +315,8 @@ covidmap_stage2_postprocess = function(env) {
       nregion = N_region
     }
     save_samples("Rt_region", N_sites=nregion)
+    save_samples("Bpred_region", N_sites=nregion, areafirst=TRUE)
+    save_samples("Bproj_region", N_sites=nregion, areafirst=TRUE)
     save_samples("Cpred_region", N_sites=nregion, areafirst=TRUE)
     save_samples("Cproj_region", N_sites=nregion, areafirst=TRUE)
 
@@ -412,6 +416,22 @@ covidmap_stage2_postprocess = function(env) {
     )
     writeresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
 
+    s <- summary(fit, pars=c("Bpred"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Bpred <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+    #Cpred <- s[,c("2.5%", "50%", "97.5%")]
+    Bpred <- t(t(Bpred))
+    message(sprintf("median Bpred range: [%f, %f]",min(Bpred[,"50%"]),max(Bpred[,"50%"])))
+    df <- area_date_dataframe(
+      quoted_areas[inferred_areas],
+      seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
+      rep('inferred',Tlik),
+      format(round(Bpred,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("C_2_5","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60","C_70","C_75","C_80","C_90","C_97_5")
+    )
+    writeresults(df, 'Bpred', row.names=FALSE, quote=FALSE)
+
 
     # weekly counts. Includes 1 last column of actual counts among days ignored in model
     Tweek = Tstep # assumes Tstep = 7
@@ -461,6 +481,23 @@ covidmap_stage2_postprocess = function(env) {
         "C_60","C_70","C_75","C_80","C_90","C_97_5")
     )
     writeresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
+
+
+    s <- summary(fit, pars=c("Bproj"), probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975))$summary
+    Bproj <- s[,c("2.5%","10%", "20%", "25%", "30%", "40%", "50%", "60%", "70%", "75%", "80%", "90%","97.5%")]
+    #Cproj <- s[,c("2.5%", "50%", "97.5%")]
+    Bproj <- t(t(Bproj))
+    message(sprintf("median Bproj range: [%f, %f]",min(Bproj[,"50%"]),max(Bproj[,"50%"])))
+    df <- area_date_dataframe(
+      quoted_areas[inferred_areas], 
+      seq(dates[Tcur]+1,by=1,length.out=Tproj),
+      rep('projected',Tproj),
+      format(round(Bproj,1),digits=5),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("C_2_5","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60","C_70","C_75","C_80","C_90","C_97_5")
+    )
+    writeresults(df, 'Bproj', row.names=FALSE, quote=FALSE)
 
 
     #################################################################
@@ -680,8 +717,64 @@ covidmap_stage2_merge = function(
   writemergedresults(df, 'Cpred', row.names=FALSE, quote=FALSE)
   message('done Cpred')
 
+  Bpred = do.call(rbind,lapply(region_ids, function(region_id) {
+    Bpred_samples = load_samples(region_id,'Bpred')
+    t(apply(Bpred_samples,2,quantile,
+      probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+    ))
+  }))
+
+  df <- area_date_dataframe(
+      quoted_areas_by_regions,
+      seq(dates[Tcond]+1,by=1,length.out=Mstep*Tstep),
+      rep('inferred',Tlik),
+      format(round(Bpred,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  writemergedresults(df, 'Bpred', row.names=FALSE, quote=FALSE)
+  message('done Bpred')
+
   ####################################################################################
   # weekly counts. Includes 1 last column of actual counts among days ignored in model
+
+  Bweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
+  dim(Bweekly) <- c(N,Tstep,Mstep)
+  Bweekly <- apply(Bweekly,c(1,3),sum)
+
+  stopifnot(Tcur+Tstep<=length(AllCount))
+
+  #ignoredweek <- apply(AllCount[,(Tcur+1):(Tcur+Tstep)],c(1),sum)
+  #Bweekly <- cbind(Bweekly,ignoredweek)
+
+  Bweekly = do.call(rbind,lapply(region_ids,function(region_id) {
+    Narea = Nareas(region_id)
+    Bproj_samples = load_samples(region_id,'Bproj')
+    projectedweeks = as.matrix(apply(Bproj_samples,2,quantile,
+        probs=c(.5)
+    ))
+    dim(projectedweeks) <- c(Tstep,Mproj,Narea)
+    projectedweeks <- projectedweeks[,1:Mproj,,drop=FALSE]
+    projectedweeks <- apply(projectedweeks,c(2,3),sum)
+    projectedweeks <- t(projectedweeks)
+    cbind(Bweekly[areas(region_id),],projectedweeks)
+  }))
+
+  Bweekly <- t(Bweekly)
+  Bweekly <- Bweekly[sapply(1:(Mstep+Mproj),function(k)rep(k,Tstep)),]
+  dim(Bweekly) <- c(N*(Tlik+Tstep*Mproj))
+  df <- area_date_dataframe(
+      quoted_areas_by_regions,
+      days_all,
+      provenance,
+      format(Bweekly,digits=3),
+      c("C_weekly")
+  )
+  writemergedresults(df, 'Bweekly', row.names=FALSE, quote=FALSE)
+  message('done Bweekly')
+
+
 
   Cweekly <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
   dim(Cweekly) <- c(N,Tstep,Mstep)
@@ -737,6 +830,25 @@ covidmap_stage2_merge = function(
   )
   writemergedresults(df, 'Cproj', row.names=FALSE, quote=FALSE)
   message('done Cproj')
+
+  Bproj = do.call(rbind,lapply(region_ids,function(region_id) {
+    Bproj_samples = load_samples(region_id,'Bproj')
+    t(apply(Bproj_samples,2,quantile,
+        probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+    ))
+  }))
+  df <- area_date_dataframe(
+      quoted_areas_by_regions,
+      seq(dates[Tcur]+1,by=1,length.out=Tproj),
+      rep('projected',Tproj),
+      format(round(Bproj,1),nsmall=1),
+      #c("C_2_5","C_25","C_50","C_75","C_97_5")
+      c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  writemergedresults(df, 'Bproj', row.names=FALSE, quote=FALSE)
+  message('done Bproj')
+
 
   #################################################################
   # posterior predictives and projections

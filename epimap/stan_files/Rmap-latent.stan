@@ -479,6 +479,12 @@ generated quantities {
   matrix[Ninferred,Tproj] Cproj;
   matrix[1,Tlik] Cpred_region;
   matrix[1,Tproj] Cproj_region;
+  // predicted and projected counts WITHOUT weekly variation
+  matrix[Ninferred,Tlik] Bpred;
+  matrix[Ninferred,Tproj] Bproj;
+  matrix[1,Tlik] Bpred_region;
+  matrix[1,Tproj] Bproj_region;
+  // likelihood of observed data under prediction
   matrix[Ninferred,Tpred] Ppred = rep_matrix(0.0,Ninferred,Tpred); // TODO
 
   { // latent renewal process and observation model
@@ -544,17 +550,25 @@ generated quantities {
     for (t in Tcond+1:Tcur+Tproj) {
       int s = t - Tcond;
       int d = (t % 7)+1;
-      vector[Ninferred] ECt = (7.0*weekly_case_variations[d]) *
-        Xt_proj[inferred,t-Tdp+1:t] * delayprofile_rev;
+      vector[Ninferred] EBt = Xt_proj[inferred,t-Tdp+1:t] * delayprofile_rev;
+      vector[Ninferred] ECt = (7.0*weekly_case_variations[d]) * Xt_proj[inferred,t-Tdp+1:t] * delayprofile_rev;
       for (j in 1:Ninferred) {
         if (t<=Tcur) {
           // Cpred[j,t-Tcond] = ECt[j];
+          Bpred[j,t-Tcond] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, EBt[j])), 
+            fmax(1e-3, EBt[j] / case_dispersion[j])
+          );
           Cpred[j,t-Tcond] = neg_binomial_2_rng(
             fmin(1e5, fmax(1e-3, ECt[j])), 
             fmax(1e-3, ECt[j] / case_dispersion[j])
           );
         } else {
           // Cproj[j,t-Tcur] = ECt[j];
+          Bproj[j,t-Tcur] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, EBt[j])), 
+            fmax(1e-3, EBt[j] / case_dispersion[j])
+          );
           Cproj[j,t-Tcur] = neg_binomial_2_rng(
             fmin(1e5, fmax(1e-3, ECt[j])), 
             fmax(1e-3, ECt[j] / case_dispersion[j])
@@ -562,6 +576,8 @@ generated quantities {
         }
       }
     }
+    Bpred_region = rep_matrix(1.0,1,Ninferred) * Bpred;
+    Bproj_region = rep_matrix(1.0,1,Ninferred) * Bproj;
     Cpred_region = rep_matrix(1.0,1,Ninferred) * Cpred;
     Cproj_region = rep_matrix(1.0,1,Ninferred) * Cproj;
   }

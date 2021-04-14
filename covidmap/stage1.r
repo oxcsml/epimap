@@ -247,6 +247,9 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Rt_samples = array(0.0, c(N, Nstep+Nproj, num_samples))
   logpred = array(0.0, c(N, Tpred))
 
+  Bpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Bproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
+
   Cpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
   Cproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
 
@@ -299,6 +302,12 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     s <- summary(fit, pars="Ppred", probs=c(0.025, .5, .975))$summary
     Ppred <- s[,"mean"]
     logpred[area_index,] = log(Ppred)
+
+    s <- summary(fit, pars="Bpred", probs=percentiles)$summary
+    Bpred[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Bproj", probs=percentiles)$summary
+    Bproj[area_index,,] = s[,str_percentiles]
 
     s <- summary(fit, pars="Cpred", probs=percentiles)$summary
     Cpred[area_index,,] = s[,str_percentiles]
@@ -383,8 +392,37 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
       colnames(logpred)[i+1] <- sprintf('logpred_day%d',i)
   write.csv(logpred, paste(opt$results_directory, "/singlearea/logpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
-  Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
+  Bweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
+
+  actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
+  dim(actuals) <- c(N,Tstep,Nstep)
+  actuals <- aperm(actuals, c(1,3,2))
+  # preds = Cpred[,,3]
+  # dim(preds) <- c(N, Nstep, Tstep)
+  Bweekly[,1:Nstep,] = actuals
+
+  projs = Bproj[,,3]
+  dim(projs) <- c(N, Tstep, Nproj)
+  projs = aperm(projs,c(1,3,2))
+  Bweekly[,(Nstep+1):(Nstep+Nproj),] = projs
+
+  Bweekly = apply(Bweekly, c(1,2), sum) 
+  Bweekly = Bweekly[,sapply(1:(Nstep+Nproj),function(k)rep(k,Tstep))]
+  Bweekly = aperm(Bweekly, c(2,1))
+  dim(Bweekly) <- c(N*(Nstep+Nproj)*Tstep)
+
+  Bweekly <- area_date_dataframe(
+    quoted_areas,
+    days_all,
+    provenance,
+    Bweekly,
+    c("B_weekly")
+  )
+  write.csv(Bweekly, paste(opt$results_directory, "/singlearea/Bweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+  
+  Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
   actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
   dim(actuals) <- c(N,Tstep,Nstep)
@@ -411,6 +449,32 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     c("C_weekly")
   )
   write.csv(Cweekly, paste(opt$results_directory, "/singlearea/Cweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Bpred = aperm(Bpred, c(2,1,3))
+  dim(Bpred) <- c(N*Nstep*Tstep, num_percentiles)
+  Bpred <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    rep('inferred',Nstep*Tstep),
+    Bpred,
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  write.csv(Bpred, paste(opt$results_directory, "/singlearea/Bpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Bproj = aperm(Bproj, c(2,1,3))
+  dim(Bproj) <- c(N*Nproj*Tstep, num_percentiles)
+  Bproj <- area_date_dataframe(
+    quoted_areas,
+    seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    Bproj,
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  write.csv(Bproj, paste(opt$results_directory, "/singlearea/Bproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   Cpred = aperm(Cpred, c(2,1,3))

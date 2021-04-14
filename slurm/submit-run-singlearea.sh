@@ -8,7 +8,7 @@ if [ $# == 1 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
+    --produce_plots FALSE \
     --results_directory $results_directory \
   "
   N=348
@@ -16,7 +16,7 @@ elif [ $# == 2 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
+    --produce_plots FALSE \
     --results_directory $results_directory \
     $2
   "
@@ -25,13 +25,13 @@ elif [ $# == 3 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
+    --produce_plots FALSE \
     --results_directory $results_directory \
     $2
   "
   N=$3
 else
-  echo Usage: submit-run results_directory \"[options]\" [N]
+  echo Usage: submit-run-singlearea results_directory \"[options]\" [N]
   exit 1
 fi
 
@@ -47,20 +47,20 @@ mkdir -p $results_directory/singlearea/output
 echo submit-run-singlearea: compiling
 Rscript epimap/compile.r
 
-echo submit-run-singlearea: running areas
-sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=Rmap-singlearea \
-    --output=$results_directory/singlearea/output/run_%A_%a.out \
-    --partition=ziz-medium \
-    --ntasks=1 \
-    --time=18:00:00 \
-    --mem-per-cpu=5G \
-    --cpus-per-task=1 \
-    --array=1-$N \
-    --wrap \
-    "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
+# echo submit-run-singlearea: running areas
+# sbatch --wait \
+#     --mail-user=$USER@stats.ox.ac.uk \
+#     --mail-type=ALL \
+#     --job-name=Rmap-singlearea \
+#     --output=$results_directory/singlearea/output/run_%A_%a.out \
+#     --partition=ziz-medium \
+#     --ntasks=1 \
+#     --time=18:00:00 \
+#     --mem-per-cpu=5G \
+#     --cpus-per-task=1 \
+#     --array=1-$N \
+#     --wrap \
+#     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
 
 echo submit-run-singlearea: combining areas
 sbatch --wait \

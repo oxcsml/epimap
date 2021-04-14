@@ -1,3 +1,4 @@
+# %%
 import os
 import math
 from itertools import chain
@@ -8,6 +9,27 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+
+def lighten_color(color, amount=1.0):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 
 def load_parameter(par_name, results_dir):
@@ -25,11 +47,15 @@ def load_all(results_dir):
     cpred = load_parameter("merged_Cpred" if merged else "Cpred", results_dir)
     cproj = load_parameter("merged_Cproj" if merged else "Cproj", results_dir)
     c = pd.concat([cproj, cpred])
-
-    pexceed = load_parameter("merged_Pexceed" if merged else "Pexceed", results_dir)
-
     df = pd.merge(df, c, on=["area", "Date", "provenance"])
-    df = pd.merge(df, pexceed, on=["area", "Date", "provenance"])
+
+    # xpred = load_parameter("merged_Xpred" if merged else "Xpred", results_dir)
+    # xproj = load_parameter("merged_Xproj" if merged else "Xproj", results_dir)
+    # x = pd.concat([xproj, xpred])
+    # df = pd.merge(df, x, on=["area", "Date", "provenance"])
+
+    # pexceed = load_parameter("merged_Pexceed" if merged else "Pexceed", results_dir)
+    # df = pd.merge(df, pexceed, on=["area", "Date", "provenance"])
 
     return df
 
@@ -45,33 +71,72 @@ def load_cases(data_dir):
 
 
 def plot_estimate(
-    results, par_name, median="_50", upper="_97_5", lower="_2_5", color=None, ax=None
+    results,
+    par_name,
+    provenance=None,
+    median="_50",
+    upper="_97_5",
+    lower="_2_5",
+    color=None,
+    ax=None,
 ):
     if ax is None:
         fig, ax = plt.subfigures(1, 1)
 
+    if provenance is not None:
+        results = results[results.provenance == provenance]
+
+    if provenance == "projected":
+        linestyle = "dotted"
+    else:
+        linestyle = "solid"
+
     if color == None:
-        lines = ax.plot(results.Date, results[par_name + median])
-        ax.fill_between(
+        line = ax.plot(
+            results.Date,
+            results[par_name + median],
+            linewidth=1.0,
+            linestyle=linestyle,
+            zorder=1,
+        )
+        color = (line[0].get_color(),)
+        fill = ax.fill_between(
             results.Date,
             results[par_name + lower],
             results[par_name + upper],
-            alpha=0.3,
-            color=lines[0].get_color(),
+            alpha=0.2 if provenance == "projected" else 0.4,
+            color=color,
+            zorder=2,
+            # hatch="///" if provenance == "projected" else None,
+            # facecolor=lighten_color(color, 0.5),
+            # edgecolor=lighten_color(color, 1.6),
+            # linewidth=0.0,
         )
     else:
-        ax.plot(results.Date, results[par_name + median], color=color)
-        ax.fill_between(
+        line = ax.plot(
+            results.Date,
+            results[par_name + median],
+            color=color,
+            linewidth=1.0,
+            linestyle=linestyle,
+            zorder=1,
+        )
+        fill = ax.fill_between(
             results.Date,
             results[par_name + lower],
             results[par_name + upper],
-            alpha=0.3,
+            alpha=0.2 if provenance == "projected" else 0.4,
             color=color,
+            zorder=2,
+            # hatch="///" if provenance == "projected" else None,
+            # facecolor=lighten_color(color, 0.5),
+            # edgecolor=lighten_color(color, 1.6),
+            # linewidth=0.0,
         )
 
     ax.tick_params(axis="x", rotation=45)
 
-    return ax
+    return (line, fill), ax
 
 
 def plot_actual(results, par_name, color=None, ax=None):
@@ -79,9 +144,9 @@ def plot_actual(results, par_name, color=None, ax=None):
         fig, ax = plt.subfigures(1, 1)
 
     if color == None:
-        ax.plot(results.Date, results[par_name])
+        ax.plot(results.Date, results[par_name], zorder=1)
     else:
-        ax.plot(results.Date, results[par_name], color=color)
+        ax.plot(results.Date, results[par_name], color=color, zorder=1)
 
     ax.tick_params(axis="x", rotation=45)
 
@@ -89,9 +154,9 @@ def plot_actual(results, par_name, color=None, ax=None):
 
 
 def plot_estimate_area(results, area, *args, **kwargs):
-    ax = plot_estimate(results[results.area == area], *args, **kwargs)
+    handles, ax = plot_estimate(results[results.area == area], *args, **kwargs)
     ax.set_title(area)
-    return ax
+    return handles, ax
 
 
 def plot_actual_area(results, area, *args, **kwargs):
@@ -113,73 +178,115 @@ def plot_comparison(
     share_ax=True,
     fix_scale=False,
 ):
+    estimate_colors = ["tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown"]
+
     if areas == None:
         areas = actual_results.area.unique().tolist()
 
     if axes == None:
         N = len(areas)
-        H = math.ceil(math.sqrt(N) / 1.6)
-        W = math.ceil(N / H)
+        W = len(areas)
+        H = len(estimates_results)
 
         fig, axes = plt.subplots(
-            H, W, sharex=share_ax, sharey=share_ax, figsize=(3 * W, 3 * H)
+            H,
+            W,
+            sharex=share_ax,
+            sharey=share_ax,
+            figsize=(2.5 * W, 2.5 * H),
+            squeeze=False,
         )
 
         all_axes = list(chain.from_iterable(axes))
-        axes = all_axes[:N]
     else:
-        all_axes = axes
+        all_axes = list(chain.from_iterable(axes))
 
     if not isinstance(estimates_results, dict) and estimates_results is not None:
         estimates_results = {"Estimate": estimates_results}
 
-    for area, ax in zip(areas, axes):
+    max_y = 0.0
 
-        max_y = 0
+    handles = []
+    labels = []
 
-        if actual_results is not None:
-            plot_actual_area(actual_results, area, par_name=par_name, ax=ax)
-            max_y = actual_results[actual_results.area == area][par_name].max()
+    for i, (row, (name, estimate)) in enumerate(zip(axes, estimates_results.items())):
+        for j, (area, ax) in enumerate(zip(areas, row)):
 
-        if estimates_results is not None:
-            for estimates_result in estimates_results.values():
-                plot_estimate_area(
-                    estimates_result,
-                    area,
-                    par_name=par_name,
-                    ax=ax,
-                    median=median,
-                    upper=upper,
-                    lower=lower,
-                )
+            if actual_results is not None:
+                plot_actual_area(actual_results, area, par_name=par_name, ax=ax)
                 max_y = max(
-                    max_y,
-                    estimates_result[estimates_result.area == area][
-                        par_name + median
-                    ].max(),
+                    max_y, actual_results[actual_results.area == area][par_name].max()
                 )
 
-        if fix_scale:
-            ax.set_ylim([0, 1.3 * max_y])
+            infr_handles, ax = plot_estimate_area(
+                estimate,
+                area,
+                par_name=par_name,
+                ax=ax,
+                median=median,
+                upper=upper,
+                lower=lower,
+                color=estimate_colors[i],
+                provenance="inferred",
+            )
+            proj_handles, ax = plot_estimate_area(
+                estimate,
+                area,
+                par_name=par_name,
+                ax=ax,
+                median=median,
+                upper=upper,
+                lower=lower,
+                color=estimate_colors[i],
+                provenance="projected",
+            )
+            max_y = max(
+                max_y,
+                estimate[estimate.area == area][par_name + median].max(),
+            )
+
+            if i == 0:
+                ax.set_title(f"{area}")
+
+            if j == 0:
+                handles.append(infr_handles)
+                handles.append(proj_handles)
+                labels += [f"{name} infered", f"{name} projected"]
 
     for ax in all_axes:
         ax.tick_params(axis="x", rotation=45)
+        if fix_scale:
+            ax.set_ylim([0, 1.3 * max_y])
 
     titles = ["Actual", *list(estimates_results.keys())]
-    lines = axes[0].get_lines()
+    # lines = axes[0].get_lines()
 
-    fig.legend(
-        lines,
-        titles,
-        loc="upper left",
-        bbox_to_anchor=(1.0, 0.95),
-        bbox_transform=plt.gcf().transFigure,
-    )
+    # fig.legend(
+    #     lines,
+    #     titles,
+    #     loc="upper left",
+    #     bbox_to_anchor=(1.0, 0.95),
+    #     bbox_transform=plt.gcf().transFigure,
+    # )
 
     if title is not None:
         fig.suptitle(title)
 
+    # print(handles)
+    # print([h[1] for h in handles])
+    # print(labels)
     plt.tight_layout()
+
+    # for h in handles:
+    #     print(h)
+
+    plt.legend(
+        [(h[0][0], h[1]) for h in handles],
+        labels,
+        loc="upper left",
+        bbox_to_anchor=(1.0, 0.95),
+        bbox_transform=plt.gcf().transFigure,
+    )
 
     return fig, axes
 
@@ -198,15 +305,16 @@ def plot_cases(
         W = math.ceil(N / H)
 
         # fig, axes = plt.subplots(H, W, sharex=True, sharey=True, figsize=(3 * W, 3 * H))
-        fig, axes = plt.subplots(H, W, figsize=(3 * W, 3 * H))
+        fig, axes = plt.subplots(H, W, figsize=(3 * W, 3 * H), squeeze=False)
 
         all_axes = list(chain.from_iterable(axes))
-        axes = all_axes[:N]
+        # axes = all_axes[:N]
     else:
-        all_axes = axes
+        all_axes = list(chain.from_iterable(axes))
 
-    for area, ax in zip(areas, axes):
-        plot_actual_area(cases, area, par_name="cases", ax=ax)
+    for row in axes:
+        for area, ax in zip(areas, row):
+            plot_actual_area(cases, area, par_name="cases", ax=ax)
 
     for ax in all_axes:
         ax.tick_params(axis="x", rotation=45)
@@ -217,24 +325,29 @@ def plot_cases(
 
 
 if __name__ == "__main__":
-    # import os
+    import os
 
-    # os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
+    os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
     # from simulation.plot_comparisons import *
-
-    actuals = load_parameter("Rt", "simulation/latent_epidemic/tehtropolis/sample")
+    # %%
+    actuals = load_parameter(
+        "Rt", "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1"
+    )
     estimates = {
-        "EpiEstim": load_all("simulation_fits/test/epiestim"),
-        "SingleArea": load_all("simulation_fits/test/singlearea"),
-        "TwoStage": load_all("simulation_fits/test/twostage"),
-        "Regional": load_all("simulation_fits/test/regional"),
+        "SingleArea": load_all("simulation_fits/sample_rss_paper_1/singlearea"),
+        "TwoStage": load_all("simulation_fits/sample_rss_paper_1/twostage"),
+        "Regional": load_all("simulation_fits/sample_rss_paper_1/regional"),
+        "EpiNow2": load_all("simulation_fits/sample_rss_paper_1/epinow2"),
+        "EpiEstim": load_all("simulation_fits/sample_rss_paper_1/epiestim"),
     }
 
-    cases = load_cases("simulation/latent_epidemic/tehtropolis/sample")
+    cases = load_cases("simulation/latent_epidemic/tehtropolis/sample_rss_paper_1")
 
     title = "All"
+
+    # %%
     fig, axes = plot_comparison(actuals, estimates, title=title, par_name="Rt")
-    for ax in axes:
+    for ax in chain.from_iterable(axes):
         ax.set_ylim([0, 2])
     fig.savefig(
         f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"

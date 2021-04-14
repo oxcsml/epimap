@@ -6,13 +6,14 @@ import pandas as pd
 from simulation import simulate
 from plotting import plot_epidemic
 from utils import save_simulation_with_data
+
 # from ..latent_epidemic import *
 
 append = ""
 # append = "simulation/latent_epidemic/"
 
 areas = pd.read_csv(append + "tehtropolis/data/areas.csv")
-counts = pd.read_csv(append + "tehtropolis/data/cases.csv").set_index('area')
+counts = pd.read_csv(append + "tehtropolis/data/cases.csv").set_index("area")
 metadata = pd.read_csv(append + "tehtropolis/data/metadata.csv")
 distances = pd.read_csv(append + "tehtropolis/data/distances.csv")
 # radiation_fluxes_01 = pd.read_csv(append + "data/radiation_flux_ls=0.1.csv")
@@ -49,10 +50,12 @@ R_weekly = [
     2.5,
     2.5,
     2.5,
-    2.5,
     2.0,
+    1.5,
+    1.0,
+    0.9,
     0.7,
-    0.5,
+    0.6,
     0.6,
     0.7,
     0.8,
@@ -85,7 +88,7 @@ R_weekly = [
     1.0,
     1.0,
     1.0,
-    1.0
+    1.0,
 ]
 
 if initial_infection_profile == "real":
@@ -189,7 +192,9 @@ params = {
     "mixing_proportions": list(mixing_proportions),
 }
 
-save_simulation_with_data(X, C, R, params, "tehtropolis/sample", base_data_dir="tehtropolis/data")
+save_simulation_with_data(
+    X, C, R, params, "tehtropolis/sample", base_data_dir="tehtropolis/data"
+)
 plt.savefig("tehtropolis/sample/cases_r.pdf")
 
 # %%

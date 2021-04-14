@@ -108,7 +108,7 @@ do
         --weeks_modelled $weeks_modelled \
     "
 
-    clean "$options_clean" "$weeks_modelled" "$results_directory" "None" &
+    clean "$options_clean" "$first_day_modelled" "$results_directory" "None" &
 done
 
 wait 
@@ -174,6 +174,7 @@ do
                 --fixed_gp_time_length_scale 100.0 \
                 --first_day_modelled $first_day_modelled \
                 --weeks_modelled $weeks_modelled \
+                --num_regions 9 \
             "
         else
             options_map="\
@@ -185,6 +186,7 @@ do
                 --fixed_gp_time_length_scale 100.0 \
                 --first_day_modelled $first_day_modelled \
                 --weeks_modelled $weeks_modelled \
+                --num_regions 9 \
             "
         fi
 

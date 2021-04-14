@@ -16,7 +16,7 @@ function epiestim { # options = $1, first_day_modelled = $2, results_directory =
         --time=18:00:00 \
         --mem-per-cpu=5G \
         --cpus-per-task=1 \
-        --array=1-5 \
+        --array=1-348 \
         --wrap \
         "Rscript alternate_methods/epiestim_run.r --area_index \$SLURM_ARRAY_TASK_ID $1"
 
@@ -41,7 +41,7 @@ function epiestim { # options = $1, first_day_modelled = $2, results_directory =
 }
 
 
-backtest_directory="fits/backtests_test_epiestim" # relative to Rmap working directory! 6_apr_2021
+backtest_directory="fits/backtests_8_apr_2021_epiestim" # relative to Rmap working directory! 
 first_day_modelled_array=("2020-06-29" "2020-08-10" "2020-09-07" "2020-10-05") 
 weeks_modelled=15
 

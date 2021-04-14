@@ -4,6 +4,9 @@ set -e
 
 trap 'echo submit-run-epiestim: Failed before finishing with exit code $? && exit $?' ERR
 
+source ./slurm/cluster-config
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+
 if [ $# == 1 ]
 then
   results_directory=$1
@@ -44,11 +47,11 @@ mkdir -p $results_directory/epiestim/output
 
 echo submit-run-epiestim: running areas
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-epiestim \
     --output=$results_directory/epiestim/output/run_%A_%a.out \
-    --partition=ziz-small \
+    --partition=$PARTITION \
     --ntasks=1 \
     --time=00:30:00 \
     --mem-per-cpu=5G \
@@ -59,11 +62,11 @@ sbatch --wait \
 
 echo submit-run-epiestim: combining areas
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-combineareas \
     --output=$results_directory/epiestim/output/combine_%A_%a.out \
-    --partition=ziz-small \
+    --partition=$PARTITION \
     --ntasks=1 \
     --time=00:30:00 \
     --mem-per-cpu=10G \

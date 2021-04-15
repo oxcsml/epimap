@@ -35,7 +35,9 @@ def get_area_code(fpath):
     return int(fname.split("_")[0])
 
 
-def make_dfs(fpaths, region_codes, percs_dct, start_date, forecast_days):
+def make_dfs(
+    fpaths, region_codes, percs_dct, start_date, weeks_modelled, forecast_days
+):
     dfs = list()
     for fpath in fpaths:
         code = get_area_code(fpath)
@@ -43,7 +45,16 @@ def make_dfs(fpaths, region_codes, percs_dct, start_date, forecast_days):
         samples = np.loadtxt(fpath)
 
         days_modelled = samples.shape[1]
-        dates = pd.date_range(start=start_date, periods=days_modelled, freq="D",)
+        end_date = (
+            pd.Timestamp(start_date)
+            + pd.Timedelta(weeks_modelled, unit="W")
+            + pd.Timedelta(forecast_days, unit="D")
+        )
+        dates = pd.date_range(
+            end=end_date,
+            periods=days_modelled,
+            freq="D"
+        )
         provenance = np.r_[
             np.repeat("inferred", days_modelled - forecast_days),
             np.repeat("projected", forecast_days),
@@ -97,6 +108,7 @@ if __name__ == "__main__":
         "output_folder", type=str, help="Folder in which to save the output csvs"
     )
     parser.add_argument("first_day_modelled", type=str, help="To begin date stamps")
+    parser.add_argument("weeks_modelled", type=int, help="Number of weeks modelled")
     parser.add_argument("forecast_days", type=int, help="Number of days of forecast")
     parser.add_argument(
         "--prefix", type=str, help="Filename prefix for output files", default=""
@@ -132,6 +144,7 @@ if __name__ == "__main__":
         region_codes=region_codes,
         percs_dct=RT_PERCENTILES,
         start_date=args.first_day_modelled,
+        weeks_modelled=args.weeks_modelled,
         forecast_days=args.forecast_days,
     )
     rt.to_csv(os.path.join(args.output_folder, f"{args.prefix}_Rt.csv"))
@@ -141,6 +154,7 @@ if __name__ == "__main__":
         region_codes=region_codes,
         percs_dct=CASE_PERCENTILES,
         start_date=args.first_day_modelled,
+        weeks_modelled=args.weeks_modelled,
         forecast_days=args.forecast_days,
     )
     cases_df.query("provenance=='inferred'").to_csv(
@@ -149,4 +163,3 @@ if __name__ == "__main__":
     cases_df.query("provenance=='projected'").to_csv(
         os.path.join(args.output_folder, f"{args.prefix}_Cproj.csv")
     )
-    # chase down missing runs...

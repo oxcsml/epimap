@@ -72,6 +72,7 @@ do
         ${outputs_folder}/${first_day_modelled} \
         ${outputs_folder} \
         ${first_day_modelled} \
+        ${weeks_modelled} \
         ${forecast_days} \
         --region_codes=${region_codes} \
         --prefix=${first_day_modelled}

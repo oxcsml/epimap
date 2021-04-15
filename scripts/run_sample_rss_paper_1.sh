@@ -1,12 +1,12 @@
 sample_directory=simulation/latent_epidemic/tehtropolis/sample_rss_paper_1
-results_directory=simulation_fits/sample_rss_paper_1
+results_directory=simulation_fits/sample_rss_paper_1_longer
 
 mkdir -p $results_directory
 cp $sample_directory/cases.csv $results_directory
 
 common_options="\
     --data_directory $sample_directory \
-    --first_day_modelled 2020-04-09 \
+    --first_day_modelled 2020-02-01 \
     --days_ignored 21 \
     --days_predicted 21 \
     --num_steps_forecasted 3"

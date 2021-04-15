@@ -13,7 +13,7 @@ cd /data/ziz/software/Rmap/Rmap-daily-update
 git pull
 
 # Update the case data repo
-cd dataprocessing/covid19_datasets && git pull && cd -
+cd /data/ziz/software/Rmap/covid19_datasets && git pull && cd -
 
 python dataprocessing/process_uk_cases.py
 
@@ -39,7 +39,7 @@ options_clean="\
     --weeks_modelled 20 \
     --days_ignored 7 \
 "
-slurm/submit-run-singlearea.sh $results_directory $options_clean
+slurm/submit-run-singlearea.sh $results_directory "$options_clean"
 
 # Force recomplie to avoid mysterious bug
 # rm -f mapping/stan_files/Rmap.rds
@@ -55,7 +55,7 @@ options_regional_20km="\
     --days_predicted 2 \
     --num_steps_forcasted 3 \
 "
-slurm/submit-run-regional.sh $results_directory $options_regional_20km &
+slurm/submit-run-regional.sh $results_directory "$options_regional_20km" &
 
 # options_regional_10km="\
 #     --globalkernel none \

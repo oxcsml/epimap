@@ -33,11 +33,23 @@ covidmap_stage1_options = function(
   area_index         = 0,
 
   limit_area         = NULL,
-  limit_radius       = NULL
+  limit_radius       = NULL,
+
+  regions_as_areas_stage1   = FALSE,
+
+  Adp                = 1.57,
+  Aip                = 2.29,
+
+  Bdp                = 0.65,
+  Bip                = 0.36,
+
+  num_bootstrap      = 10,
+
+  bootstrap_merge      = FALSE
+
 ) {
   as.list(environment())
 }
-
 #' Produce plots to instect the results of the stage 1 model 
 #' 
 #' @param area index of the area to plot
@@ -544,6 +556,14 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
     ),
 
     make_option(
+      c("--regions_as_areas_stage1"), 
+      type="logical", 
+      default=opt$regions_as_areas_stage1, 
+      help=paste("Whether to run stage 1 on regions instead of areas; default", opt$regions_as_areas_stage1)
+    ),
+
+
+    make_option(
       c("--limit_area"), 
       type="character", 
       default=opt$limit_area, 
@@ -555,8 +575,33 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       type="double", 
       default=opt$limit_radius, 
       help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
-    )
+    ),
 
+    make_option(
+      c("--Adp"), 
+      type="double", 
+      default=opt$Adp, 
+      help=paste("Shape parameter of test delay profile gamma dist; default", opt$Adp)
+    ),
+    make_option(
+      c("--Aip"), 
+      type="double", 
+      default=opt$Aip, 
+      help=paste("Shape parameter of generation interval gamma dist; default", opt$Aip)
+    ),
+
+    make_option(
+      c("--Bdp"), 
+      type="double", 
+      default=opt$Bdp, 
+      help=paste("Scale parameter of test delay profile gamma dist; default", opt$Bdp)
+    ),
+    make_option(
+      c("--Bip"), 
+      type="double", 
+      default=opt$Bip, 
+      help=paste("Scale parameter of generation interval gamma dist; default", opt$Bip)
+    )
   )
 }
 

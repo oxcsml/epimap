@@ -57,7 +57,7 @@ sbatch --wait \
     --time=18:00:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
-    --array=1-$N \
+    --array=1-$N%10 \
     --wrap \
     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
 

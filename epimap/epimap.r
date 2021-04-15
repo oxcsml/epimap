@@ -444,7 +444,9 @@ epimap_region = function(
     "Rt_region",
     "Cproj_region",
     "Cpred_region",
-    "case_precision"
+    "case_precision",
+    "Xt_region",
+    "Zt_region"
   )
 
   print("Epimap control")

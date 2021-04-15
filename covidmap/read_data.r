@@ -15,25 +15,38 @@ covidmap_read_data = function(env) {
     readresults = function(filename,...) {
       read.csv(sprintf('%s/%s.csv',opt$results_directory,filename),...)
     }
-    readsinglearea = function(filename,...) {
-      read.csv(sprintf('%s/singlearea/%s.csv',opt$results_directory,filename),...)
+    # bootstrap merge needs to read singelarea data but folder structure is different.
+    if (opt$bootstrap_merge) {
+      readsinglearea = function(filename,...) {
+        read.csv(sprintf('%s/bootstrap_1/singlearea/%s.csv',opt$results_directory,filename),...)
+      }
+    } else {
+      readsinglearea = function(filename,...) {
+        read.csv(sprintf('%s/singlearea/%s.csv',opt$results_directory,filename),...)
+      }
     }
 
     #########################################################
     # Read infection profile data
-    infprofile <- readdata("serial_interval")$fit
     Tip <- 30
-    infprofile <- infprofile[1:Tip]
-    infprofile <- infprofile/sum(infprofile)
+    Aip <- opt$Aip
+    Bip <- opt$Bip
+    print(paste("Generation interval gamma shape parameter: ", Aip))
+    print(paste("Generation interval gamma rate parameter: ", Bip))
+    infprofile <- pgamma(1:Tip,shape=Aip,rate=Bip)
+    infprofile <- infprofile/infprofile[Tip]
+    infprofile <- infprofile - c(0.0,infprofile[1:(Tip-1)])
     D <- length(infprofile)
 
     # Compute the testing delay profile
     Tdp <- 21
     presymptomdays <- 2
     Tdpnz <- Tdp - presymptomdays
-    Adp <- 5.8
-    Bdp <- 0.948
-    testdelayprofile <- pgamma(1:Tdpnz,shape=Adp,rate=Bdp)
+    Adp <- opt$Adp
+    Bdp <- opt$Bdp
+    print(paste("Incubation period lognormal logmean parameter: ", Adp))
+    print(paste("Incubation period lognormal logstd parameter: ", Bdp))
+    testdelayprofile <- plnorm(1:Tdpnz,meanlog=Adp,sdlog=Bdp)
     testdelayprofile <- testdelayprofile/testdelayprofile[Tdpnz]
     testdelayprofile <- testdelayprofile - c(0.0,testdelayprofile[1:(Tdpnz-1)])
     testdelayprofile <- c(rep(0, presymptomdays), testdelayprofile)
@@ -119,7 +132,20 @@ covidmap_read_data = function(env) {
     alt_traffic_flux[,,2] <- data.matrix(readdata('uk_reverse_commute_flow', row.names=1))
     colnames(alt_traffic_flux) <- areas
     rownames(alt_traffic_flux) <- areas
-
+    
+  if (opt$regions_as_areas_stage1) {
+    # df <- readdata("nhs_regions", row.names=1)
+    cases <- readresults("region_cases")
+    N <- nrow(cases)
+    areas <- cases[, 2]
+    quoted_areas <- sapply(areas,function(s) paste('"',s,'"',sep=''))
+    AllCount <- cases[,3:ncol(cases)]
+    Tall <- ncol(AllCount)
+    dates <- as.Date(colnames(AllCount), format='X%Y.%m.%d')
+    colnames(AllCount) <- dates
+    rownames(AllCount) <- areas
+  }
+    
   })
   # If desired, limit the number of regions used in the computation based on a central region
   # and a radius around it.

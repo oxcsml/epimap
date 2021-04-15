@@ -60,17 +60,17 @@ def make_r_plot(ax, region, rt_df, actual_case_df, model_col="royalblue", tick_s
     ax.axhline(1.0, ls="--", color="k", alpha=0.9)
     ax.plot(d2n(inferred_df["Date"]), inferred_df["Rt_50"], color=model_col)
     ax.fill_between(d2n(inferred_df["Date"]), inferred_df["Rt_25"], inferred_df["Rt_75"], color=model_col, alpha=0.5)
-    ax.fill_between(d2n(inferred_df["Date"]), inferred_df["Rt_2_5"], inferred_df["Rt_97_5"], color=model_col, alpha=0.25)
+    ax.fill_between(d2n(inferred_df["Date"]), inferred_df["Rt_025"], inferred_df["Rt_975"], color=model_col, alpha=0.25)
 
     ax.plot(d2n(projected_df["Date"]), projected_df["Rt_50"], color="k", ls="--")
     ax.fill_between(d2n(projected_df["Date"]), projected_df["Rt_25"], projected_df["Rt_75"], color="k", alpha=0.5)
-    ax.fill_between(d2n(projected_df["Date"]), projected_df["Rt_2_5"], projected_df["Rt_97_5"], color="k", alpha=0.25)
+    ax.fill_between(d2n(projected_df["Date"]), projected_df["Rt_025"], projected_df["Rt_975"], color="k", alpha=0.25)
 
     xticks, xlabels = get_xticks_and_xlabels([reg_rt_df, actual_case_df])
     ax.set_xticks(xticks)
     ax.set_xticklabels(xlabels)
 
-def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regions_file, save_dir="doc/assets/data"):
+def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regions_file, save_path="doc/assets/data/regional_plot.pdf"):
     rt_df = pd.read_csv(Rt_file)
     cpred_df = pd.read_csv(Cpred_file)
     cproj_df = pd.read_csv(Cproj_file)
@@ -86,7 +86,9 @@ def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regi
                 make_cases_plot(ax, region, cpred_df, cproj_df, cactual_df)
             if id==1:
                 make_r_plot(ax, region, rt_df, cactual_df)
-    fig.savefig(f"{save_dir}/regional_plot.pdf")
+                ax.set_ylim([0., 2.5])
+    fig.tight_layout()
+    fig.savefig(save_path)
 
 if __name__ == '__main__':
     args = sys.argv[1:]
@@ -96,5 +98,5 @@ if __name__ == '__main__':
         Cproj_file=args[2],
         Cactual_file=args[3],
         NHS_regions_file=args[4],
-        save_dir=args[5]
+        save_path=args[5]
     )

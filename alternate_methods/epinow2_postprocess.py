@@ -44,18 +44,20 @@ def make_dfs(
         area_name = region_codes.get(code, code)
         samples = np.loadtxt(fpath)
 
-        days_modelled = samples.shape[1]
         start_d = pd.Timestamp(start_date)
         end_date = (
             start_d
             + pd.Timedelta(weeks_modelled, unit="W")
             + pd.Timedelta(forecast_days, unit="D")
         )
+
+        days_modelled = samples.shape[1]
         dates = pd.date_range(
             start=start_d,
             end=end_date,
-            freq="D"
-        )
+            freq="D",
+            closed="left"
+            )[-days_modelled:]
         provenance = np.r_[
             np.repeat("inferred", days_modelled - forecast_days),
             np.repeat("projected", forecast_days),

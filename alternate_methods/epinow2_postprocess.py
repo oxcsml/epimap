@@ -45,15 +45,14 @@ def make_dfs(
         samples = np.loadtxt(fpath)
 
         days_modelled = samples.shape[1]
-        start_d = pd.Timestamp(start_date)
         end_date = (
-            start_d
+            pd.Timestamp(start_date)
             + pd.Timedelta(weeks_modelled, unit="W")
             + pd.Timedelta(forecast_days, unit="D")
         )
         dates = pd.date_range(
-            start=start_d,
             end=end_date,
+            periods=days_modelled,
             freq="D"
         )
         provenance = np.r_[

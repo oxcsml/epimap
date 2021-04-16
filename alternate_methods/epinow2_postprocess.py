@@ -38,6 +38,14 @@ def get_area_code(fpath):
 def make_dfs(
     fpaths, region_codes, percs_dct, start_date, weeks_modelled, forecast_days
 ):
+
+    start_ts = pd.Timestamp(start_date)
+    end_ts = (
+        start_ts
+        + pd.Timedelta(weeks_modelled, unit="W")
+        + pd.Timedelta(forecast_days, unit="D")
+    )
+    dates = pd.date_range(start=start_ts, end=end_ts, freq="D", closed="left")
     dfs = list()
     for fpath in fpaths:
         code = get_area_code(fpath)
@@ -45,16 +53,6 @@ def make_dfs(
         samples = np.loadtxt(fpath)
 
         days_modelled = samples.shape[1]
-        end_date = (
-            pd.Timestamp(start_date)
-            + pd.Timedelta(weeks_modelled, unit="W")
-            + pd.Timedelta(forecast_days, unit="D")
-        )
-        dates = pd.date_range(
-            end=end_date,
-            periods=days_modelled,
-            freq="D"
-        )
         provenance = np.r_[
             np.repeat("inferred", days_modelled - forecast_days),
             np.repeat("projected", forecast_days),
@@ -63,7 +61,7 @@ def make_dfs(
         df = output_df(
             samples=samples,
             percs_dct=percs_dct,
-            dates=dates,
+            dates=dates[-days_modelled:],
             provenance=provenance,
             area=area_name,
         )

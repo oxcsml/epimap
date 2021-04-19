@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 RT_PERCENTILES = {
     "Rt_2_5": 2.5,
@@ -45,7 +46,7 @@ def make_dfs(
         + pd.Timedelta(weeks_modelled, unit="W")
         + pd.Timedelta(forecast_days, unit="D")
     )
-    dates = pd.date_range(start=start_ts, end=end_ts, freq="D", closed="left")
+    dates = pd.date_range(start=start_ts, end=end_ts, freq="D")
     dfs = list()
     for fpath in fpaths:
         code = get_area_code(fpath)
@@ -117,6 +118,7 @@ if __name__ == "__main__":
         default=None,
         help=("Path to JSON file with region codes." "Format area_name -> code."),
     )
+    parser.add_argument("--progress", action="store_true", help="Show progress")
 
     args = parser.parse_args()
 
@@ -137,23 +139,27 @@ if __name__ == "__main__":
     r_fpaths = get_fpaths("r_samples.txt", filenames)
     case_fpaths = get_fpaths("case_samples.txt", filenames)
 
+    if args.progress:
+        r_fpaths = tqdm(list(r_fpaths), desc="Processing Rt")
     rt = make_dfs(
         fpaths=r_fpaths,
         region_codes=region_codes,
         percs_dct=RT_PERCENTILES,
         start_date=args.first_day_modelled,
         weeks_modelled=args.weeks_modelled,
-        forecast_days=args.forecast_days,
+        forecast_days=args.forecast_days
     )
     rt.to_csv(os.path.join(args.output_folder, f"{args.prefix}_Rt.csv"))
 
+    if args.progress:
+        case_fpaths = tqdm(list(case_fpaths), desc="Processing Cases")
     cases_df = make_dfs(
         fpaths=case_fpaths,
         region_codes=region_codes,
         percs_dct=CASE_PERCENTILES,
         start_date=args.first_day_modelled,
         weeks_modelled=args.weeks_modelled,
-        forecast_days=args.forecast_days,
+        forecast_days=args.forecast_days
     )
     cases_df.query("provenance=='inferred'").to_csv(
         os.path.join(args.output_folder, f"{args.prefix}_Cpred.csv")

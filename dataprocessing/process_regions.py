@@ -7,8 +7,13 @@ import numpy as np
 import pandas as pd
 
 # import pdb; pdb.set_trace()
-from scripts import utils
 
+
+def map_lowest(func, dct):
+    return {
+        k: map_lowest(func, v) if isinstance(v, dict) else func(v)
+        for k, v in dct.items()
+    }
 
 
 def read_flux(fpath):
@@ -78,7 +83,7 @@ if __name__ == "__main__":
 
     groups = make_groups(regions, closest)
 
-    sizes = pd.Series(utils.map_lowest(len, groups))
+    sizes = pd.Series(map_lowest(len, groups))
     assert sizes.ge(regions.sum(0)).all(), "groups are smaller than the regions"
     print("Group sizes:\n", sizes)
 

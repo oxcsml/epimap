@@ -1,6 +1,7 @@
 # %%
 import os
 import math
+import datetime
 from itertools import chain
 from collections import defaultdict
 
@@ -269,6 +270,11 @@ def plot_comparison(
                     actual_results[actual_results.area == area][par_name].max(),
                 )
 
+            if isinstance(estimate_colors, dict):
+                color = estimate_colors[name]
+            else:
+                color = estimate_colors[i]
+
             infr_handles, ax = plot_estimate_area(
                 estimate,
                 area,
@@ -279,7 +285,7 @@ def plot_comparison(
                 lower1=lower1,
                 upper2=upper2,
                 lower2=lower2,
-                color=estimate_colors[i],
+                color=color,
                 provenance="inferred",
             )
             proj_handles, ax = plot_estimate_area(
@@ -292,7 +298,7 @@ def plot_comparison(
                 lower1=lower1,
                 upper2=upper2,
                 lower2=lower2,
-                color=estimate_colors[i],
+                color=color,
                 provenance="projected",
             )
             ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
@@ -306,8 +312,9 @@ def plot_comparison(
 
             if j == 0:
                 handles.append(infr_handles)
-                handles.append(proj_handles)
-                labels += [f"{name} infered", f"{name} projected"]
+                # handles.append(proj_handles)
+                # labels += [f"{name} infered", f"{name} projected"]
+                labels.append(name)
 
     for i, row in enumerate(axes):
         for j, ax in enumerate(row):
@@ -316,26 +323,11 @@ def plot_comparison(
                 ax.set_ylim([0, 1.3 * max_y[j]])
 
     titles = ["Actual", *list(estimates_results.keys())]
-    # lines = axes[0].get_lines()
-
-    # fig.legend(
-    #     lines,
-    #     titles,
-    #     loc="upper left",
-    #     bbox_to_anchor=(1.0, 0.95),
-    #     bbox_transform=plt.gcf().transFigure,
-    # )
 
     if title is not None:
         fig.suptitle(title)
 
-    # print(handles)
-    # print([h[1] for h in handles])
-    # print(labels)
     plt.tight_layout()
-
-    # for h in handles:
-    #     print(h)
 
     plt.legend(
         [(h[0][0], h[1], h[2]) for h in handles],
@@ -383,26 +375,69 @@ def plot_cases(
 
 if __name__ == "__main__":
     import os
+    import sys
 
     os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
     # from simulation.plot_comparisons import *
-    sample_folder = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1/"
-    results_folder = "simulation_fits/sample_rss_paper_1_longer/"
-    actuals = load_parameter("Rt", sample_folder)
-    estimates = {
-        "EpiMap (single area)": load_all(results_folder + "singlearea"),
-        # "TwoStage": load_all(results_folder + "twostage"),
-        "EpiMap (spatial: 0.05, time: 200)": load_all(results_folder + "regional"),
-        "EpiMap (spatial: 0.5, time: 200)": load_all(
-            "simulation_fits/sample_rss_paper_1_longer_space/" + "regional"
-        ),
-        "EpiNow2": load_all(results_folder + "epinow2"),
-        "EpiEstim": load_all(results_folder + "epiestim"),
-    }
+    print(sys.argv)
+    if len(sys.argv) == 3:
+        sample = int(sys.argv[1])
+        appendix = int(sys.argv[2])
+    else:
+        sample = 1
+        appendix = False
+    print(sample, appendix)
 
+    if sample == 1:
+        sample_folder = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1/"
+        results_folder = "simulation_fits/sample_rss_paper_1"
+        name = "sample_1"
+    elif sample == 2:
+        sample_folder = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_2/"
+        results_folder = "simulation_fits/sample_rss_paper_2"
+        name = "sample_2"
+
+    actuals = load_parameter("Rt", sample_folder)
     cases = load_cases(sample_folder)
 
-    title = "All"
+    if appendix:
+        name += "_appendix"
+
+        estimates = {
+            "EpiEstim": load_all(results_folder + "/epiestim"),
+            # "EpiNow2": load_all(results_folder + "/epinow2"),
+            "EpiMap (single area)": load_all(results_folder + "/singlearea"),
+            "EpiMap (spatial: None, time: 200)": load_all(
+                results_folder + "-0/regional"
+            ),
+            "EpiMap (spatial: 1km, time: 200)": load_all(
+                results_folder + "-0.01/regional"
+            ),
+            "EpiMap (spatial: 5km, time: 200)": load_all(
+                results_folder + "-0.05/regional"
+            ),
+            "EpiMap (spatial: 10km, time: 200)": load_all(
+                results_folder + "-0.1/regional"
+            ),
+            "EpiMap (spatial: 20km, time: 200)": load_all(
+                results_folder + "-0.2/regional"
+            ),
+            "EpiMap (spatial: 50km, time: 200)": load_all(
+                results_folder + "-0.5/regional"
+            ),
+            "EpiMap (spatial: 100km, time: 200)": load_all(
+                results_folder + "-1.0/regional"
+            ),
+        }
+    else:
+        estimates = {
+            "EpiEstim": load_all(results_folder + "/epiestim"),
+            # "EpiNow2": load_all(results_folder + "/epinow2"),
+            "EpiMap (single area)": load_all(results_folder + "/singlearea"),
+            "EpiMap (spatial: 10km, time: 200)": load_all(
+                results_folder + "-0.1/regional"
+            ),
+        }
 
     mapping = {
         "Tehtropolis": "Oxford",
@@ -419,13 +454,18 @@ if __name__ == "__main__":
 
     sweep_colors = list(matplotlib.cm.get_cmap("plasma", 9).colors)[-8:-1]
 
-    estimate_colors = [
-        "black",
-        sweep_colors[2],
-        sweep_colors[5],
-        "forestgreen",
-        "crimson",
-    ]
+    estimate_colors = {
+        "EpiMap (single area)": "black",
+        "EpiMap (spatial: None, time: 200)": sweep_colors[0],
+        "EpiMap (spatial: 1km, time: 200)": sweep_colors[1],
+        "EpiMap (spatial: 5km, time: 200)": sweep_colors[2],
+        "EpiMap (spatial: 10km, time: 200)": sweep_colors[3],
+        "EpiMap (spatial: 20km, time: 200)": sweep_colors[4],
+        "EpiMap (spatial: 50km, time: 200)": sweep_colors[5],
+        "EpiMap (spatial: 100km, time: 200)": sweep_colors[6],
+        "EpiNow2": "dodgerblue",
+        "EpiEstim": "crimson",
+    }
     # %%
     fig, axes = plot_comparison(
         actuals,
@@ -436,13 +476,12 @@ if __name__ == "__main__":
     for ax in chain.from_iterable(axes):
         ax.set_ylim([0, 3])
         ax.yaxis.get_major_locator().set_params(integer=True)
-        # ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.axhline(1.0, color="black", linestyle="--", linewidth=0.5)
+        ax.axvline(
+            datetime.date(2020, 12, 3), color="black", linestyle="--", linewidth=0.5
+        )
 
-    # plt.locator_params(nbins=10)
-
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
+    fig.savefig(f"figures/{name}_Rt.pdf", bbox_inches="tight")
     fig, axes = plot_comparison(
         cases,
         estimates,
@@ -456,21 +495,11 @@ if __name__ == "__main__":
         scatter_actual=True,
         estimate_colors=estimate_colors,
     )
-    # for ax in chain.from_iterable(axes):
-    # ax.set_yscale("log")
+    for ax in chain.from_iterable(axes):
+        ax.axvline(
+            datetime.date(2020, 12, 3), color="black", linestyle="--", linewidth=0.5
+        )
     fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
+        f"figures/{name}_cases.pdf",
+        bbox_inches="tight",
     )
-    # fig, axes = plot_comparison(
-    #     cases,
-    #     estimates,
-    #     par_name="B",
-    #     lower="_25",
-    #     upper="_975",
-    #     sharey=False,
-    #     fix_scale=True,
-    # )
-    # fig.savefig(
-    #     f'figures/cases_no_weekly_{title.lower().replace(" ", "_")}.pdf',
-    #     bbox_inches="tight",
-    # )

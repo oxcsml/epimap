@@ -1,8 +1,8 @@
-sample_directory=simulation/latent_epidemic/tehtropolis/sample_rss_paper_1
-results_directory=simulation_fits/sample_rss_paper_1
+sample_directory=simulation/latent_epidemic/tehtropolis/sample_rss_paper_2
+results_directory=simulation_fits/sample_rss_paper_2
 
-# mkdir -p $results_directory
-# cp $sample_directory/cases.csv $results_directory
+mkdir -p $results_directory
+cp $sample_directory/cases.csv $results_directory
 
 common_options="\
     --data_directory $sample_directory \
@@ -14,10 +14,10 @@ common_options="\
 epimap_stage1_options="\
     --fixed_gp_time_length_scale 200"
 
-# ./slurm/submit-run-epiestim.sh \
-#     $results_directory \
-#     "$common_options" \
-#     5 &
+./slurm/submit-run-epiestim.sh \
+    $results_directory \
+    "$common_options" \
+    5 &
 
 ./slurm/submit-run-epinow2.sh \
     $results_directory \
@@ -65,23 +65,6 @@ epimap_stage2_options2="\
     1 &
 
 wait
-
-# ./slurm/submit-run-twostage.sh \
-#     $results_directory \
-#     "$common_options $epimap_stage2_options" \
-#     10 &
-
-# ./slurm/submit-run-regional.sh \
-#     $results_directory \
-#     "$common_options $epimap_stage2_options" \
-#     1 &
-
-
-# ./slurm/submit-run-twostage.sh \
-#     $results_directory2 \
-#     "$common_options $epimap_stage2_options2" \
-#     10 &
-
 
 
 # library(EpiEstim) 

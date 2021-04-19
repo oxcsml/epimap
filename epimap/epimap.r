@@ -419,6 +419,11 @@ epimap_region = function(
   epimap_summary_pars = c(
       "global_sigma",
       "gp_sigma",
+      "gp_time_length_scale",
+      "gp_space_length_scale",
+      "infection_dispersion",
+      "case_dispersion",
+      "xi",
       "infection_dispersion",
       "coupling_rate",
       "Rt_all",
@@ -642,6 +647,11 @@ epimap_twostage = function(
   epimap_summary_pars = c(
       "global_sigma",
       "gp_sigma",
+      "gp_time_length_scale",
+      "gp_space_length_scale",
+      # "phi_latent",
+      # "phi_observed",
+      "xi",
       "infection_dispersion",
       "coupling_rate",
       "Rt_all",

@@ -654,8 +654,8 @@ covidmap_stage2_merge = function(
       provenance,
       format(round(Rt,2),nsmall=2),
       #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
-      c("Rt_025","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
-        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_975")
+      c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
   )
   writemergedresults(df, 'Rt', row.names=FALSE, quote=FALSE)
   message('done Rt')
@@ -1061,7 +1061,7 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
     make_option(
       c("--full_cases_distribution"),  
       type="integer",
-      default=opt$constant_forward_rt,
+      default=opt$full_cases_distribution,
       help=paste("Return the full distribution of cases, not just the distribution of the mean; default =", opt$full_cases_distribution)
     ),
     make_option(

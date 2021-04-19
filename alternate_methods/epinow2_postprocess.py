@@ -44,7 +44,8 @@ def make_dfs(
     end_ts = (
         start_ts
         + pd.Timedelta(weeks_modelled, unit="W")
-        + pd.Timedelta(forecast_days, unit="D")
+        + pd.Timedelta(forecast_days - 1, unit="D")
+        # the -1 fixes the off by one error...
     )
     dates = pd.date_range(start=start_ts, end=end_ts, freq="D")
     dfs = list()

@@ -87,12 +87,12 @@ if(is.na(opt$area)){
     }
     opt$area = names(region_codes)[opt$area_index]
 }
-message("Area = ",opt$area)
 area_code <- region_codes[[opt$area]]
 end_date <- start_date + opt$weeks_modelled * 7
 region_data <- subset(df[df$region == opt$area], select = c("date", "confirm"))
-input_data <- region_data[region_data$date >= start_date & region_data$date <= end_date] 
+input_data <- region_data[region_data$date >= start_date & region_data$date < end_date] 
 input_data$date <- as.Date(input_data$date) # for compat with epinow2
+print(tail(input_data, 1))
 
 # These are just the default parameters that the package suggests in the README
 reporting_delay <- estimate_delay(rlnorm(1000,  log(3), 1), max_value = 15, bootstraps = 1)

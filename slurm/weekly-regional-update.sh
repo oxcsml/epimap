@@ -1,5 +1,5 @@
 #!/bin/bash
-trap 'echo bootstrap_run: Failed before finishing with exit code $? && exit $?' ERR
+trap 'echo weekly-regional-update: Failed before finishing with exit code $? && exit $?' ERR
 
 # Activate the right bash environment
 source /homes/$USER/.bashrc
@@ -10,7 +10,7 @@ cd dataprocessing/covid19_datasets && git pull && cd -
 python dataprocessing/process_uk_cases.py
 python dataprocessing/process_region_site_data.py 
 
-today=$(date +'%Y-%m-%d')_weekly
+today=$(date +'%Y-%m-%d')_bootstrap
 results_directory="fits/${today}"
 
 mkdir -p $results_directory
@@ -33,19 +33,21 @@ options_regional_20km="\
     --num_steps_forecasted 3 \
 "
 
-N_bootstrap=10
+N_bootstrap=2
 N_regions=9
 
 # CREATE SAMPLES
 python3 regional_plots/create_bootstrap_samples.py --save_dir $results_directory --num_samples $N_bootstrap
 
-for ((i=1; i <= ${N_bootstrap}; i++));
-do 
-    bash slurm/boostrap_run.sh $i $results_directory "${options_clean}" "${options_regional_20km}" &
-    sleep 15
-done
-wait
+# CLEAN STAGE 1
+slurm/submit-runs-bootstrap.sh $N_bootstrap $results_directory "${options_clean}" 1
 
+# REGIONAL STAGE 2
+slurm/submit-runs-bootstrap.sh $N_bootstrap $results_directory "${options_regional_20km}" 2
+
+wait 
+
+# MERGE
 mkdir -p $results_directory/regional
 mkdir -p $results_directory/regional/output
 
@@ -90,7 +92,7 @@ python regional_plots/regional_plot_script.py \
             docs/assets/data/${today}/Cproj_region.csv \
             docs/assets/data/region_site_data.csv \
             data/nhs_regions.csv \
-            docs/assets/data/${today}/regional_plot.pdf
+            docs/assets/data/default
 
 python dataprocessing/process_site_data.py
 

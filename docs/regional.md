@@ -12,7 +12,7 @@ The figure below shows our model's estimates of cases and Rt in the different NH
     <title>Title of the document</title>
   </head> -->
   <body>
-    <iframe src="assets/data/default/regional_plot.pdf#toolbar=0" width="90%" height="600px">
+    <iframe src="assets/data/default/regions_all.pdf#toolbar=0" width="90%" height="600px">
     </iframe>
   </body>
 </html>

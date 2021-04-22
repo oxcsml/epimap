@@ -2,6 +2,9 @@
 
 trap 'echo submit-run-regional: Failed before finishing with exit code $? && exit $?' ERR
 
+source ./slurm/cluster-config
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+
 if [ $# == 1 ]
 then
   results_directory=$1
@@ -45,11 +48,11 @@ Rscript epimap/compile.r
 
 echo submit-run-regional: running regions
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-regional \
     --output=$results_directory/regional/output/run_%A_%a.out \
-    --partition=ziz-large \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=10G \
@@ -60,11 +63,11 @@ sbatch --wait \
 echo submit-run-regional: Merging results
 
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-mergeregions \
     --output=$results_directory/regional/output/merge_%A_%a.out \
-    --partition=ziz-large \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \

@@ -277,7 +277,7 @@ parameters {
   simplex[7] weekly_case_variations;
 
   // observation process
-  vector<lower=0.0>[Narea] case_precision;
+  vector<lower=0.0>[Narea] case_dispersion;
 }
 
 transformed parameters {
@@ -413,7 +413,7 @@ transformed parameters {
         }
         Xt[,t] = fabs(
             EXt 
-            //+ sqrt((1.0+infection_dispersion) * EXt) .* infection_eta[s]
+            //+ sqrt((1.0+1.0/infection_dispersion) * EXt) .* infection_eta[s]
             + sqrt(EXt) .* infection_eta[s]
         );
       }
@@ -434,7 +434,7 @@ model {
   gp_eta_out ~ std_normal();
  
   // latent epidemic process 
-  infection_dispersion ~ normal(0.0,2.5);
+  infection_dispersion ~ normal(0.0,10.0);
   xi ~ normal(0.0, xi_scale);
   for (s in 1:Tlik)
     infection_eta[s] ~ std_normal();
@@ -447,17 +447,19 @@ model {
   coupling_eta ~ std_normal();
 
   // observation model
-  case_precision ~ normal(0.0,10.0);
-  weekly_case_variations ~ dirichlet(rep_vector(5.0,7));
+  case_dispersion ~ normal(0.0,10.0);
+  weekly_case_variations ~ dirichlet(rep_vector(7.0,7));
 
   // likelihood
   for (t in Tcond+1:Tcur) {
     int d = (t % 7)+1;
-    vector[Narea] ECt = 
-      (7.0*weekly_case_variations[d]) * 
+    vector[Narea] ECt = (7.0*weekly_case_variations[d]) * 
       (Xt[,t-Tdp+1:t] * delayprofile_rev);
     for (j in 1:Narea) {
-      Ct[j,t] ~ neg_binomial_2(ECt[j], ECt[j] * case_precision[j]);
+      Ct[j,t] ~ neg_binomial_2(
+        fmax(1e-3, ECt[j]), 
+        fmax(1e-3, ECt[j] / case_dispersion[j])
+      );
     }
   }
 
@@ -472,19 +474,29 @@ generated quantities {
   real Rt_region[Mstep+Mproj];
   real Xt_region[Mstep+Mproj];
   real Zt_region[Mstep+Mproj];
+  // predicted and projected infections
+  matrix[Ninferred,Tlik] Xpred;
+  matrix[Ninferred,Tproj] Xproj;
+
   // predicted and projected counts
   matrix[Ninferred,Tlik] Cpred;
   matrix[Ninferred,Tproj] Cproj;
   matrix[1,Tlik] Cpred_region;
   matrix[1,Tproj] Cproj_region;
+  // predicted and projected counts WITHOUT weekly variation
+  matrix[Ninferred,Tlik] Bpred;
+  matrix[Ninferred,Tproj] Bproj;
+  matrix[1,Tlik] Bpred_region;
+  matrix[1,Tproj] Bproj_region;
+  // likelihood of observed data under prediction
   matrix[Ninferred,Tpred] Ppred = rep_matrix(0.0,Ninferred,Tpred); // TODO
 
   { // latent renewal process and observation model
     vector[Narea] N0 = rep_vector(0.0,Narea);
     vector[Narea] N1 = rep_vector(1.0,Narea);
-    matrix[Narea,Tcur+Tproj] Xproj;
+    matrix[Narea,Tcur+Tproj] Xt_proj;
 
-    Xproj[,1:Tcur] = Xt;
+    Xt_proj[,1:Tcur] = Xt;
     for (m in 1:Mstep+Mproj) {
       matrix[Narea,Narea] fluxmatrix;
       vector[Narea] sum_Zt = rep_vector(0.0,Narea);
@@ -496,38 +508,38 @@ generated quantities {
         int s = (m-1)*Tstep + j;
         int t = Tcond + s;
         int L = min(Tip,t-1);
-        vector[Narea] EXproj;
+        vector[Narea] EXt_proj;
         // latent process
         vector[Narea] Zt;
-        Zt = Xproj[,t-L:t-1] * infprofile_rev[Tip-L+1:Tip];
+        Zt = Xt_proj[,t-L:t-1] * infprofile_rev[Tip-L+1:Tip];
         if (DO_METAPOP) {
           if (DO_IN_OUT) {
-            EXproj = col(Rin,m) .* (
+            EXt_proj = col(Rin,m) .* (
                xi 
                + fluxmatrix * (Zt .* col(Rout,m))
                + (fluxproportions[m] * FZt_ext[s])'
             );
           } else {
-            EXproj = col(Rin,m) .* (
+            EXt_proj = col(Rin,m) .* (
               xi 
               + fluxmatrix * Zt
               + (fluxproportions[m] * FZt_ext[s])'
             );
           }
         } else {
-          EXproj = col(Rin,m) .* (xi + Zt);
+          EXt_proj = col(Rin,m) .* (xi + Zt);
         }
         if (m > Mstep) {
-          Xproj[,t] = fabs(
-            EXproj 
-            //+ sqrt((1.0+infection_dispersion) * EXproj) .* to_vector(normal_rng(N0,N1))
-            + sqrt(EXproj) .* to_vector(normal_rng(N0,N1))
+          Xt_proj[,t] = fabs(
+            EXt_proj 
+            //+ sqrt((1.0+1.0/infection_dispersion) * EXt_proj) .* to_vector(normal_rng(N0,N1))
+            + sqrt(EXt_proj) .* to_vector(normal_rng(N0,N1))
           );
         }
 
         // Rt computations
         sum_Zt += Zt;
-        sum_Xt += Xproj[,t];
+        sum_Xt += Xt_proj[,t];
 
       }
       Xt_region[m] = sum(sum_Xt[inferred]);
@@ -537,23 +549,41 @@ generated quantities {
     }
     Rt_region = Rt_all;
 
+    // output predicted and projected infections
+    Xpred = Xt_proj[inferred,(Tcond+1):(Tcur)];
+    Xproj = Xt_proj[inferred,(Tcur+1):(Tcur+Tproj)];
     //observation model
     for (t in Tcond+1:Tcur+Tproj) {
       int s = t - Tcond;
       int d = (t % 7)+1;
-      vector[Ninferred] ECt = 
-        // (7.0*weekly_case_variations[d]) *
-        Xproj[inferred,t-Tdp+1:t] * delayprofile_rev;
+      vector[Ninferred] EBt = Xt_proj[inferred,t-Tdp+1:t] * delayprofile_rev;
+      vector[Ninferred] ECt = (7.0*weekly_case_variations[d]) * Xt_proj[inferred,t-Tdp+1:t] * delayprofile_rev;
       for (j in 1:Ninferred) {
         if (t<=Tcur) {
-          Cpred[j,t-Tcond] = ECt[j];
-          // Cpred[j,t-Tcond] = neg_binomial_2_rng(ECt[j], case_precision[j]);
+          // Cpred[j,t-Tcond] = ECt[j];
+          Bpred[j,t-Tcond] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, EBt[j])), 
+            fmax(1e-3, EBt[j] / case_dispersion[j])
+          );
+          Cpred[j,t-Tcond] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, ECt[j])), 
+            fmax(1e-3, ECt[j] / case_dispersion[j])
+          );
         } else {
-          Cproj[j,t-Tcur] = ECt[j];
-          // Cproj[j,t-Tcur] = neg_binomial_2_rng(ECt[j], case_precision[j]);
+          // Cproj[j,t-Tcur] = ECt[j];
+          Bproj[j,t-Tcur] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, EBt[j])), 
+            fmax(1e-3, EBt[j] / case_dispersion[j])
+          );
+          Cproj[j,t-Tcur] = neg_binomial_2_rng(
+            fmin(1e5, fmax(1e-3, ECt[j])), 
+            fmax(1e-3, ECt[j] / case_dispersion[j])
+          );
         }
       }
     }
+    Bpred_region = rep_matrix(1.0,1,Ninferred) * Bpred;
+    Bproj_region = rep_matrix(1.0,1,Ninferred) * Bproj;
     Cpred_region = rep_matrix(1.0,1,Ninferred) * Cpred;
     Cproj_region = rep_matrix(1.0,1,Ninferred) * Cproj;
   }
@@ -566,7 +596,7 @@ generated quantities {
         "; time ", gp_time_length_scale,
         "; sigmas gp ", gp_sigma," g ", global_sigma,
            " l ", local_space_sigma, " ", local_time_sigma,
-        "; dispersion X ",infection_dispersion," C ",case_precision[1],
+        "; dispersion X ",infection_dispersion," C ",case_dispersion[1],
         "; coupling ",coupling_rate[Mstep],
         "; last Rt ", Rt_all[Mstep-1], ", ", Rt_all[Mstep], // ", ", Rt_all[Mstep+Mforw],
         "; last Rin ", Rin[1,Mstep-1], ", ", Rin[1,Mstep] //, ", ", Rin[Mstep+Mforw][1]

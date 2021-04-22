@@ -65,17 +65,6 @@ def dict2args(dct):
 
 # %%
 
-# ---------------------------------------------------------------------------- #
-#                               group comparison                               #
-# ---------------------------------------------------------------------------- #
-
-# Rscript covidmap/stage2_run.r $4 \
-#             --region_id \$SLURM_ARRAY_TASK_ID \
-#             && echo run: DONE
-    # "#SBATCH --job-name=Rmap_regional_start_", 
-    # "#SBATCH --output="$3"/regional/output/run_%A_%a.out", 
-# DATA_NAME = "spring_dynamics"
-
 RUN_NAME = "Rmap_backtest_run_regions" 
 max_parallel_jobs = 100
 script_cmd = f"Rscript covidmap/stage2_run.r "
@@ -105,6 +94,7 @@ def get_grid(space_scale_list, first_day_modelled_list, backtest_directory="fits
         "fixed_gp_space_length_scale": space_scale_list,
         "first_day_modelled": first_day_modelled_list,
         "weeks_modelled": ["15"],
+        "num_regions": ["9"],
         "region_id": list(range(1, 10)),
     }
 
@@ -189,6 +179,7 @@ for parameters_dict in grid:
     print(parameters_dict)
     print()
 
-if query_yes_no("Type 'yes' to execute the above runs, or type 'no' to abort."):
-    # Execute the sbatch file
-    os.system(f"sbatch {sbatch_filename}")
+# if query_yes_no("Type 'yes' to execute the above runs, or type 'no' to abort."):
+#     # Execute the sbatch file
+
+os.system(f"sbatch {sbatch_filename}")

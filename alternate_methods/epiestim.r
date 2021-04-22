@@ -17,7 +17,7 @@ epiestim_options = function(
   num_steps_forecasted = 3,
 
   num_samples        = 20,
-  num_iterations     = 3000,
+  num_iterations     = 5000,
   num_chains         = 1,
 
   data_directory     = "data/",
@@ -56,6 +56,7 @@ epiestim_run = function(area_index = 0, opt = epiestim_options()) {
   Nsample <- opt$num_samples
 
   # Count = unlist(AllCount[area,(Tcond):(Tcond+(Tstep*Nstep))], use.names = FALSE)
+  # Note extra day at the start to allow epiestim to work, should be Tcond+1
   Count = AllCount[area,(Tcond):(Tcond+(Tstep*Nstep))]
   dates = colnames(Count)
   Count = transpose(Count)
@@ -151,25 +152,31 @@ epiestim_combine = function(opt = epiestim_options()) {
   }
   logpred = array(0.0, c(N, Tpred))
 
-  C_percentiles = c(.025,.25,.5,.75,.975)
-  C_str_percentiles = c("2.5%","25%","50%","75%","97.5%")
-  num_C_percentiles = length(C_percentiles)
-  Cpred = array(0.0, c(N, Nstep*Tstep, num_C_percentiles))
-  Cproj = array(0.0, c(N, Nproj*Tstep, num_C_percentiles))
+  # C_percentiles = c(.025,.25,.5,.75,.975)
+  # C_str_percentiles = c("2.5%","25%","50%","75%","97.5%")
+  # num_C_percentiles = length(C_percentiles)
+
   
 
   # Initialise actual arrays
-  # percentiles = c(.025,.1,.2,.25,.3,.4,.5,.6,.7,.75,.8,.9,.975)
-  # str_percentiles = c("2.5%","10%","20%","25%","30%","40%","50%","60%","70%","75%","80%","90%","97.5%")
+  normal_percentiles = c(.025,.1,.2,.25,.3,.4,.5,.6,.7,.75,.8,.9,.975)
+  normal_str_percentiles = c("2.5%","10%","20%","25%","30%","40%","50%","60%","70%","75%","80%","90%","97.5%")
+  num_normal_percentiles = length(normal_percentiles)
   percentiles = c(.025,.05,.25,.5,.75,.095,.975)
   str_percentiles = c("2.5%","5%","25%","50%","75%","95%","97.5%")
+  num_percentiles = length(percentiles)
   epiestim_percentiles = c("Quantile.0.025(R)","Quantile.0.05(R)","Quantile.0.25(R)","Median(R)","Quantile.0.75(R)","Quantile.0.95(R)","Quantile.0.975(R)")
   # pad_percentiles = c("10%", "20%", "30%", "40%", "60%", "70%", "80%", "90%")
   pad_percentiles = c()
-  num_percentiles = length(percentiles)
   num_samples = opt$num_iterations
   Rt_percentiles = array(0.0, c(N, Nstep+Nproj, num_percentiles + length(pad_percentiles)))
   Rt_samples = array(0.0, c(N, Nstep+Nproj, num_samples))
+
+  Cpred = array(0.0, c(N, Nstep*Tstep, num_normal_percentiles))
+  Cproj = array(0.0, c(N, Nproj*Tstep, num_normal_percentiles))
+
+  rev_infprofile = rev(infprofile)
+  L = length(infprofile)
 
   # Loop over areas, loading area RDS files and filling the arrays
   for (area_index in 1:N) {
@@ -179,12 +186,37 @@ epiestim_combine = function(opt = epiestim_options()) {
     fit <- readRDS(paste(opt$results_directory, '/epiestim/fits/',area,'.rds',sep=''))
     for (p in 1:num_percentiles) {
       Rt_percentiles[area_index,1:Nstep, p] = fit$R[,epiestim_percentiles[p]]
+      Rt_proj = fit$R[Nstep,epiestim_percentiles[p]]
+
       for (i in 1:Nproj) {
-        Rt_percentiles[area_index,Nstep + i, p] = fit$R[Nstep,epiestim_percentiles[p]]
+        Rt_percentiles[area_index,Nstep + i, p] = Rt_proj
       }
     }
-    
+
+    Rt_proj = sample_posterior_R(fit, n = opt$num_samples, window = Nstep) 
+
+    C = array(0.0, (Nstep+Nproj)*Tstep)
+    C[1:(Nstep*Tstep)] = as.numeric(Count[area,(Tcond+1):(Tcond+(Tstep*Nstep))])
+    C_samples = array(0.0, c((Nstep+Nproj)*Tstep, opt$num_samples))
+    C_samples[1:(Nstep*Tstep),] = as.numeric(Count[area,(Tcond+1):(Tcond+(Tstep*Nstep))])
+
+    for (t in 1:(Nproj*Tstep)) {
+      C_samples[(Nstep*Tstep) + t,] = Rt_proj * colSums(C_samples[((Nstep*Tstep) + t - L) : ((Nstep*Tstep) + t - 1),] * rev_infprofile)
+      for (i in 1:opt$num_samples) {
+        C_samples[(Nstep*Tstep) + t, i] = rpois(1, C_samples[(Nstep*Tstep) + t, i])
+      }
+    }
+
+    C_percentiles = t(apply(C_samples,1,quantile,
+      probs=normal_percentiles
+    ))
+
+    Cpred[area_index,,] = C_percentiles[1:(Nstep*Tstep),]
+    Cproj[area_index,,] = C_percentiles[((Nstep*Tstep)+1):((Nstep+Nproj)*Tstep),]
   }
+
+  Xpred = Cpred
+  Xproj = Cproj
 
   days <- colnames(Count)
   days_proj <- c(days,as.character(seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),format='%Y-%m-%d'))
@@ -246,27 +278,49 @@ epiestim_combine = function(opt = epiestim_options()) {
   write.csv(Cweekly, paste(opt$results_directory, "/epiestim/Cweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
 
   Cpred = aperm(Cpred, c(2,1,3))
-  dim(Cpred) <- c(N*Nstep*Tstep, num_C_percentiles)
+  dim(Cpred) <- c(N*Nstep*Tstep, num_normal_percentiles)
   Cpred <- area_date_dataframe(
     quoted_areas,
     days_likelihood,
     rep('inferred',Nstep*Tstep),
     Cpred,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50","C_60","C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cpred, paste(opt$results_directory, "/epiestim/Cpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
   Cproj = aperm(Cproj, c(2,1,3))
-  dim(Cproj) <- c(N*Nproj*Tstep, num_C_percentiles)
+  dim(Cproj) <- c(N*Nproj*Tstep, num_normal_percentiles)
   Cproj <- area_date_dataframe(
     quoted_areas,
     seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
     Cproj,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50","C_60","C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cproj, paste(opt$results_directory, "/epiestim/Cproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
+  Xpred = aperm(Xpred, c(2,1,3))
+  dim(Xpred) <- c(N*Nstep*Tstep, num_normal_percentiles)
+  Xpred <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    rep('inferred',Nstep*Tstep),
+    Xpred,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50", "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xpred, paste(opt$results_directory, "/epiestim/Xpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Xproj = aperm(Xproj, c(2,1,3))
+  dim(Xproj) <- c(N*Nproj*Tstep, num_normal_percentiles)
+  Xproj <- area_date_dataframe(
+    quoted_areas,
+    seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    Xproj,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50", "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xproj, paste(opt$results_directory, "/epiestim/Xproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 }
 

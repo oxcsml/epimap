@@ -66,6 +66,13 @@ option_list <- list(
                     default = FALSE,
                     type = "logical",
                     help = "Whether stan should be verbose"
+                ),
+            make_option(
+                    "--area_index",
+                    action="store",
+                    type="integer",
+                    default=0,
+                    help="Area index; used if area not provided."
                 )
         )
 
@@ -74,11 +81,18 @@ opt <- parse_args(OptionParser(option_list = option_list))
 start_date <- as.IDate(opt$first_day_modelled) 
 df <- fread(opt$case_counts)
 region_codes <- rjson::fromJSON(file = opt$region_codes)
+if(is.na(opt$area)){
+    if (opt$area_index==0) {
+        stop("Area index 0.")
+    }
+    opt$area = names(region_codes)[opt$area_index]
+}
 area_code <- region_codes[[opt$area]]
 end_date <- start_date + opt$weeks_modelled * 7
 region_data <- subset(df[df$region == opt$area], select = c("date", "confirm"))
-input_data <- region_data[region_data$date >= start_date & region_data$date <= end_date] 
+input_data <- region_data[region_data$date >= start_date & region_data$date < end_date] 
 input_data$date <- as.Date(input_data$date) # for compat with epinow2
+print(tail(input_data, 1))
 
 # These are just the default parameters that the package suggests in the README
 reporting_delay <- estimate_delay(rlnorm(1000,  log(3), 1), max_value = 15, bootstraps = 1)

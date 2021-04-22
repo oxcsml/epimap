@@ -4,11 +4,13 @@ set -e
 
 trap 'echo submit-run-epiestim: Failed before finishing with exit code $? && exit $?' ERR
 
+source ./slurm/cluster-config
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+
 if [ $# == 1 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
   "
   N=348
@@ -16,7 +18,6 @@ elif [ $# == 2 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
     $2
   "
@@ -25,13 +26,12 @@ elif [ $# == 3 ]
 then
   results_directory=$1
   options="\
-    --produce_plots TRUE \
     --results_directory $results_directory \
     $2
   "
   N=$3
 else
-  echo Usage: submit-run results_directory [options] [N]
+  echo Usage: submit-run-epiestim results_directory [options] [N]
   exit 1
 fi
 
@@ -39,7 +39,6 @@ echo "results_directory = $results_directory"
 
 mkdir -p $results_directory
 mkdir -p $results_directory/epiestim
-mkdir -p $results_directory/epiestim/pdfs
 mkdir -p $results_directory/epiestim/fits
 mkdir -p $results_directory/epiestim/output
 
@@ -48,13 +47,13 @@ mkdir -p $results_directory/epiestim/output
 
 echo submit-run-epiestim: running areas
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-epiestim \
     --output=$results_directory/epiestim/output/run_%A_%a.out \
-    --partition=ziz-medium \
+    --partition=$PARTITION \
     --ntasks=1 \
-    --time=18:00:00 \
+    --time=00:30:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
     --array=1-$N \
@@ -63,13 +62,13 @@ sbatch --wait \
 
 echo submit-run-epiestim: combining areas
 sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
+    --mail-user=$MAIL \
+    --mail-type=$MAIL_TYPE \
     --job-name=Rmap-combineareas \
     --output=$results_directory/epiestim/output/combine_%A_%a.out \
-    --partition=ziz-medium \
+    --partition=$PARTITION \
     --ntasks=1 \
-    --time=18:00:00 \
+    --time=00:30:00 \
     --mem-per-cpu=10G \
     --cpus-per-task=1 \
     --wrap \

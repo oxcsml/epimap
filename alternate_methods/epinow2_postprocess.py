@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 RT_PERCENTILES = {
     "Rt_2_5": 2.5,
@@ -35,7 +36,18 @@ def get_area_code(fpath):
     return int(fname.split("_")[0])
 
 
-def make_dfs(fpaths, region_codes, percs_dct, start_date, forecast_days):
+def make_dfs(
+    fpaths, region_codes, percs_dct, start_date, weeks_modelled, forecast_days
+):
+
+    start_ts = pd.Timestamp(start_date)
+    end_ts = (
+        start_ts
+        + pd.Timedelta(weeks_modelled, unit="W")
+        + pd.Timedelta(forecast_days - 1, unit="D")
+        # the -1 fixes the off by one error...
+    )
+    dates = pd.date_range(start=start_ts, end=end_ts, freq="D")
     dfs = list()
     for fpath in fpaths:
         code = get_area_code(fpath)
@@ -43,7 +55,6 @@ def make_dfs(fpaths, region_codes, percs_dct, start_date, forecast_days):
         samples = np.loadtxt(fpath)
 
         days_modelled = samples.shape[1]
-        dates = pd.date_range(start=start_date, periods=days_modelled, freq="D",)
         provenance = np.r_[
             np.repeat("inferred", days_modelled - forecast_days),
             np.repeat("projected", forecast_days),
@@ -52,7 +63,7 @@ def make_dfs(fpaths, region_codes, percs_dct, start_date, forecast_days):
         df = output_df(
             samples=samples,
             percs_dct=percs_dct,
-            dates=dates,
+            dates=dates[-days_modelled:],
             provenance=provenance,
             area=area_name,
         )
@@ -97,6 +108,7 @@ if __name__ == "__main__":
         "output_folder", type=str, help="Folder in which to save the output csvs"
     )
     parser.add_argument("first_day_modelled", type=str, help="To begin date stamps")
+    parser.add_argument("weeks_modelled", type=int, help="Number of weeks modelled")
     parser.add_argument("forecast_days", type=int, help="Number of days of forecast")
     parser.add_argument(
         "--prefix", type=str, help="Filename prefix for output files", default=""
@@ -107,6 +119,7 @@ if __name__ == "__main__":
         default=None,
         help=("Path to JSON file with region codes." "Format area_name -> code."),
     )
+    parser.add_argument("--progress", action="store_true", help="Show progress")
 
     args = parser.parse_args()
 
@@ -127,21 +140,27 @@ if __name__ == "__main__":
     r_fpaths = get_fpaths("r_samples.txt", filenames)
     case_fpaths = get_fpaths("case_samples.txt", filenames)
 
+    if args.progress:
+        r_fpaths = tqdm(list(r_fpaths), desc="Processing Rt")
     rt = make_dfs(
         fpaths=r_fpaths,
         region_codes=region_codes,
         percs_dct=RT_PERCENTILES,
         start_date=args.first_day_modelled,
-        forecast_days=args.forecast_days,
+        weeks_modelled=args.weeks_modelled,
+        forecast_days=args.forecast_days
     )
     rt.to_csv(os.path.join(args.output_folder, f"{args.prefix}_Rt.csv"))
 
+    if args.progress:
+        case_fpaths = tqdm(list(case_fpaths), desc="Processing Cases")
     cases_df = make_dfs(
         fpaths=case_fpaths,
         region_codes=region_codes,
         percs_dct=CASE_PERCENTILES,
         start_date=args.first_day_modelled,
-        forecast_days=args.forecast_days,
+        weeks_modelled=args.weeks_modelled,
+        forecast_days=args.forecast_days
     )
     cases_df.query("provenance=='inferred'").to_csv(
         os.path.join(args.output_folder, f"{args.prefix}_Cpred.csv")
@@ -149,4 +168,3 @@ if __name__ == "__main__":
     cases_df.query("provenance=='projected'").to_csv(
         os.path.join(args.output_folder, f"{args.prefix}_Cproj.csv")
     )
-    # chase down missing runs...

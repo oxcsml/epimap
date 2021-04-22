@@ -18,3 +18,5 @@ preprocess-data:
 	# source $(CONDAROOT)/bin/activate && conda activate Rmap && Rscript process_radiation_fluxes.r
 	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/traffic/create_traffic_matrix.py
 	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/traffic/process_alt_traffic.py
+	# source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_regions.py data/uk_forward_commute_flow.csv data/uk_reverse_commute_flow.csv data/areas.csv data/region-groupings.json --threshold=0.8
+	source $(CONDAROOT)/bin/activate && conda activate Rmap && python dataprocessing/process_regions.py data/traffic_flux_row-normed.csv data/traffic_flux_transpose_row-normed.csv data/areas.csv data/region-groupings.json --threshold=0.8

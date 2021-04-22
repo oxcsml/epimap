@@ -38,6 +38,13 @@ we split the posterior simulation into two phases:
 an initial phase which infers the latent epidemic process in each local authority, 
 and a second phase which infers the $R_t$ and metapopulation model parameters.
 
-Detailed description of the method and source code will be provided as soon as possible.
+Detailed description of the method along with additional experiments can be found in [this report](assets/docs/localcovid-writeup.pdf) .
+
+The source code for this project can be found on [github](https://github.com/oxcsml/Rmap/).
+
+
+### Ouputs
+
+The raw outputs from the daily runs, including all historic runs, can be found on the deployed branch of the public github repository for this project  [here](https://github.com/oxcsml/Rmap/tree/deployed/docs/assets/data).
 
 

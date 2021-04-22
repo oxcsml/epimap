@@ -33,7 +33,7 @@ options_regional_20km="\
     --num_steps_forecasted 3 \
 "
 
-N_bootstrap=2
+N_bootstrap=10
 N_regions=9
 
 # CREATE SAMPLES

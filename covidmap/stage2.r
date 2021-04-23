@@ -46,8 +46,17 @@ covidmap_stage2_options = function(
   results_directory    = NULL,
 
   limit_area           = NULL,
-  limit_radius         = NULL
+  limit_radius         = NULL,
 
+  regions_as_areas_stage1   = FALSE,
+
+  Adp                  = 1.57,
+  Aip                  = 2.29,
+
+  Bdp                  = 0.65,
+  Bip                  = 0.36,
+
+  bootstrap_merge      = FALSE
 ) {
   as.list(environment())
 }
@@ -320,6 +329,10 @@ covidmap_stage2_postprocess = function(env) {
     save_samples("Cpred_region", N_sites=nregion, areafirst=TRUE)
     save_samples("Cproj_region", N_sites=nregion, areafirst=TRUE)
 
+    if (identical(env$opt$approximation,"regional")) {
+        save_samples("Xt_region", N_sites=nregion)
+        save_samples("Zt_region", N_sites=nregion)
+    }
     #################################################################
     area_date_dataframe <- function(areas,dates,provenance,data,data_names) {
       numareas <- length(areas)
@@ -565,10 +578,14 @@ covidmap_stage2_postprocess = function(env) {
 covidmap_stage2_merge = function(
     env,
     singlearea_sample_ids=c(0),
-    region_ids=c(0)
+    region_ids=c(0),
+    superregion_ids=1:7,
+    superregion_name="England"
 ) {
   env$singlearea_sample_ids = singlearea_sample_ids
   env$region_ids = region_ids
+  env$superregion_ids = superregion_ids
+  env$superregion_name = superregion_name
   with(env, {
 
   writemergedresults = function(data,filename,...) {
@@ -578,17 +595,32 @@ covidmap_stage2_merge = function(
   numruns = length(singlearea_sample_ids)
 
   load_samples = function(region_id,pars) {
-    samples = do.call(rbind, lapply(1:numruns, function(i) {
-      read.csv(paste(
-        opt$results_directory,
-        '/',opt$approximation,
-        '/',region_id,
-        '_',singlearea_sample_ids[i],
-        '_',pars,
-        '_samples.csv',
-        sep=''
-      ))
+    if (env$opt$bootstrap_merge && identical(env$opt$approximation,"regional")) {
+      samples = do.call(rbind, lapply(1:numruns, function(i) {
+        read.csv(paste(
+          opt$results_directory,
+          '/bootstrap_',singlearea_sample_ids[i],
+          '/',opt$approximation,
+          '/',region_id,
+          '_0_',pars,
+          '_samples.csv',
+          sep=''
+        ))
     }))
+    } else {
+      samples = do.call(rbind, lapply(1:numruns, function(i) {
+        read.csv(paste(
+          opt$results_directory,
+          '/',opt$approximation,
+          '/',region_id,
+          '_',singlearea_sample_ids[i],
+          '_',pars,
+          '_samples.csv',
+          sep=''
+        ))
+    }))
+    }
+    print(dim(samples))
     samples[,2:ncol(samples)]
   }
 
@@ -897,34 +929,73 @@ covidmap_stage2_merge = function(
   #Rt_region_samples_0 = load_samples(0,'Rt_region')
   #if (sum(is.na(Rt_region_samples_0)) == 0 ){
 
-  Rt_region = do.call(rbind,lapply(region_ids,function(region_id) {
-    Rt_region_samples = load_samples(region_id,'Rt_region')
+
+  Rt_region <- do.call(rbind,lapply(region_ids,function(region_id) {
+    Rt_region_samples <- load_samples(region_id,'Rt_region')
     t(apply(Rt_region_samples,2,quantile,
-      probs=c(0.025, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .975)
+      probs=c(0.025, .05, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .95, .975)
     ))
   }))
+  
+  if (identical(opt$approximation, "regional")) {
+      reg_idx <- rep(c(1:dim(Rt_region)[1]), each=Tstep)
+  } else if (identical(opt$approximation, "twostage")) {
+      reg_idx = sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep))
+  } else {
+      stop(cat("Unrecognised approximation: ", opt$approximation))
+  }
 
-  Rt_region = Rt_region[sapply(1:N_region,function(i)rep((i-1)*Mstep+c(1:Mstep,rep(Mstep,Mproj)),each=Tstep)),]
+  Rt_region <- Rt_region[reg_idx,]
   df <- area_date_dataframe(
       quoted_regions,
       days_all,
       provenance,
       format(round(Rt_region,2),nsmall=2),
       #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
-      c("Rt_2_5","Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
-        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_97_5")
+      c("Rt_025","Rt_05", "Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+        "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_95", "Rt_975")
   )
+  # Add superregion to Rt_region estimates, this defaults to calculating England-wide estimates.
+  if (identical(env$opt$approximation,"regional")) {
+    Xt_superregion_samples <- Reduce("+",lapply(superregion_ids,function(region_id) {
+      Xt_region_samples <- load_samples(region_id,'Xt_region')
+      # t(apply(Rt_region_samples,2,quantile,
+      #   probs=c(0.025, .05, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .95, .975)
+      # ))
+    }))
+    Zt_superregion_samples <- Reduce("+",lapply(superregion_ids,function(region_id) {
+      Zt_region_samples <- load_samples(region_id,'Zt_region')
+      # t(apply(Rt_region_samples,2,quantile,
+      #   probs=c(0.025, .05, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .95, .975)
+      # ))
+    }))
+    Rt_superregion_samples <- Xt_superregion_samples/Zt_superregion_samples
+    Rt_superregion <- t(apply(Rt_superregion_samples,2,quantile,
+      probs=c(0.025, .05, .1, .2, 0.25, .3, .4, .5, .6, .7, 0.75, .8, .9, .95, .975)
+    ))
+    Rt_superregion = Rt_superregion[rep(c(1:dim(Rt_superregion)[1]), each=Tstep),]
+    df <- rbind(df, area_date_dataframe(
+        c(superregion_name),
+        days_all,
+        provenance,
+        format(round(Rt_superregion,2),nsmall=2),
+        #c("Rt_10","Rt_20","Rt_30","Rt_40","Rt_50","Rt_60","Rt_70","Rt_80","Rt_90")
+        c("Rt_025","Rt_05", "Rt_10","Rt_20","Rt_25","Rt_30","Rt_40","Rt_50",
+          "Rt_60","Rt_70","Rt_75","Rt_80","Rt_90","Rt_95", "Rt_975")
+    ))
+  }
   writemergedresults(df, 'Rt_region', row.names=FALSE, quote=FALSE)
   message('done Rt_region')
   #} else {
   #  message('skipping Rt_region due to NaNs')
   #}
 
+
   # Cproj_region posterior predictive
   Cproj_region = do.call(rbind,lapply(region_ids,function(region_id) {
     Cproj_region_samples = load_samples(region_id,'Cproj_region')
     t(apply(Cproj_region_samples,2,quantile,
-      probs=c(.025,.25,.5,.75,.975)
+      probs=c(.025,.05, .25,.5,.75, .95, .975)
     ))
   }))
   df <- area_date_dataframe(
@@ -933,7 +1004,7 @@ covidmap_stage2_merge = function(
       rep('projected',Tproj),
       format(round(Cproj_region,1),nsmall=1),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_025","C_05", "C_25","C_50","C_75","C_95","C_975")
   )
   writemergedresults(df, 'Cproj_region', row.names=FALSE, quote=FALSE)
   message('done Cproj_region')
@@ -942,7 +1013,7 @@ covidmap_stage2_merge = function(
   Cpred_region = do.call(rbind,lapply(region_ids,function(region_id) {
     Cpred_region_samples = load_samples(region_id,'Cpred_region')
     t(apply(Cpred_region_samples,2,quantile,
-      probs=c(.025,.25,.5,.75,.975)
+      probs=c(.025,.05,.25,.5,.75,.95,.975)
     ))
   }))
   df <- area_date_dataframe(
@@ -951,7 +1022,7 @@ covidmap_stage2_merge = function(
       rep('inferred',Tlik),
       format(round(Cpred_region,1),nsmall=1),
       #c("C_2_5","C_25","C_50","C_75","C_97_5")
-      c("C_025","C_25","C_50","C_75","C_975")
+      c("C_025","C_05","C_25","C_50","C_75","C_95","C_975")
   )
   writemergedresults(df, 'Cpred_region', row.names=FALSE, quote=FALSE)
   message('done Cpred_region')
@@ -1185,6 +1256,44 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
       type="integer", 
       default=opt$num_regions, 
       help=paste("Number of regionsin the regional approximation ; default",opt$num_regions)
+    ),
+    make_option(
+      c("--regions_as_areas_stage1"), 
+      type="logical", 
+      default=opt$regions_as_areas_stage1, 
+      help=paste("Whether to run stage 1 on regions instead of areas; default", opt$regions_as_areas_stage1)
+    ),
+    make_option(
+      c("--bootstrap_merge"), 
+      type="logical", 
+      default=opt$bootstrap_merge, 
+      help=paste("Whether to merge bootstrap runs; default", opt$bootstrap_merge)
+    ),
+    make_option(
+      c("--Adp"), 
+      type="double", 
+      default=opt$Adp, 
+      help=paste("Shape parameter of test delay profile gamma dist; default", opt$Adp)
+    ),
+
+    make_option(
+      c("--Aip"), 
+      type="double", 
+      default=opt$Aip, 
+      help=paste("Shape parameter of generation interval gamma dist; default", opt$Aip)
+    ),
+    make_option(
+      c("--Bdp"), 
+      type="double", 
+      default=opt$Adp, 
+      help=paste("Shape parameter of test delay profile gamma dist; default", opt$Bdp)
+    ),
+
+    make_option(
+      c("--Bip"), 
+      type="double", 
+      default=opt$Aip, 
+      help=paste("Shape parameter of generation interval gamma dist; default", opt$Bip)
     )
   )
 }

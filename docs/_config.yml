@@ -35,10 +35,12 @@ logo: logo.png
 
 header_pages:
   - index.md
+  - regional.md
   - data-methods.md
   - limitations.md
   - people.md
   - about.md
+
 
 delve_url: https://rs-delve.github.io/
 

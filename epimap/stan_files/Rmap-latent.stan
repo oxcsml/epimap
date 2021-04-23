@@ -470,10 +470,14 @@ generated quantities {
   // Rt
   vector[Ninferred] Rt[Mstep+Mproj];
   real Rt_all[Mstep+Mproj];
+  // Regional quantities
   real Rt_region[Mstep+Mproj];
+  real Xt_region[Mstep+Mproj];
+  real Zt_region[Mstep+Mproj];
   // predicted and projected infections
   matrix[Ninferred,Tlik] Xpred;
   matrix[Ninferred,Tproj] Xproj;
+
   // predicted and projected counts
   matrix[Ninferred,Tlik] Cpred;
   matrix[Ninferred,Tproj] Cproj;
@@ -538,7 +542,9 @@ generated quantities {
         sum_Xt += Xt_proj[,t];
 
       }
-      Rt_all[m] = sum(sum_Xt[inferred]) / sum(sum_Zt[inferred]);
+      Xt_region[m] = sum(sum_Xt[inferred]);
+      Zt_region[m] = sum(sum_Zt[inferred]);
+      Rt_all[m] = Xt_region[m] / Zt_region[m];
       Rt[m] = sum_Xt[inferred] ./ sum_Zt[inferred];
     }
     Rt_region = Rt_all;

@@ -456,7 +456,7 @@ epimap_region = function(
     "Cpred_region",
     "case_precision",
     "Xt_region",
-    "Zt_region"
+    "Zt_region",
     "case_dispersion"
   )
 

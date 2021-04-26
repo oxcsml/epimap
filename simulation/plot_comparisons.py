@@ -14,6 +14,12 @@ from matplotlib.ticker import MaxNLocator
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+matplotlib.rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
+matplotlib.rc("text", usetex=True)
+matplotlib.rcParams["text.latex.preamble"] = [r"\usepackage{amsmath}"]
+plt.rcParams["axes.grid"] = True
+plt.rcParams["grid.linestyle"] = "dotted"
+
 
 def lighten_color(color, amount=1.0):
     """
@@ -398,43 +404,43 @@ if __name__ == "__main__":
         name = "sample_2"
 
     actuals = load_parameter("Rt", sample_folder)
-    cases = load_cases(sample_folder)
+    cases = load_cases(results_folder)
 
     if appendix:
         name += "_appendix"
 
         estimates = {
             "EpiEstim": load_all(results_folder + "/epiestim"),
-            # "EpiNow2": load_all(results_folder + "/epinow2"),
+            "EpiNow2": load_all(results_folder + "/epinow2"),
             "EpiMap (single area)": load_all(results_folder + "/singlearea"),
-            "EpiMap (spatial: None, time: 200)": load_all(
+            r"EpiMap (spatial: no spatial, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0/regional"
             ),
-            "EpiMap (spatial: 1km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 1km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.01/regional"
             ),
-            "EpiMap (spatial: 5km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 5km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.05/regional"
             ),
-            "EpiMap (spatial: 10km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.1/regional"
             ),
-            "EpiMap (spatial: 20km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 20km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.2/regional"
             ),
-            "EpiMap (spatial: 50km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 50km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.5/regional"
             ),
-            "EpiMap (spatial: 100km, time: 200)": load_all(
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 100km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-1.0/regional"
             ),
         }
     else:
         estimates = {
             "EpiEstim": load_all(results_folder + "/epiestim"),
-            # "EpiNow2": load_all(results_folder + "/epinow2"),
-            "EpiMap (single area)": load_all(results_folder + "/singlearea"),
-            "EpiMap (spatial: 10km, time: 200)": load_all(
+            "EpiNow2": load_all(results_folder + "/epinow2"),
+            r"EpiMap (single area)": load_all(results_folder + "/singlearea"),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
                 results_folder + "-0.1/regional"
             ),
         }
@@ -456,13 +462,27 @@ if __name__ == "__main__":
 
     estimate_colors = {
         "EpiMap (single area)": "black",
-        "EpiMap (spatial: None, time: 200)": sweep_colors[0],
-        "EpiMap (spatial: 1km, time: 200)": sweep_colors[1],
-        "EpiMap (spatial: 5km, time: 200)": sweep_colors[2],
-        "EpiMap (spatial: 10km, time: 200)": sweep_colors[3],
-        "EpiMap (spatial: 20km, time: 200)": sweep_colors[4],
-        "EpiMap (spatial: 50km, time: 200)": sweep_colors[5],
-        "EpiMap (spatial: 100km, time: 200)": sweep_colors[6],
+        r"EpiMap (spatial: no spatial, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            0
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 1km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            1
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 5km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            2
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            3
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 20km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            4
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 50km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            5
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 100km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            6
+        ],
         "EpiNow2": "dodgerblue",
         "EpiEstim": "crimson",
     }

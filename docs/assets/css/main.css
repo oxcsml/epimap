@@ -110,6 +110,52 @@ div.tooltip span.header {
     opacity: 0.2;
 }
 
+.predicted-infections-median-line {
+    fill: none;
+    stroke: rgb(180, 130, 70);
+    stroke-width: 1.5;
+}
+
+.predicted-infections-inner-area {
+    fill: rgb(180, 130, 70);
+    opacity: 0.4;
+}
+
+
+.predicted-infections-outer-area {
+    fill: rgb(180, 130, 70);
+    opacity: 0.4;
+}
+
+
+.projected-infections-median-line {
+    fill: none;
+    /* stroke: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180); */
+    stroke: rgb(61, 61, 61);
+    stroke-width: 1.5;
+    stroke-dasharray: 4;
+}
+
+.projected-infections-inner-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
+    opacity: 0.4;
+}
+
+.projected-infections-outer-area {
+    /* fill: rgb(139, 0, 0); */
+    /* stroke: rgba(70, 130, 180);
+    stroke-width: 1.5;
+    stroke-dasharray: 4; */
+    /* fill: rgba(70, 130, 180); */
+    opacity: 0.2;
+}
+
+
 .rt-line {
     fill: none;
     stroke: rgba(70, 130, 180);
@@ -225,9 +271,9 @@ h3 small {
 }
 
 
-.text-column {
+/*.text-column {
     width: 50%
-}
+}*/
 
 
 .search-input {
@@ -309,8 +355,8 @@ h3 small {
 
 #chart-container {
     width: 100%;
-    margin: auto;
-    /*margin-bottom: -2em;*/
+    margin: 0;
+    margin-bottom: -40;
 }
 
 #zoom_in {

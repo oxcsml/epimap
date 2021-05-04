@@ -14,10 +14,10 @@ covidmap_stage1_options = function(
   gp_time_decay_scale  = .1,
   fixed_gp_time_length_scale = -1.0,
 
-  first_day_modelled = "2020-10-01",
+  first_day_modelled = NULL,
   last_day_modelled  = NULL,
   weeks_modelled     = NULL,
-  days_ignored       = 7,
+  days_ignored       = NULL,
   days_per_step      = 7,
   days_predicted     = 2,
   num_steps_forecasted = 3,
@@ -33,11 +33,23 @@ covidmap_stage1_options = function(
   area_index         = 0,
 
   limit_area         = NULL,
-  limit_radius       = NULL
+  limit_radius       = NULL,
+
+  regions_as_areas_stage1   = FALSE,
+
+  Adp                = 1.57,
+  Aip                = 2.29,
+
+  Bdp                = 0.65,
+  Bip                = 0.36,
+
+  num_bootstrap      = 10,
+
+  bootstrap_merge      = FALSE
+
 ) {
   as.list(environment())
 }
-
 #' Produce plots to instect the results of the stage 1 model 
 #' 
 #' @param area index of the area to plot
@@ -129,7 +141,6 @@ covidmap_stage1_run = function(area_index = 0, opt = covidmap_stage1_options()) 
     weeks_modelled     = opt$weeks_modelled,
     days_per_step      = opt$days_per_step
   )
-  message("Nproj = ", opt$num_steps_forecasted)
 
   area = areas[area_index]
   Count <- AllCount[area,]
@@ -248,11 +259,14 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   Rt_samples = array(0.0, c(N, Nstep+Nproj, num_samples))
   logpred = array(0.0, c(N, Tpred))
 
-  C_percentiles = c(.025,.25,.5,.75,.975)
-  C_str_percentiles = c("2.5%","25%","50%","75%","97.5%")
-  num_C_percentiles = length(C_percentiles)
-  Cpred = array(0.0, c(N, Nstep*Tstep, num_C_percentiles))
-  Cproj = array(0.0, c(N, Nproj*Tstep, num_C_percentiles))
+  Bpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Bproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
+
+  Cpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Cproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
+
+  Xpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
+  Xproj = array(0.0, c(N, Nproj*Tstep, num_percentiles))
   
 
   # Loop over areas, loading area RDS files and filling the arrays
@@ -301,11 +315,24 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
     Ppred <- s[,"mean"]
     logpred[area_index,] = log(Ppred)
 
-    s <- summary(fit, pars="Cpred", probs=C_percentiles)$summary
-    Cpred[area_index,,] = s[,C_str_percentiles]
+    s <- summary(fit, pars="Bpred", probs=percentiles)$summary
+    Bpred[area_index,,] = s[,str_percentiles]
 
-    s <- summary(fit, pars="Count_proj", probs=C_percentiles)$summary
-    Cproj[area_index,,] = s[,C_str_percentiles]
+    s <- summary(fit, pars="Bproj", probs=percentiles)$summary
+    Bproj[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Cpred", probs=percentiles)$summary
+    Cpred[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Cproj", probs=percentiles)$summary
+    Cproj[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Xpred", probs=percentiles)$summary
+    Xpred[area_index,,] = s[,str_percentiles]
+
+    s <- summary(fit, pars="Xproj", probs=percentiles)$summary
+    Xproj[area_index,,] = s[,str_percentiles]
+ 
   }
   
   days <- colnames(Count)
@@ -377,8 +404,37 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
       colnames(logpred)[i+1] <- sprintf('logpred_day%d',i)
   write.csv(logpred, paste(opt$results_directory, "/singlearea/logpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
-  Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
+  Bweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
+
+  actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
+  dim(actuals) <- c(N,Tstep,Nstep)
+  actuals <- aperm(actuals, c(1,3,2))
+  # preds = Cpred[,,3]
+  # dim(preds) <- c(N, Nstep, Tstep)
+  Bweekly[,1:Nstep,] = actuals
+
+  projs = Bproj[,,3]
+  dim(projs) <- c(N, Tstep, Nproj)
+  projs = aperm(projs,c(1,3,2))
+  Bweekly[,(Nstep+1):(Nstep+Nproj),] = projs
+
+  Bweekly = apply(Bweekly, c(1,2), sum) 
+  Bweekly = Bweekly[,sapply(1:(Nstep+Nproj),function(k)rep(k,Tstep))]
+  Bweekly = aperm(Bweekly, c(2,1))
+  dim(Bweekly) <- c(N*(Nstep+Nproj)*Tstep)
+
+  Bweekly <- area_date_dataframe(
+    quoted_areas,
+    days_all,
+    provenance,
+    Bweekly,
+    c("B_weekly")
+  )
+  write.csv(Bweekly, paste(opt$results_directory, "/singlearea/Bweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+  
+  Cweekly = array(0.0, c(N, (Nstep + Nproj), Tstep))
 
   actuals <- as.matrix(AllCount[,(Tcond+1):(Tcond+Tlik)])
   dim(actuals) <- c(N,Tstep,Nstep)
@@ -407,28 +463,81 @@ covidmap_stage1_combine = function(opt = covidmap_stage1_options()) {
   write.csv(Cweekly, paste(opt$results_directory, "/singlearea/Cweekly.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
+  Bpred = aperm(Bpred, c(2,1,3))
+  dim(Bpred) <- c(N*Nstep*Tstep, num_percentiles)
+  Bpred <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    rep('inferred',Nstep*Tstep),
+    Bpred,
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  write.csv(Bpred, paste(opt$results_directory, "/singlearea/Bpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Bproj = aperm(Bproj, c(2,1,3))
+  dim(Bproj) <- c(N*Nproj*Tstep, num_percentiles)
+  Bproj <- area_date_dataframe(
+    quoted_areas,
+    seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    Bproj,
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
+  )
+  write.csv(Bproj, paste(opt$results_directory, "/singlearea/Bproj.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
   Cpred = aperm(Cpred, c(2,1,3))
-  dim(Cpred) <- c(N*Nstep*Tstep, num_C_percentiles)
+  dim(Cpred) <- c(N*Nstep*Tstep, num_percentiles)
   Cpred <- area_date_dataframe(
     quoted_areas,
     days_likelihood,
     rep('inferred',Nstep*Tstep),
     Cpred,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cpred, paste(opt$results_directory, "/singlearea/Cpred.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   Cproj = aperm(Cproj, c(2,1,3))
-  dim(Cproj) <- c(N*Nproj*Tstep, num_C_percentiles)
+  dim(Cproj) <- c(N*Nproj*Tstep, num_percentiles)
   Cproj <- area_date_dataframe(
     quoted_areas,
     seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
     rep('projected',Tproj),
     Cproj,
-    c("C_025","C_25","C_50","C_75","C_975")
+    c("C_025","C_10","C_20","C_25","C_30","C_40","C_50",
+        "C_60", "C_70","C_75","C_80","C_90","C_975")
   )
   write.csv(Cproj, paste(opt$results_directory, "/singlearea/Cproj.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+  Xpred = aperm(Xpred, c(2,1,3))
+  dim(Xpred) <- c(N*Nstep*Tstep, num_percentiles)
+  Xpred <- area_date_dataframe(
+    quoted_areas,
+    days_likelihood,
+    rep('inferred',Nstep*Tstep),
+    Xpred,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xpred, paste(opt$results_directory, "/singlearea/Xpred.csv", sep=""), quote=FALSE, row.names=FALSE)
+
+
+  Xproj = aperm(Xproj, c(2,1,3))
+  dim(Xproj) <- c(N*Nproj*Tstep, num_percentiles)
+  Xproj <- area_date_dataframe(
+    quoted_areas,
+    seq(days_likelihood[Tlik]+1,by=1,length.out=Tproj),
+    rep('projected',Tproj),
+    Xproj,
+    c("X_025","X_10","X_20","X_25","X_30","X_40","X_50",
+        "X_60", "X_70","X_75","X_80","X_90","X_975")
+  )
+  write.csv(Xproj, paste(opt$results_directory, "/singlearea/Xproj.csv", sep=""), quote=FALSE, row.names=FALSE)
 
 
   list(
@@ -545,6 +654,14 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
     ),
 
     make_option(
+      c("--regions_as_areas_stage1"), 
+      type="logical", 
+      default=opt$regions_as_areas_stage1, 
+      help=paste("Whether to run stage 1 on regions instead of areas; default", opt$regions_as_areas_stage1)
+    ),
+
+
+    make_option(
       c("--limit_area"), 
       type="character", 
       default=opt$limit_area, 
@@ -556,8 +673,33 @@ covidmap_stage1_cmdline_options = function(opt = covidmap_stage1_options()) {
       type="double", 
       default=opt$limit_radius, 
       help=paste("If not NULL, the radius of regions to limit the data to; default",opt$limit_radius)
-    )
+    ),
 
+    make_option(
+      c("--Adp"), 
+      type="double", 
+      default=opt$Adp, 
+      help=paste("Shape parameter of test delay profile gamma dist; default", opt$Adp)
+    ),
+    make_option(
+      c("--Aip"), 
+      type="double", 
+      default=opt$Aip, 
+      help=paste("Shape parameter of generation interval gamma dist; default", opt$Aip)
+    ),
+
+    make_option(
+      c("--Bdp"), 
+      type="double", 
+      default=opt$Bdp, 
+      help=paste("Scale parameter of test delay profile gamma dist; default", opt$Bdp)
+    ),
+    make_option(
+      c("--Bip"), 
+      type="double", 
+      default=opt$Bip, 
+      help=paste("Scale parameter of generation interval gamma dist; default", opt$Bip)
+    )
   )
 }
 

@@ -2,6 +2,9 @@ name: Rmap
 dependencies:
   - pandas
   - openpyxl
+  - scipy
+  - matplotlib
+  - libv8
   - r-base
   - r-essentials
   - r-data.table

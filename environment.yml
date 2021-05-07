@@ -1,10 +1,13 @@
-name: Rmap
+name: Rmap-daily-update
 dependencies:
   - pandas
-  - openpyxl
+  - numpy
   - scipy
+  - lxml
+  - requests
+  - xlrd
+  - openpyxl
   - matplotlib
-  - libv8
   - r-base
   - r-essentials
   - r-data.table
@@ -19,5 +22,9 @@ dependencies:
   - r-gsubfn
   - r-plyr
   - r-BH
+  - pip
+  - pip:
+    - geopy
+    - git+git://github.com/epimap/covid19_datasets.git@master
 channels:
   - conda-forge

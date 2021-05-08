@@ -1,5 +1,11 @@
-geo-py
-matplotlib
 pandas
-plotly
-pystan
+numpy
+scipy
+lxml
+requests
+xlrd
+openpyxl
+matplotlib
+geopy
+git+git://github.com/epimap/covid19_datasets.git@master
+

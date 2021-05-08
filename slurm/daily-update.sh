@@ -3,7 +3,11 @@
 trap 'echo daily-update: Failed before finishing with exit code $? && exit $?' ERR
 
 # Activate the right bash environment
+
+CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
+
 source /homes/$USER/.profile
+source $CONDAROOT/bin/activate 
 conda activate Rmap-daily-update
 umask 007
 
@@ -45,22 +49,22 @@ slurm/submit-run-singlearea.sh $results_directory "$options_clean"
 # rm -f mapping/stan_files/Rmap.rds
 
 # run full model
-options_regional_20km="\
+options_regional_10km="\
     --globalkernel none \
     --spatialkernel matern12 \
-    --fixed_gp_time_length_scale 100.0 \
-    --fixed_gp_space_length_scale 0.2 \
+    --fixed_gp_time_length_scale 200.0 \
+    --fixed_gp_space_length_scale 0.1 \
     --weeks_modelled 15 \
     --days_ignored 7 \
     --days_predicted 2 \
-    --num_steps_forcasted 3 \
+    --num_steps_forecasted 3 \
 "
-slurm/submit-run-regional.sh $results_directory "$options_regional_20km" &
+slurm/submit-run-regional.sh $results_directory "$options_regional_10km" &
 
 # options_regional_10km="\
 #     --globalkernel none \
 #     --spatialkernel matern12 \
-#     --fixed_gp_time_length_scale 100.0 \
+#     --fixed_gp_time_length_scale 200.0 \
 #     --fixed_gp_space_length_scale 0.1 \
 # "
 # slurm/submit-run-full.sh $results_directory-full-10km --clean_directory $clean_directory $options_regional_10km &
@@ -73,6 +77,7 @@ wait
 
 
 # reinflate results to the website dir
+dataprocessing/reinflate.sh $results_directory/singlearea/ $today-singlearea
 dataprocessing/reinflate.sh $results_directory/regional/merged_ $today
 # dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
 

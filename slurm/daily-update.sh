@@ -4,7 +4,7 @@ trap 'echo daily-update: Failed before finishing with exit code $? && exit $?' E
 
 # Activate the right bash environment
 source /homes/$USER/.profile
-conda activate Rmap
+conda activate Rmap-daily-update
 umask 007
 
 cd /data/ziz/software/Rmap/Rmap-daily-update
@@ -19,7 +19,7 @@ python dataprocessing/process_uk_cases.py
 
 
 # Activate the correct environment
-# conda activate Rmap
+# conda activate Rmap-daily-update
 
 # Do all the data preprocessing
 # make preprocess-data

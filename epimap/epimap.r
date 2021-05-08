@@ -2,6 +2,15 @@ library(rstan)
 library(gsubfn)
 library(plyr)
 
+
+#' Stop R without throwing errors. Allows for exiting if nothing to do in a way
+#' that doesn't break bash scripts.
+stop_quietly <- function() {
+  opt <- options(show.error.messages = FALSE)
+  on.exit(options(opt))
+  stop()
+}
+
 #' Parse kernel arguments from user-friendly strings to integers for STAN.
 #' 
 #' @param spatialkernel The string represnetative of the spatial kernel to use. 
@@ -157,8 +166,7 @@ parse_epimap_init = function(
       local_time_sigma = .1,
       gp_space_decay = gp_space_decay,
       gp_time_decay = gp_time_decay,
-      infection_dispersion = 1.0,
-      case_dispersion = 1.0
+      infection_dispersion = 1.0
     ))
     setval = function(par,val,...) {
       env[[paste(par,'[',paste(...,sep=','),']',sep='')]]=val
@@ -188,7 +196,7 @@ parse_epimap_init = function(
       })
     })
     lapply(1:F, function(f) setval('flux_probs', 1/F, f))
-    lapply(1:N, function(j) setval('case_precision', 0.1, j))
+    lapply(1:N, function(j) setval('case_dispersion', 1.0, j))
     as.list(env)
   })
 }
@@ -198,7 +206,7 @@ parse_epimap_init = function(
 #' @param stan_file The STAN file to run.
 #' @param stan_data The data for the STAN model.
 #' @param stan_init The parameter initialisation for the STAN model.
-#' @param stan_pars 
+#' @param stan_pars Parameters to output and keep.
 #' @param iter The number of HMC iterations to run.
 #' @param chain The number of chains to run.
 #' @param control The control parameters to apply.
@@ -318,6 +326,11 @@ epimap_region = function(
   full_cases_dist = False
 ) {
 
+  if (sum(area_inferred) == 0) {
+    message("Skipping region, no areas to be inferred")
+    stop_quietly()
+  }
+
   kernels = parse_kernels(
     spatialkernel, 
     temporalkernel, 
@@ -406,6 +419,11 @@ epimap_region = function(
   epimap_summary_pars = c(
       "global_sigma",
       "gp_sigma",
+      "gp_time_length_scale",
+      "gp_space_length_scale",
+      "infection_dispersion",
+      "case_dispersion",
+      "xi",
       "infection_dispersion",
       "coupling_rate",
       "Rt_all",
@@ -423,14 +441,22 @@ epimap_region = function(
   epimap_pars = c(
     epimap_summary_pars,
     "Ppred",
+    "Xpred",
+    "Xproj",
+    "Bpred",
+    "Bproj",
     "Cpred",
     "Cproj",
     "fluxproportions",
     "Rt",
     "Rt_region",
+    "Bproj_region",
+    "Bpred_region",
     "Cproj_region",
     "Cpred_region",
-    "case_precision"
+    "Xt_region",
+    "Zt_region",
+    "case_dispersion"
   )
 
   print("Epimap control")
@@ -623,6 +649,11 @@ epimap_twostage = function(
   epimap_summary_pars = c(
       "global_sigma",
       "gp_sigma",
+      "gp_time_length_scale",
+      "gp_space_length_scale",
+      # "phi_latent",
+      # "phi_observed",
+      "xi",
       "infection_dispersion",
       "coupling_rate",
       "Rt_all",
@@ -638,13 +669,19 @@ epimap_twostage = function(
   epimap_pars = c(
       epimap_summary_pars,
       "Ppred",
+      "Bpred",
+      "Bproj",
       "Cpred",
       "Cproj",
+      "Xpred",
+      "Xproj",
       "fluxproportions",
       "Rt",
       "Rt_region",
       "Cproj_region",
-      "Cpred_region"
+      "Cpred_region",
+      "Bproj_region",
+      "Bpred_region"
   )
 
   print("Epimap control")
@@ -696,7 +733,7 @@ epimap_twostage = function(
 #' @param mu_scale Scale of prior on the prior mean of log(Rt)
 #' @param sigma_scale Scale of prior on the prior standard deviation of log(Rt)
 #' @param phi_latent_scale Scale of prior on negative-binomial dispersion parameter of latent epidemic process; default 5.0
-#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts; default 5.0
+#' @param phi_observed_scale Scale of prior on dispersion parameter of observation process of positive test counts; default 10.0
 #' @param xi_scale Scale of prior on exegeneous infection rate
 #' @param reconstruct_infections Whether to reconstruct infection day for each case; default True
 #' @param outlier_prob_threshold Probability hreshold to determine if a diagnosis count is an outlier; default 1.0
@@ -722,8 +759,8 @@ epimap_singlearea = function(
   fixed_gp_time_length_scale = -1.0,
   mu_scale = 0.5,
   sigma_scale = 1.0,
-  phi_latent_scale = 5.0,
-  phi_observed_scale = 5.0,
+  phi_latent_scale = 10.0,
+  phi_observed_scale = 10.0,
   xi_scale = 0.01,
   outlier_prob_threshold = 1.0,
   outlier_count_threshold = 10,
@@ -809,10 +846,14 @@ epimap_singlearea = function(
     epimap_summary_pars,
     "Crecon",
     "Cpred",
+    "Cproj",
+    "Bpred",
+    "Bproj",
+    "Xpred",
+    "Xproj",
     "Noutliers",
     "Xt",
     "Xt_proj",
-    "Count_proj",
     "Ppred"
   )
 

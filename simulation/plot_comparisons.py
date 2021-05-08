@@ -1,13 +1,45 @@
+# %%
 import os
 import math
+import datetime
 from itertools import chain
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
 import matplotlib
+import matplotlib.dates as mdates
+from matplotlib.ticker import MaxNLocator
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+matplotlib.rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
+matplotlib.rc("text", usetex=True)
+matplotlib.rcParams["text.latex.preamble"] = [r"\usepackage{amsmath}"]
+plt.rcParams["axes.grid"] = True
+plt.rcParams["grid.linestyle"] = "dotted"
+
+
+def lighten_color(color, amount=1.0):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+    import matplotlib.colors as mc
+    import colorsys
+
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 
 def load_parameter(par_name, results_dir):
@@ -22,14 +54,26 @@ def load_all(results_dir):
 
     df = load_parameter("merged_Rt" if merged else "Rt", results_dir)
 
-    cpred = load_parameter("merged_Cpred" if merged else "Cpred", results_dir)
-    cproj = load_parameter("merged_Cproj" if merged else "Cproj", results_dir)
-    c = pd.concat([cproj, cpred])
+    # cpred = load_parameter("merged_Cpred" if merged else "Cpred", results_dir)
+    # cproj = load_parameter("merged_Cproj" if merged else "Cproj", results_dir)
+    # c = pd.concat([cproj, cpred])
+    # df = pd.merge(df, c, on=["area", "Date", "provenance"])
 
-    pexceed = load_parameter("merged_Pexceed" if merged else "Pexceed", results_dir)
+    bpred = load_parameter("merged_Bpred" if merged else "Bpred", results_dir)
+    bproj = load_parameter("merged_Bproj" if merged else "Bproj", results_dir)
+    b = pd.concat([bproj, bpred])
+    df = pd.merge(df, b, on=["area", "Date", "provenance"])
 
-    df = pd.merge(df, c, on=["area", "Date", "provenance"])
-    df = pd.merge(df, pexceed, on=["area", "Date", "provenance"])
+    # xpred = load_parameter("merged_Xpred" if merged else "Xpred", results_dir)
+    # xproj = load_parameter("merged_Xproj" if merged else "Xproj", results_dir)
+    # x = pd.concat([xproj, xpred])
+    # df = pd.merge(df, x, on=["area", "Date", "provenance"])
+
+    # pexceed = load_parameter("merged_Pexceed" if merged else "Pexceed", results_dir)
+    # df = pd.merge(df, pexceed, on=["area", "Date", "provenance"])
+
+    data_cols = df.columns.drop(["area", "Date", "provenance"])
+    df[data_cols] = df[data_cols].replace({"  NA": "NaN"}).astype(np.float32)
 
     return df
 
@@ -45,43 +89,111 @@ def load_cases(data_dir):
 
 
 def plot_estimate(
-    results, par_name, median="_50", upper="_97_5", lower="_2_5", color=None, ax=None
+    results,
+    par_name,
+    provenance=None,
+    median="_50",
+    upper1="_97_5",
+    lower1="_2_5",
+    upper2="_97_5",
+    lower2="_2_5",
+    color=None,
+    ax=None,
 ):
     if ax is None:
         fig, ax = plt.subfigures(1, 1)
 
-    if color == None:
-        lines = ax.plot(results.Date, results[par_name + median])
-        ax.fill_between(
+    if provenance is not None:
+        results = results[results.provenance == provenance]
+
+    if provenance == "projected":
+        linestyle = "dotted"
+    else:
+        linestyle = "solid"
+
+    if color is None:
+        line = ax.plot(
             results.Date,
-            results[par_name + lower],
-            results[par_name + upper],
-            alpha=0.3,
-            color=lines[0].get_color(),
+            results[par_name + median],
+            linewidth=1.0,
+            linestyle=linestyle,
+            zorder=1,
+        )
+        color = (line[0].get_color(),)
+        fill1 = ax.fill_between(
+            results.Date,
+            results[par_name + lower1],
+            results[par_name + upper1],
+            alpha=0.2 if provenance == "projected" else 0.4,
+            color=color,
+            zorder=2,
+        )
+        fill2 = ax.fill_between(
+            results.Date,
+            results[par_name + lower2],
+            results[par_name + upper2],
+            alpha=0.2 if provenance == "projected" else 0.4,
+            color=color,
+            zorder=2,
         )
     else:
-        ax.plot(results.Date, results[par_name + median], color=color)
-        ax.fill_between(
+        line = ax.plot(
             results.Date,
-            results[par_name + lower],
-            results[par_name + upper],
-            alpha=0.3,
+            results[par_name + median],
             color=color,
+            linewidth=1.0,
+            linestyle=linestyle,
+            zorder=1,
+        )
+        fill1 = ax.fill_between(
+            results.Date,
+            results[par_name + lower1],
+            results[par_name + upper1],
+            alpha=0.4 if provenance == "projected" else 0.4,
+            color=color,
+            zorder=2,
+            # hatch="///" if provenance == "projected" else None,
+            # facecolor=lighten_color(color, 0.5),
+            # edgecolor=lighten_color(color, 1.6),
+            # linewidth=0.0,
+        )
+        fill2 = ax.fill_between(
+            results.Date,
+            results[par_name + lower2],
+            results[par_name + upper2],
+            alpha=0.2 if provenance == "projected" else 0.4,
+            color=color,
+            zorder=2,
+            # hatch="///" if provenance == "projected" else None,
+            # facecolor=lighten_color(color, 0.5),
+            # edgecolor=lighten_color(color, 1.6),
+            # linewidth=0.0,
         )
 
     ax.tick_params(axis="x", rotation=45)
 
-    return ax
+    return (line, fill1, fill2), ax
 
 
-def plot_actual(results, par_name, color=None, ax=None):
+def plot_actual(results, par_name, color=None, scatter=False, ax=None):
     if ax is None:
         fig, ax = plt.subfigures(1, 1)
 
-    if color == None:
-        ax.plot(results.Date, results[par_name])
+    # if color == None:
+    #     # ax.plot(results.Date, results[par_name], zorder=1)
+    #     ax.scatter(results.Date, results[par_name], zorder=1)
+    # else:
+    if scatter:
+        ax.scatter(
+            results.Date,
+            results[par_name],
+            marker="+",
+            s=4,
+            color=color,
+            zorder=1,
+        )
     else:
-        ax.plot(results.Date, results[par_name], color=color)
+        ax.plot(results.Date, results[par_name], color=color, zorder=1)
 
     ax.tick_params(axis="x", rotation=45)
 
@@ -89,14 +201,14 @@ def plot_actual(results, par_name, color=None, ax=None):
 
 
 def plot_estimate_area(results, area, *args, **kwargs):
-    ax = plot_estimate(results[results.area == area], *args, **kwargs)
-    ax.set_title(area)
-    return ax
+    handles, ax = plot_estimate(results[results.area == area], *args, **kwargs)
+    # ax.set_title(area)
+    return handles, ax
 
 
 def plot_actual_area(results, area, *args, **kwargs):
     ax = plot_actual(results[results.area == area], *args, **kwargs)
-    ax.set_title(area)
+    # ax.set_title(area)
     return ax
 
 
@@ -108,78 +220,128 @@ def plot_comparison(
     axes=None,
     areas=None,
     median="_50",
-    upper="_97_5",
-    lower="_2_5",
-    share_ax=True,
+    upper1="_75",
+    lower1="_25",
+    upper2="_97_5",
+    lower2="_2_5",
+    scatter_actual=False,
+    sharex=True,
+    sharey=True,
     fix_scale=False,
+    estimate_colors=["tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown"],
 ):
     if areas == None:
         areas = actual_results.area.unique().tolist()
 
     if axes == None:
         N = len(areas)
-        H = math.ceil(math.sqrt(N) / 1.6)
-        W = math.ceil(N / H)
+        W = len(areas)
+        H = len(estimates_results)
 
         fig, axes = plt.subplots(
-            H, W, sharex=share_ax, sharey=share_ax, figsize=(3 * W, 3 * H)
+            H,
+            W,
+            sharex=sharex,
+            sharey=sharey,
+            figsize=(2.5 * W, 1.5 * H),
+            squeeze=False,
         )
 
         all_axes = list(chain.from_iterable(axes))
-        axes = all_axes[:N]
     else:
-        all_axes = axes
+        all_axes = list(chain.from_iterable(axes))
 
     if not isinstance(estimates_results, dict) and estimates_results is not None:
         estimates_results = {"Estimate": estimates_results}
 
-    for area, ax in zip(areas, axes):
+    # max_y = {i: 0.0 for i in range(W)}
+    max_y = defaultdict(float)
 
-        max_y = 0
+    handles = []
+    labels = []
 
-        if actual_results is not None:
-            plot_actual_area(actual_results, area, par_name=par_name, ax=ax)
-            max_y = actual_results[actual_results.area == area][par_name].max()
+    for i, (row, (name, estimate)) in enumerate(zip(axes, estimates_results.items())):
+        for j, (area, ax) in enumerate(zip(areas, row)):
 
-        if estimates_results is not None:
-            for estimates_result in estimates_results.values():
-                plot_estimate_area(
-                    estimates_result,
+            if actual_results is not None:
+                plot_actual_area(
+                    actual_results,
                     area,
+                    scatter=scatter_actual,
                     par_name=par_name,
                     ax=ax,
-                    median=median,
-                    upper=upper,
-                    lower=lower,
                 )
-                max_y = max(
-                    max_y,
-                    estimates_result[estimates_result.area == area][
-                        par_name + median
-                    ].max(),
+                max_y[j] = max(
+                    max_y[j],
+                    actual_results[actual_results.area == area][par_name].max(),
                 )
 
-        if fix_scale:
-            ax.set_ylim([0, 1.3 * max_y])
+            if isinstance(estimate_colors, dict):
+                color = estimate_colors[name]
+            else:
+                color = estimate_colors[i]
 
-    for ax in all_axes:
-        ax.tick_params(axis="x", rotation=45)
+            infr_handles, ax = plot_estimate_area(
+                estimate,
+                area,
+                par_name=par_name,
+                ax=ax,
+                median=median,
+                upper1=upper1,
+                lower1=lower1,
+                upper2=upper2,
+                lower2=lower2,
+                color=color,
+                provenance="inferred",
+            )
+            proj_handles, ax = plot_estimate_area(
+                estimate,
+                area,
+                par_name=par_name,
+                ax=ax,
+                median=median,
+                upper1=upper1,
+                lower1=lower1,
+                upper2=upper2,
+                lower2=lower2,
+                color=color,
+                provenance="projected",
+            )
+            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+            max_y[j] = max(
+                max_y[j],
+                estimate[estimate.area == area][par_name + median].max(),
+            )
+
+            if i == 0:
+                ax.set_title(f"{area}")
+
+            if j == 0:
+                handles.append(infr_handles)
+                # handles.append(proj_handles)
+                # labels += [f"{name} infered", f"{name} projected"]
+                labels.append(name)
+
+    for i, row in enumerate(axes):
+        for j, ax in enumerate(row):
+            ax.tick_params(axis="x", rotation=45)
+            if fix_scale:
+                ax.set_ylim([0, 1.3 * max_y[j]])
 
     titles = ["Actual", *list(estimates_results.keys())]
-    lines = axes[0].get_lines()
-
-    fig.legend(
-        lines,
-        titles,
-        loc="upper left",
-        bbox_to_anchor=(1.0, 0.95),
-        bbox_transform=plt.gcf().transFigure,
-    )
 
     if title is not None:
         fig.suptitle(title)
 
     plt.tight_layout()
+
+    plt.legend(
+        [(h[0][0], h[1], h[2]) for h in handles],
+        labels,
+        loc="upper left",
+        bbox_to_anchor=(1.0, 0.95),
+        bbox_transform=plt.gcf().transFigure,
+    )
 
     return fig, axes
 
@@ -198,15 +360,16 @@ def plot_cases(
         W = math.ceil(N / H)
 
         # fig, axes = plt.subplots(H, W, sharex=True, sharey=True, figsize=(3 * W, 3 * H))
-        fig, axes = plt.subplots(H, W, figsize=(3 * W, 3 * H))
+        fig, axes = plt.subplots(H, W, figsize=(3 * W, 3 * H), squeeze=False)
 
         all_axes = list(chain.from_iterable(axes))
-        axes = all_axes[:N]
+        # axes = all_axes[:N]
     else:
-        all_axes = axes
+        all_axes = list(chain.from_iterable(axes))
 
-    for area, ax in zip(areas, axes):
-        plot_actual_area(cases, area, par_name="cases", ax=ax)
+    for row in axes:
+        for area, ax in zip(areas, row):
+            plot_actual_area(cases, area, par_name="cases", ax=ax)
 
     for ax in all_axes:
         ax.tick_params(axis="x", rotation=45)
@@ -217,119 +380,146 @@ def plot_cases(
 
 
 if __name__ == "__main__":
-    # import os
+    import os
+    import sys
 
-    # os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
+    os.chdir("/data/ziz/not-backed-up/mhutchin/Rmap-dev/Rmap")
     # from simulation.plot_comparisons import *
+    print(sys.argv)
+    if len(sys.argv) == 3:
+        sample = int(sys.argv[1])
+        appendix = int(sys.argv[2])
+    else:
+        sample = 1
+        appendix = False
+    print(sample, appendix)
 
-    actuals = load_parameter("Rt", "simulation/latent_epidemic/tehtropolis")
-    estimates = {
-        "Clean": load_all("fits/simulation/clean"),
-        "Cleaned Latent": load_all("fits/simulation/cleaned-latent"),
-        "Latent Reports": load_all("fits/simulation/latent-reports"),
-        "Cori": load_all("fits/simulation/cori"),
-        "Cleaned Latent No GP": load_all("fits/simulation/cleaned-latent-no-gp"),
-        "Cleaned Latent No Metapop": load_all(
-            "fits/simulation/cleaned-latent-no-metapop"
-        ),
-        "Latent Reports No GP": load_all("fits/simulation/latent-reports-no-gp"),
-        "Latent Reports No Metapop": load_all(
-            "fits/simulation/latent-reports-no-metapop"
-        ),
+    if sample == 1:
+        sample_folder = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_1/"
+        results_folder = "simulation_fits/sample_rss_paper_1"
+        name = "sample_1"
+    elif sample == 2:
+        sample_folder = "simulation/latent_epidemic/tehtropolis/sample_rss_paper_2/"
+        results_folder = "simulation_fits/sample_rss_paper_2"
+        name = "sample_2"
+
+    actuals = load_parameter("Rt", sample_folder)
+    cases = load_cases(results_folder)
+
+    if appendix:
+        name += "_appendix"
+
+        estimates = {
+            "EpiEstim": load_all(results_folder + "/epiestim"),
+            "EpiNow2": load_all(results_folder + "/epinow2"),
+            "EpiMap (single area)": load_all(results_folder + "/singlearea"),
+            r"EpiMap (spatial: no spatial, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 1km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.01/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 5km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.05/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.1/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 20km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.2/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 50km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.5/regional"
+            ),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 100km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-1.0/regional"
+            ),
+        }
+    else:
+        estimates = {
+            "EpiEstim": load_all(results_folder + "/epiestim"),
+            "EpiNow2": load_all(results_folder + "/epinow2"),
+            r"EpiMap (single area)": load_all(results_folder + "/singlearea"),
+            r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": load_all(
+                results_folder + "-0.1/regional"
+            ),
+        }
+
+    mapping = {
+        "Tehtropolis": "Oxford",
+        "Brynshire": "Cherwell",
+        "Bobbingdon": "West Oxfordshire",
+        "Hutchintown": "South Oxfordshire",
+        "Shehland": "Buckinghamshire",
     }
 
-    cases = load_cases("simulation/latent_epidemic/tehtropolis")
+    cases.replace({"area": mapping}, inplace=True)
+    actuals.replace({"area": mapping}, inplace=True)
+    for estimate in estimates.values():
+        estimate.replace({"area": mapping}, inplace=True)
 
-    title = "All"
-    fig, axes = plot_comparison(actuals, estimates, title=title, par_name="Rt")
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
+    sweep_colors = list(matplotlib.cm.get_cmap("plasma", 9).colors)[-8:-1]
+
+    estimate_colors = {
+        "EpiMap (single area)": "black",
+        r"EpiMap (spatial: no spatial, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            0
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 1km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            1
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 5km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            2
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 10km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            3
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 20km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            4
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 50km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            5
+        ],
+        r"EpiMap (spatial: $\rho^{\text{spatial}}$ = 100km, $\rho^{\text{temporal}}$ = 200 days)": sweep_colors[
+            6
+        ],
+        "EpiNow2": "dodgerblue",
+        "EpiEstim": "crimson",
+    }
+    # %%
+    fig, axes = plot_comparison(
+        actuals,
+        estimates,
+        par_name="Rt",
+        estimate_colors=estimate_colors,
     )
+    for ax in chain.from_iterable(axes):
+        ax.set_ylim([0, 3])
+        ax.yaxis.get_major_locator().set_params(integer=True)
+        ax.axhline(1.0, color="black", linestyle="--", linewidth=0.5)
+        ax.axvline(
+            datetime.date(2020, 12, 3), color="black", linestyle="--", linewidth=0.5
+        )
+
+    fig.savefig(f"figures/{name}_Rt.pdf", bbox_inches="tight")
     fig, axes = plot_comparison(
         cases,
         estimates,
-        title=title,
         par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
+        lower1="_25",
+        upper1="_75",
+        lower2="_025",
+        upper2="_975",
+        sharey=False,
         fix_scale=True,
+        scatter_actual=True,
+        estimate_colors=estimate_colors,
     )
+    for ax in chain.from_iterable(axes):
+        ax.axvline(
+            datetime.date(2020, 12, 3), color="black", linestyle="--", linewidth=0.5
+        )
     fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Cleaned Latent Ablation"
-    subset = ["Cleaned Latent", "Cleaned Latent No GP", "Cleaned Latent No Metapop"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Latent Reports Ablation"
-    subset = ["Latent Reports", "Latent Reports No GP", "Latent Reports No Metapop"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-
-    title = "Method Comparison"
-    subset = ["Latent Reports", "Cleaned Latent", "Clean", "Cori"]
-    fig, axes = plot_comparison(
-        actuals,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="Rt",
-    )
-    fig.savefig(
-        f'figures/Rt_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
-    )
-    fig, axes = plot_comparison(
-        cases,
-        {k: estimates[k] for k in subset},
-        title=title,
-        par_name="C",
-        lower="_25",
-        upper="_975",
-        share_ax=False,
-        fix_scale=True,
-    )
-    fig.savefig(
-        f'figures/cases_{title.lower().replace(" ", "_")}.pdf', bbox_inches="tight"
+        f"figures/{name}_cases.pdf",
+        bbox_inches="tight",
     )

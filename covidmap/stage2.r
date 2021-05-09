@@ -1285,14 +1285,14 @@ covidmap_stage2_cmdline_options = function(opt = covidmap_stage2_options()) {
     make_option(
       c("--Bdp"), 
       type="double", 
-      default=opt$Adp, 
+      default=opt$Bdp, 
       help=paste("Shape parameter of test delay profile gamma dist; default", opt$Bdp)
     ),
 
     make_option(
       c("--Bip"), 
       type="double", 
-      default=opt$Aip, 
+      default=opt$Bip, 
       help=paste("Shape parameter of generation interval gamma dist; default", opt$Bip)
     )
   )

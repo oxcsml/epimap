@@ -86,6 +86,7 @@ python dataprocessing/process_site_data.py
 
 # Update the git repo
 git add docs/assets/data/$today/*
+git add docs/assets/data/$today-singlearea/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
 git add docs/assets/data/site_data.csv

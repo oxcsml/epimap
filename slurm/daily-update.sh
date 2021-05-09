@@ -2,16 +2,17 @@
 
 trap 'echo daily-update: Failed before finishing with exit code $? && exit $?' ERR
 
-# Activate the right bash environment
 
 CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
+CONDAENV=Rmap-daily-update
+DIRECTORY=/data/ziz/software/Rmap/Rmap-daily-update
 
+# Activate the right bash and conda environment
 source /homes/$USER/.profile
 source $CONDAROOT/bin/activate 
-conda activate Rmap-daily-update
+conda activate $CONDAENV
 umask 007
-
-cd /data/ziz/software/Rmap/Rmap-daily-update
+cd $DIRECTORY
 
 # Update this repo
 git pull
@@ -20,10 +21,6 @@ git pull
 cd /data/ziz/software/Rmap/covid19_datasets && git pull && cd -
 
 python dataprocessing/process_uk_cases.py
-
-
-# Activate the correct environment
-# conda activate Rmap-daily-update
 
 # Do all the data preprocessing
 # make preprocess-data

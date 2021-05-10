@@ -43,7 +43,7 @@ Detailed description of the method along with additional experiments can be foun
 The source code for this project can be found on [github](https://github.com/oxcsml/Rmap/).
 
 
-### Ouputs
+### Outputs
 
 The raw outputs from the daily runs, including all historic runs, can be found on the deployed branch of the public github repository for this project [here](https://github.com/oxcsml/Rmap/tree/deployed/docs/assets/data).
 

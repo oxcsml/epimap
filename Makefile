@@ -3,8 +3,7 @@ CONDAROOT=/data/ziz/not-backed-up/$USER/miniconda3
 
 environment:
 	source $(CONDAROOT)/bin/activate && conda env create -f environment.yml
-	git clone git@github.com:rs-delve/covid19_datasets.git dataprocessing
-	source $(CONDAROOT)/bin/activate && conda activate Rmap && pip install -e dataprocessing/covid19_datasets
+	#git clone git@github.com:epimap/covid19_datasets.git dataprocessing/covid19_datasets
 		
 preprocess-data:
 	cd dataprocessing/covid19_datasets && git pull && cd -

@@ -1,16 +1,33 @@
 #!/bin/bash
 trap 'echo weekly-regional-update: Failed before finishing with exit code $? && exit $?' ERR
 
-# Activate the right bash environment
-source /homes/$USER/.bashrc
-conda activate Rmap
-umask 007
+CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
+CONDAENVNAME=Rmap-daily-update
+DIRECTORY=/data/ziz/software/Rmap/Rmap-daily-update
 
-cd dataprocessing/covid19_datasets && git pull && cd -
+# Activate the right bash environment
+source /homes/$USER/.profile
+$CONDAROOT/bin/activate
+conda activate $CONDAENVNAME
+umask 007
+cd $DIRECTORY
+
+# Update this repo
+git pull
+
+# Update the case data repo
+cd /data/ziz/software/Rmap/covid19_datasets && git pull && cd -
+
 python dataprocessing/process_uk_cases.py
 python dataprocessing/process_region_site_data.py 
 
-today=$(date +'%Y-%m-%d')_bootstrap
+if [ $# == 1 ]
+then
+  today=$(date +'%Y-%m-%d')-bootstrap-$1
+else
+  today=$(date +'%Y-%m-%d')-bootstrap
+fi
+
 results_directory="fits/${today}"
 
 mkdir -p $results_directory
@@ -77,8 +94,8 @@ results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
 # softlink to defaults
-unlink docs/assets/data/default
-cd docs/assets/data/ && ln -s $today default && cd -
+# unlink docs/assets/data/default
+# cd docs/assets/data/ && ln -s $today default && cd -
 
 echo "copying files"
 cp ${results_prefix}Rt_region.csv docs/assets/data/${today}/Rt_region.csv
@@ -92,14 +109,14 @@ python regional_plots/regional_plot_script.py \
             docs/assets/data/${today}/Cproj_region.csv \
             docs/assets/data/region_site_data.csv \
             data/nhs_regions.csv \
-            docs/assets/data/default
+            docs/assets/data/${today}
 
 python dataprocessing/process_site_data.py
 
 # Update the git repo
-git add docs/assets/data/$today/*
+git add -f docs/assets/data/${today}/*
 # git add docs/assets/data/$today-cori/*
-git add docs/assets/data/default
+# git add docs/assets/data/default
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
 # git add -f data/uk_cases.csv
@@ -109,3 +126,4 @@ git push
 
 rm -rf $results_directory/bootstrap_*/regional/*.rds
 rm -rf $results_directory/bootstrap_*/singlearea/stanfits/*.rds
+

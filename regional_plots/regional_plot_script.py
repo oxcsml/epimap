@@ -138,7 +138,7 @@ def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regi
         ax = axs[height-1, i]
         ax.set_xlabel("Month", fontsize=11)
     fig.tight_layout()
-    fig.savefig(save_path + "/" + f"regions_{regions_to_plot}.pdf")
+    fig.savefig(save_path + "/" + f"regions_{regions_to_plot}.png")
 
 if __name__ == '__main__':
     args = sys.argv[1:]

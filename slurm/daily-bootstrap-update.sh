@@ -94,8 +94,8 @@ results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
 # softlink to defaults
-# unlink docs/assets/data/default
-# cd docs/assets/data/ && ln -s $today default && cd -
+unlink docs/assets/data/default
+cd docs/assets/data/ && ln -s $today default && cd -
 
 echo "copying files"
 cp ${results_prefix}Rt_region.csv docs/assets/data/${today}/Rt_region.csv
@@ -116,7 +116,7 @@ python dataprocessing/process_site_data.py
 # Update the git repo
 git add -f docs/assets/data/${today}/*
 # git add docs/assets/data/$today-cori/*
-# git add docs/assets/data/default
+git add docs/assets/data/default
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
 # git add -f data/uk_cases.csv

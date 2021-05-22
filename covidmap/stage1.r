@@ -607,7 +607,7 @@ covidmap_stage1_bootstrap_combine = function(opt = covidmap_stage1_options()) {
   Cpred = array(0.0, c(N, Nstep*Tstep, num_percentiles))
 
   # Loop over areas, loading area RDS files and filling the arrays
-  for (area_index in 1:2) {
+  for (area_index in 1:N) {
     area <- areas[area_index]
     print(area)
     for (bootstrap_id in 1:Nbootstrap) {

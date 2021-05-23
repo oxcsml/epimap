@@ -4,13 +4,13 @@ trap 'echo daily-update: Failed before finishing with exit code $? && exit $?' E
 
 
 CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
-CONDAENV=Rmap-daily-update
+CONDAENVNAME=Rmap-daily-update
 DIRECTORY=/data/ziz/software/Rmap/Rmap-daily-update
 
 # Activate the right bash and conda environment
 source /homes/$USER/.profile
-source $CONDAROOT/bin/activate 
-conda activate $CONDAENV
+$CONDAROOT/bin/activate 
+conda activate $CONDAENVNAME
 umask 007
 cd $DIRECTORY
 
@@ -25,7 +25,13 @@ python dataprocessing/process_uk_cases.py
 # Do all the data preprocessing
 # make preprocess-data
 
-today=$(date +'%Y-%m-%d')
+if [ $# == 1 ]
+then
+  today=$(date +'%Y-%m-%d')-$1
+else
+  today=$(date +'%Y-%m-%d')
+fi
+
 #clean_directory="fits/clean-${today}"
 results_directory="fits/${today}"
 mkdir -p $results_directory
@@ -41,9 +47,6 @@ options_clean="\
     --days_ignored 7 \
 "
 slurm/submit-run-singlearea.sh $results_directory "$options_clean"
-
-# Force recomplie to avoid mysterious bug
-# rm -f mapping/stan_files/Rmap.rds
 
 # run full model
 options_regional_10km="\
@@ -86,6 +89,7 @@ python dataprocessing/process_site_data.py
 
 # Update the git repo
 git add docs/assets/data/$today/*
+git add docs/assets/data/$today-singlearea/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
 git add docs/assets/data/site_data.csv

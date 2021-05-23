@@ -2,9 +2,7 @@
 trap 'echo submit-runs-bootstrap: Failed before finishing with exit code $? && exit $?' ERR
 
 # Activate the right bash environment
-source /homes/$USER/.bashrc
-conda activate Rmap
-umask 007
+
 echo $#
 if [ $# == 4 ]
 then

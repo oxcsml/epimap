@@ -33,6 +33,8 @@ results_directory="fits/${today}"
 mkdir -p $results_directory
 git rev-parse HEAD > $results_directory/git-hash.txt
 
+cp data/cases.csv $results_directory
+
 options_clean="\
     --weeks_modelled 15 \
     --days_ignored 7 \
@@ -75,7 +77,6 @@ options_regional_20km="\
     $options_regional_20km
 "
 options_regional_20km="--bootstrap_merge TRUE $options_regional_20km"
-cp data/cases.csv $results_directory
 
 echo weekly_regional_update: merging bootstrap samples
 sbatch --wait \

@@ -1,5 +1,5 @@
 #!/bin/bash
-trap 'echo weekly-regional-update: Failed before finishing with exit code $? && exit $?' ERR
+trap 'echo daily-bootstrap-update: Failed before finishing with exit code $? && exit $?' ERR
 
 CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
 CONDAENVNAME=Rmap-daily-update
@@ -59,46 +59,22 @@ N_regions=9
 python3 regional_plots/create_bootstrap_samples.py --save_dir $results_directory --num_samples $N_bootstrap
 
 # CLEAN STAGE 1
-slurm/submit-runs-bootstrap.sh $N_bootstrap $results_directory "${options_clean}" 1
+slurm/submit-bootstrap-runs-singlearea.sh $N_bootstrap $results_directory "${options_clean}"
 
 # REGIONAL STAGE 2
-slurm/submit-runs-bootstrap.sh $N_bootstrap $results_directory "${options_regional_20km}" 2
+slurm/submit-bootstrap-runs-regional.sh $N_bootstrap $results_directory "${options_regional_20km}"
 
 wait 
 
-# MERGE
-mkdir -p $results_directory/regional
-mkdir -p $results_directory/regional/output
-
-options_regional_20km="\
-    --results_directory $results_directory \
-    --approximation regional --num_regions $N_regions \
-    --num_samples $N_bootstrap \
-    $options_regional_20km
-"
-options_regional_20km="--bootstrap_merge TRUE $options_regional_20km"
-
-echo weekly_regional_update: merging bootstrap samples
-sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
-    --mail-type=ALL \
-    --job-name=Rmap-mergeregions_bootstrap \
-    --output=$results_directory/regional/output/merge_%A_%a.out \
-    --partition=ziz-large \
-    --ntasks=1 \
-    --cpus-per-task=1 \
-    --mem-per-cpu=20G \
-    --wrap \
-    "Rscript covidmap/stage2_merge.r ${options_regional_20km}"
 
 results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
 # softlink to defaults
-unlink docs/assets/data/default
-cd docs/assets/data/ && ln -s $today default && cd -
+unlink docs/assets/data/default && unlink docs/assets/data/default-bootstrap
+cd docs/assets/data/ && ln -s $today default && ln -s $today default-bootstrap && cd -
 
-echo "copying files"
+echo "Copying files"
 cp ${results_prefix}Rt_region.csv docs/assets/data/${today}/Rt_region.csv
 cp ${results_prefix}Cpred_region.csv docs/assets/data/${today}/Cpred_region.csv
 cp ${results_prefix}Cproj_region.csv docs/assets/data/${today}/Cproj_region.csv
@@ -116,7 +92,7 @@ python dataprocessing/process_site_data.py
 
 # Update the git repo
 git add -f docs/assets/data/${today}/*
-# git add docs/assets/data/$today-cori/*
+git add docs/assets/data/default-bootstrap
 git add docs/assets/data/default
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
@@ -125,6 +101,7 @@ git commit -m "weekly regional update $today"
 git pull
 git push
 
+echo "Deleting Stan fits"
 rm -rf $results_directory/bootstrap_*/regional/*.rds
 rm -rf $results_directory/bootstrap_*/singlearea/stanfits/*.rds
 

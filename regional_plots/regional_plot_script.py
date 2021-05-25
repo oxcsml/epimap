@@ -11,6 +11,7 @@ from collections.abc import Iterable
 import numpy as np
 month_dict = {"01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", 
             "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"}
+from datetime import datetime, timedelta
 
 def get_xticks_and_xlabels(dfs, col="Date"):
     date_df = pd.concat([df["Date"] for df in dfs])
@@ -97,6 +98,13 @@ def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regi
         regions = ['North East and Yorkshire', 'North West', 'Midlands', 'South West', 
                     'East of England', 'South East', 'London', "England", 'Scotland', 'Wales']
         fig, axs = plt.subplots(4, 5, figsize=(15,8), sharex=True)
+
+        inferred_df = rt_df.loc[rt_df["provenance"] == "inferred"]
+        date = inferred_df["Date"].values[-1]
+        date = datetime.strptime(date, "%Y-%m-%d")
+        date += timedelta(days=8) # as we don't use most recent 7 days of data
+        date = datetime.strftime(date, "%Y-%m-%d")
+        plt.suptitle(f"Regional estimates on {date}", fontsize=18)
         width=5
         height = 4
     elif regions_to_plot=="main_paper":
@@ -137,6 +145,7 @@ def create_regional_plot(Rt_file, Cpred_file, Cproj_file, Cactual_file, NHS_regi
     for i in range(width):
         ax = axs[height-1, i]
         ax.set_xlabel("Month", fontsize=11)
+        
     fig.tight_layout()
     fig.savefig(save_path + "/" + f"regions_{regions_to_plot}.png")
 

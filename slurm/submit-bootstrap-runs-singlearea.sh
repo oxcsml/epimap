@@ -41,8 +41,7 @@ options="--num_bootstrap $N_bootstrap $options"
 mkdir -p $results_directory/singlearea/output
 
 echo daily_bootstrap_update: merging bootstrap samples
-sbatch --wait \
-    --mail-user=$USER@stats.ox.ac.uk \
+sbatch --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap-merge-singlearea \
     --output=$results_directory/singlearea/output/merge_%A_%a.out \

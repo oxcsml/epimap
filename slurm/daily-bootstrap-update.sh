@@ -94,10 +94,6 @@ sbatch --wait \
 results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
-# softlink to defaults
-unlink docs/assets/data/default
-cd docs/assets/data/ && ln -s $today default && cd -
-
 echo "copying files"
 cp ${results_prefix}Rt_region.csv docs/assets/data/${today}/Rt_region.csv
 cp ${results_prefix}Cpred_region.csv docs/assets/data/${today}/Cpred_region.csv
@@ -113,6 +109,12 @@ python regional_plots/regional_plot_script.py \
             docs/assets/data/${today}
 
 python dataprocessing/process_site_data.py
+
+# softlink to defaults
+unlink docs/assets/data/default
+cd docs/assets/data/ && ln -s $today default && cd -
+cd docs/assets/data/ && ln -s $today default-bootstrap && cd -
+
 
 # Update the git repo
 git add -f docs/assets/data/${today}/*

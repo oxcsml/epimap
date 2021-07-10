@@ -34,31 +34,30 @@ python epinow2_preprocess.py \
 
 
 # run the function single_run for each start date and area
-start_date="2020-03-01" 
+start_date="2020-06-29" 
 logsdir=${outputs_folder}/logs
 mkdir -p $logsdir
 logfile="${logsdir}/epinow2-logs-${start_date}.log"
-
-for area in \
-    "Adur" "Allerdale" "Amber Valley" "Arun" "Ashfield" "Ashford" "Babergh" "Barking and Dagenham" "Barnet" "Barnsley"
+#
+while read area
 do
     echo "Running $area"
 
-    echo "\n------------------------------\n" >> $logfile
-    echo "\n------------------------------\n" >> $logfile
     echo "${area}" >> $logfile
 
     single_run ${start_date} "${area}" 2>&1 | tee -a $logfile > /dev/null
-done
+done < ../data/area_names.txt
 
 # post-processing to be applied to each date directory
 python epinow2_postprocess.py \
      ${outputs_folder}/${start_date} \
      ${outputs_folder} \
      ${start_date} \
+     ${weeks_modelled} \
      ${forecast_days} \
      --region_codes=${region_codes} \
-     --prefix=${start_date}
+     --prefix=${start_date} \
+     --progress
 
 echo "Done"
 

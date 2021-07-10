@@ -94,20 +94,31 @@ input_data <- region_data[region_data$date >= start_date & region_data$date < en
 input_data$date <- as.Date(input_data$date) # for compat with epinow2
 print(tail(input_data, 1))
 
-# These are just the default parameters that the package suggests in the README
-reporting_delay <- estimate_delay(rlnorm(1000,  log(3), 1), max_value = 15, bootstraps = 1)
+# as close as we can reasonably get to the paper
+reporting_delay <- list(log(6.5^2 / sqrt(17^2 + 6.5^2)),
+                                0,
+                                log(17^2 / 6.5^2 + 1),
+                                    0,
+                                    30)
+names(reporting_delay) <- c("mean", "mean_sd", "sd", "sd_sd", "max")
+
+# generation interval, incubation time and rt prior are as in the paper
 generation_time <- get_generation_time(disease = "SARS-CoV-2", source = "ganyani")
 incubation_period <- get_incubation_period(disease = "SARS-CoV-2", source = "lauer")
-rt_options <- rt_opts(prior = list(mean = 2, sd = 0.2))
+rt_options <- rt_opts(prior=list(mean=1, sd=1))
+
 stan_options <- stan_opts(cores = opt$ncores)
 
+# the setting of zero_threshold is to stop backfilling
 estimates <- epinow(reported_cases = input_data,
                     generation_time = generation_time,
                     delays = delay_opts(incubation_period, reporting_delay),
                     rt = rt_options,
                     stan = stan_options,
                     horizon = opt$forecast_horizon,
-                    verbose = opt$verbose)
+                    verbose = opt$verbose,
+                    zero_threshold = Inf 
+                    )
 
 standata <- rstan::extract(estimates$estimates$fit)
 fitted_r_samples <- standata$R 

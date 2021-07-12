@@ -95,12 +95,11 @@ input_data$date <- as.Date(input_data$date) # for compat with epinow2
 print(tail(input_data, 1))
 
 # as close as we can reasonably get to the paper
-reporting_delay <- list(log(6.5^2 / sqrt(17^2 + 6.5^2)),
-                                0,
-                                log(17^2 / 6.5^2 + 1),
-                                    0,
-                                    30)
-names(reporting_delay) <- c("mean", "mean_sd", "sd", "sd_sd", "max")
+reporting_delay <- list(mean=log(6.5^2 / sqrt(17^2 + 6.5^2)),
+                        mean_sd=0.05,
+                        sd=log(17^2 / 6.5^2 + 1),
+                        sd_sd=0.05,
+                        max=30)
 
 # generation interval, incubation time and rt prior are as in the paper
 generation_time <- get_generation_time(disease = "SARS-CoV-2", source = "ganyani")

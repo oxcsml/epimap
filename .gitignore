@@ -46,6 +46,7 @@ choropleth.html
 *.html
 !/docs/**/*.html
 !/docs/**/*.csv
+!/site_data/**/*.csv
 *.pdf
 
 # PyCharm files
@@ -78,5 +79,6 @@ local-cleaned/*.pdf
 local-cleaned/*.stanfit
 simulation/doc/model.pdf
 docs/assets/data/test-*/*
+site_data/test-*/*
 docs/vendor
 data/evaluation

@@ -118,6 +118,7 @@ preserveAspectRatio="xMidYMid meet" margin-bottom="-2em"></svg>
 </div>
         
 <script src="assets/js/auto-complete.min.js"></script>
+<script src="assets/data/default.js"></script>
 <script src="assets/js/map.js"></script>
 </div>
 <p></p>

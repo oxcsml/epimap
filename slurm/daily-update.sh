@@ -82,17 +82,17 @@ dataprocessing/reinflate.sh $results_directory/regional/merged_ $today
 # dataprocessing/reinflate.sh $results_directory-cori/merged_ $today-cori &
 
 # softlink to defaults
-unlink docs/assets/data/default
-cd docs/assets/data/ && ln -s $today default && cd -
+unlink site_data/default
+cd site_data/ && ln -s $today default && cd -
 
 python dataprocessing/process_site_data.py
 
 # Update the git repo
-git add docs/assets/data/$today/*
-git add docs/assets/data/$today-singlearea/*
-# git add docs/assets/data/$today-cori/*
-git add docs/assets/data/default
-git add docs/assets/data/site_data.csv
+git add site_data/$today/*
+git add site_data/$today-singlearea/*
+# git add site_data/$today-cori/*
+git add site_data/default
+git add site_data/site_data.csv
 # git add -f data/uk_cases.csv
 git commit -m "daily update $today"
 git pull

@@ -10,7 +10,7 @@ fi
 results_prefix=$1
 website_folder=$2
 
-mkdir -p docs/assets/data/${website_folder}
+mkdir -p site_data/${website_folder}
 
 python3 dataprocessing/reinflate.py \
     ${results_prefix}Rt.csv \
@@ -23,15 +23,15 @@ python3 dataprocessing/reinflate.py \
     ${results_prefix}Cproj.csv \
     ${results_prefix}Xpred.csv \
     ${results_prefix}Xproj.csv \
-    docs/assets/data/${website_folder}/Rt.csv \
-    docs/assets/data/${website_folder}/Pexceed.csv \
-    docs/assets/data/${website_folder}/Bweekly.csv \
-    docs/assets/data/${website_folder}/Cweekly.csv \
-    docs/assets/data/${website_folder}/Bpred.csv \
-    docs/assets/data/${website_folder}/Bproj.csv \
-    docs/assets/data/${website_folder}/Cpred.csv \
-    docs/assets/data/${website_folder}/Cproj.csv \
-    docs/assets/data/${website_folder}/Xpred.csv \
-    docs/assets/data/${website_folder}/Xproj.csv
+    site_data/${website_folder}/Rt.csv \
+    site_data/${website_folder}/Pexceed.csv \
+    site_data/${website_folder}/Bweekly.csv \
+    site_data/${website_folder}/Cweekly.csv \
+    site_data/${website_folder}/Bpred.csv \
+    site_data/${website_folder}/Bproj.csv \
+    site_data/${website_folder}/Cpred.csv \
+    site_data/${website_folder}/Cproj.csv \
+    site_data/${website_folder}/Xpred.csv \
+    site_data/${website_folder}/Xproj.csv
 
 echo reinflate: DONE

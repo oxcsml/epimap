@@ -8,8 +8,8 @@ const METADATA_PATH = "assets/data/metadata.csv";
 // Load parameters
 
 const urlParams = new URLSearchParams(window.location.search);
-const MAP_PATH = 'default';
-const map_path = "assets/data/".concat(urlParams.get("map") || MAP_PATH);
+const MAP_PATH = map_default;
+const map_path = "https://raw.githubusercontent.com/oxcsml/Rmap/deployed/site_data/".concat(urlParams.get("map") || MAP_PATH);
 const CASE_TYPE = "B";
 const case_type = urlParams.get("casetype") || CASE_TYPE
 

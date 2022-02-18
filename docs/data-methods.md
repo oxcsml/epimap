@@ -45,6 +45,6 @@ The source code for this project can be found on [github](https://github.com/oxc
 
 ### Outputs
 
-The raw outputs from the daily runs, including all historic runs, can be found on the deployed branch of the public github repository for this project [here](https://github.com/oxcsml/Rmap/tree/deployed/docs/assets/data).
+The raw outputs from the daily runs, including all historic runs, can be found on the deployed branch of the public github repository for this project [here](https://github.com/oxcsml/Rmap/tree/deployed/site_data).
 
 

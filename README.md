@@ -89,7 +89,7 @@ After running the models, the data can be postprocessed to be displayed on the w
 ```
 dataprocessing/reinflate.sh [path to results output] [name of postprocessed results]
 ```
-and places the post processed results in `docs/assets/data`. In order to update the underlying cases data on the website run `python dataprocessing/process_site_data.py`. To start the website locally see `docs/README.md`.
+and places the post processed results in `site_data`. In order to update the underlying cases data on the website run `python dataprocessing/process_site_data.py`. To start the website locally see `docs/README.md`.
 
 To run the models as per the website, see the script `scripts/daily_update.sh` for the workflow.
 

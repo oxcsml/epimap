@@ -95,35 +95,37 @@ results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
 echo "copying files"
-cp ${results_prefix}Rt_region.csv docs/assets/data/${today}/Rt_region.csv
-cp ${results_prefix}Cpred_region.csv docs/assets/data/${today}/Cpred_region.csv
-cp ${results_prefix}Cproj_region.csv docs/assets/data/${today}/Cproj_region.csv
+cp ${results_prefix}Rt_region.csv site_data${today}/Rt_region.csv
+cp ${results_prefix}Cpred_region.csv site_data${today}/Cpred_region.csv
+cp ${results_prefix}Cproj_region.csv site_data${today}/Cproj_region.csv
 
 # update website files and plots
 python regional_plots/regional_plot_script.py \
-            docs/assets/data/${today}/Rt_region.csv \
-            docs/assets/data/${today}/Cpred_region.csv \
-            docs/assets/data/${today}/Cproj_region.csv \
+            site_data${today}/Rt_region.csv \
+            site_data${today}/Cpred_region.csv \
+            site_data${today}/Cproj_region.csv \
             docs/assets/data/region_site_data.csv \
             data/nhs_regions.csv \
-            docs/assets/data/${today}
+            site_data${today}
 
 python dataprocessing/process_site_data.py
 
 # softlink to defaults
-unlink docs/assets/data/default
-unlink docs/assets/data/default-bootstrap
-cd docs/assets/data/ && ln -s $today default && cd -
-cd docs/assets/data/ && ln -s $today default-bootstrap && cd -
+unlink site_data/default
+unlink site_data/default-bootstrap
+cd site_data && ln -s $today default && cd -
+cd site_data && ln -s $today default-bootstrap && cd -
+rm -f docs/assets/data/default.js
+echo "let map_default = \"$today\"" > docs/assets/data/default.js
 
 
 # Update the git repo
-git add -f docs/assets/data/${today}/*
-# git add docs/assets/data/$today-cori/*
-git add docs/assets/data/default
-git add docs/assets/data/default-bootstrap
+git add -f site_data${today}/*
+# git add site_data$today-cori/*
+git add site_datadefault
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
+git add docs/assets/data/rdefault.js
 # git add -f data/uk_cases.csv
 git commit -m "daily bootstrap update $today"
 git pull

@@ -112,6 +112,7 @@ python dataprocessing/process_site_data.py
 
 # softlink to defaults
 unlink docs/assets/data/default
+unlink docs/assets/data/default-bootstrap
 cd docs/assets/data/ && ln -s $today default && cd -
 cd docs/assets/data/ && ln -s $today default-bootstrap && cd -
 
@@ -120,10 +121,11 @@ cd docs/assets/data/ && ln -s $today default-bootstrap && cd -
 git add -f docs/assets/data/${today}/*
 # git add docs/assets/data/$today-cori/*
 git add docs/assets/data/default
+git add docs/assets/data/default-bootstrap
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
 # git add -f data/uk_cases.csv
-git commit -m "weekly regional update $today"
+git commit -m "daily bootstrap update $today"
 git pull
 git push
 

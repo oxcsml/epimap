@@ -5,7 +5,9 @@ set -e
 trap 'echo submit-run-singlearea: Failed before finishing with exit code $? && exit $?' ERR
 
 source ./slurm/cluster-config
+echo "node=$HOSTNAME"
 echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+
 
 if [ $# == 1 ]
 then
@@ -61,7 +63,7 @@ sbatch --wait \
     --time=18:00:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
-    --array=1-$N%100 \
+    --array=1-$N%20 \
     --wrap \
     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
 

@@ -170,9 +170,9 @@ def reinflate(
     # in the health board. To avoid a duplicate area key, we drop it as a
     # health board, and keep it as a local area (in this case the two rows
     # would have been equal in any event).
-    reproduction_numbers = reproduction_numbers.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #reproduction_numbers = reproduction_numbers.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     england = (
         england_map.merge(
@@ -203,9 +203,9 @@ def reinflate(
     # in the health board. To avoid a duplicate area key, we drop it as a
     # health board, and keep it as a local area (in this case the two rows
     # would have been equal in any event).
-    exceedance_probs = exceedance_probs.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #exceedance_probs = exceedance_probs.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     england = (
         england_map.merge(
@@ -260,10 +260,10 @@ def reinflate(
 
     # We only keep the case for `Highland` as a local area, not
     # Bweekly = Bweekly.drop(['Highland'])
-    if divide_predictions_by_population_ratio:
-        Bweekly = Bweekly.rename(
-            index={"Highland": "Highland (NHS Scotland Health Board)"}
-        )
+    #if divide_predictions_by_population_ratio:
+    #    Bweekly = Bweekly.rename(
+    #        index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #    )
 
     Bweekly = Bweekly.append(england).append(scotland)
 
@@ -296,10 +296,10 @@ def reinflate(
 
     # We only keep the case for `Highland` as a local area, not
     # Cweekly = Cweekly.drop(['Highland'])
-    if divide_predictions_by_population_ratio:
-        Cweekly = Cweekly.rename(
-            index={"Highland": "Highland (NHS Scotland Health Board)"}
-        )
+    #if divide_predictions_by_population_ratio:
+    #    Cweekly = Cweekly.rename(
+    #        index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #    )
 
     Cweekly = Cweekly.append(england).append(scotland)
 
@@ -356,9 +356,9 @@ def reinflate(
 
     # We only keep the case predictions for `Highland` as a local area, not
     # Bpredictions = Bpredictions.drop(['Highland'])
-    Bpredictions = Bpredictions.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #Bpredictions = Bpredictions.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     Bpredictions = Bpredictions.append(england).append(scotland)
 
@@ -415,9 +415,9 @@ def reinflate(
 
     # We only keep the case predictions for `Highland` as a local area, not
     # Cpredictions = Cpredictions.drop(['Highland'])
-    Cpredictions = Cpredictions.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #Cpredictions = Cpredictions.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     Cpredictions = Cpredictions.append(england).append(scotland)
 
@@ -474,9 +474,9 @@ def reinflate(
 
     # We only keep the case projections for `Highland` as a local area, not
     # projections = projections.drop(['Highland'])
-    Bprojections = Bprojections.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #Bprojections = Bprojections.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     Bprojections = Bprojections.append(england).append(scotland)
 
@@ -533,9 +533,9 @@ def reinflate(
 
     # We only keep the case projections for `Highland` as a local area, not
     # projections = projections.drop(['Highland'])
-    Cprojections = Cprojections.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #Cprojections = Cprojections.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     Cprojections = Cprojections.append(england).append(scotland)
 
@@ -592,9 +592,9 @@ def reinflate(
 
     # We only keep the case predictions for `Highland` as a local area, not
     # Xpredictions = Xpredictions.drop(['Highland'])
-    Xpredictions = Xpredictions.rename(
-        index={"Highland": "Highland (NHS Scotland Health Board)"}
-    )
+    #Xpredictions = Xpredictions.rename(
+    #    index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #)
 
     Xpredictions = Xpredictions.append(england).append(scotland)
 
@@ -651,10 +651,10 @@ def reinflate(
 
     # We only keep the case projections for `Highland` as a local area, not
     # projections = projections.drop(['Highland'])
-    if divide_predictions_by_population_ratio:
-        Xprojections = Xprojections.rename(
-            index={"Highland": "Highland (NHS Scotland Health Board)"}
-        )
+    #if divide_predictions_by_population_ratio:
+    #    Xprojections = Xprojections.rename(
+    #        index={"Highland": "Highland (NHS Scotland Health Board)"}
+    #    )
 
     Xprojections = Xprojections.append(england).append(scotland)
 

@@ -6,7 +6,7 @@ trap 'echo submit-run-singlearea: Failed before finishing with exit code $? && e
 
 source ./slurm/cluster-config
 echo "node=$HOSTNAME"
-echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE cluster=$CLUSTER"
 
 
 if [ $# == 1 ]
@@ -58,12 +58,13 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-singlearea \
     --output=$results_directory/singlearea/output/run_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION \
     --ntasks=1 \
     --time=18:00:00 \
     --mem-per-cpu=5G \
     --cpus-per-task=1 \
-    --array=1-$N%20 \
+    --array=1-$N%40 \
     --wrap \
     "Rscript covidmap/stage1_run.r --area_index \$SLURM_ARRAY_TASK_ID $options"
 
@@ -73,6 +74,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-combineareas \
     --output=$results_directory/singlearea/output/combine_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION \
     --ntasks=1 \
     --time=18:00:00 \

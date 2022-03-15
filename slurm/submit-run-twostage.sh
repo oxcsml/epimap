@@ -3,7 +3,7 @@
 trap 'echo submit-twostage: Failed before finishing with exit code $? && exit $?' ERR
 
 source ./slurm/cluster-config
-echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE cluster=$CLUSTER"
 
 if [ $# == 1 ]
 then
@@ -53,6 +53,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap_run \
     --output=$results_directory/twostage/output/run_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
@@ -70,6 +71,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap_merge \
     --output=$results_directory/twostage/output/merge_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \

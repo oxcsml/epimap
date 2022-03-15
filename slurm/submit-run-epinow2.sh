@@ -49,8 +49,8 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap-epinow2 \
     --output=$results_directory/epinow2/output/run_%A_%a.out \
-    --partition=ziz-medium \
-    --exclude=ziz03.cpu.stats.ox.ac.uk \
+    --clusters=$CLUSTER \
+    --partition=$PARTITION \
     --ntasks=1 \
     --time=18:00:00 \
     --mem-per-cpu=3G \
@@ -65,8 +65,8 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap-combineareas \
     --output=$results_directory/epinow2/output/combine_%A_%a.out \
-    --partition=ziz-medium \
-    --exclude=ziz03.cpu.stats.ox.ac.uk \
+    --clusters=$CLUSTER \
+    --partition=$PARTITION \
     --ntasks=1 \
     --time=18:00:00 \
     --mem-per-cpu=10G \

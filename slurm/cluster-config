@@ -1,4 +1,5 @@
 MAIL="$USER@stats.ox.ac.uk"
 MAIL_TYPE="ALL"
-PARTITION="ziz-medium" # default partition, used for runs taking at most 18H
-PARTITION_LARGE="ziz-large" # partition used for longer runs
+CLUSTER="swan"
+PARTITION="high-bigbayes-cpu" # default partition, used for runs taking at most 18H
+PARTITION_LARGE="high-bigbayes-cpu" # partition used for longer runs

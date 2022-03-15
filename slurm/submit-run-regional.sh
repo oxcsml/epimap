@@ -3,7 +3,7 @@
 trap 'echo submit-run-regional: Failed before finishing with exit code $? && exit $?' ERR
 
 source ./slurm/cluster-config
-echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE cluster=$CLUSTER"
 
 if [ $# == 1 ]
 then
@@ -52,6 +52,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-regional \
     --output=$results_directory/regional/output/run_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
@@ -67,6 +68,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-mergeregions \
     --output=$results_directory/regional/output/merge_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \

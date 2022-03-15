@@ -5,7 +5,7 @@ set -e
 trap 'echo submit-run-epiestim: Failed before finishing with exit code $? && exit $?' ERR
 
 source ./slurm/cluster-config
-echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE"
+echo "Compute cluster config: mail=$MAIL mail_type=$MAIL_TYPE partition=$PARTITION partition_large=$PARTITION_LARGE cluster=$CLUSTER"
 
 if [ $# == 1 ]
 then
@@ -51,6 +51,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-epiestim \
     --output=$results_directory/epiestim/output/run_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION \
     --ntasks=1 \
     --time=00:30:00 \
@@ -66,6 +67,7 @@ sbatch --wait \
     --mail-type=$MAIL_TYPE \
     --job-name=Rmap-combineareas \
     --output=$results_directory/epiestim/output/combine_%A_%a.out \
+    --clusters=$CLUSTER \
     --partition=$PARTITION \
     --ntasks=1 \
     --time=00:30:00 \

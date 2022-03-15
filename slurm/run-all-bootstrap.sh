@@ -88,7 +88,8 @@ sbatch --wait \
     --mail-type=ALL \
     --job-name=Rmap-mergeregions_bootstrap \
     --output=$results_directory/regional/output/merge_%A_%a.out \
-    --partition=ziz-large \
+    --clusters=$CLUSTER \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \

@@ -1,5 +1,5 @@
 #!/bin/bash
-trap 'echo weekly-regional-update: Failed before finishing with exit code $? && exit $?' ERR
+
 
 CONDAROOT=/data/ziz/not-backed-up/teh/miniconda3
 CONDAENVNAME=Rmap-daily-update
@@ -29,6 +29,20 @@ else
 fi
 
 results_directory="fits/${today}"
+
+
+function cleanup()
+{
+  echo daily-bootstrap-update: Failed before finishing with exit code $? 
+  rm -rf $results_directory/bootstrap_*/regional/*.rds
+  rm -rf $results_directory/bootstrap_*/singlearea/stanfits/*.rds
+  echo daily-bootstrap-update: cleaned up rds files
+  exit $?
+}
+
+trap cleanup ERR
+
+source ./slurm/cluster-config
 
 mkdir -p $results_directory
 git rev-parse HEAD > $results_directory/git-hash.txt
@@ -78,13 +92,14 @@ options_regional_20km="\
 "
 options_regional_20km="--bootstrap_merge TRUE $options_regional_20km"
 
-echo weekly_regional_update: merging bootstrap samples
+echo daily-bootstrap-update: merging bootstrap samples
 sbatch --wait \
     --mail-user=$USER@stats.ox.ac.uk \
     --mail-type=ALL \
     --job-name=Rmap-mergeregions_bootstrap \
     --output=$results_directory/regional/output/merge_%A_%a.out \
-    --partition=ziz-large \
+    --clusters=$CLUSTER \
+    --partition=$PARTITION_LARGE \
     --ntasks=1 \
     --cpus-per-task=1 \
     --mem-per-cpu=20G \
@@ -95,18 +110,18 @@ results_prefix="${results_directory}/regional/merged_"
 dataprocessing/reinflate.sh ${results_prefix} $today
 
 echo "copying files"
-cp ${results_prefix}Rt_region.csv site_data${today}/Rt_region.csv
-cp ${results_prefix}Cpred_region.csv site_data${today}/Cpred_region.csv
-cp ${results_prefix}Cproj_region.csv site_data${today}/Cproj_region.csv
+cp ${results_prefix}Rt_region.csv site_data/${today}/Rt_region.csv
+cp ${results_prefix}Cpred_region.csv site_data/${today}/Cpred_region.csv
+cp ${results_prefix}Cproj_region.csv site_data/${today}/Cproj_region.csv
 
 # update website files and plots
 python regional_plots/regional_plot_script.py \
-            site_data${today}/Rt_region.csv \
-            site_data${today}/Cpred_region.csv \
-            site_data${today}/Cproj_region.csv \
+            site_data/${today}/Rt_region.csv \
+            site_data/${today}/Cpred_region.csv \
+            site_data/${today}/Cproj_region.csv \
             docs/assets/data/region_site_data.csv \
             data/nhs_regions.csv \
-            site_data${today}
+            site_data/${today}
 
 python dataprocessing/process_site_data.py
 
@@ -120,12 +135,12 @@ echo "let map_default = \"$today\"" > docs/assets/data/default.js
 
 
 # Update the git repo
-git add -f site_data${today}/*
-# git add site_data$today-cori/*
-git add site_datadefault
+git add -f site_data/${today}/*
+# git add site_data/$today-cori/*
+git add site_data/default
 git add docs/assets/data/site_data.csv
 git add docs/assets/data/region_site_data.csv
-git add docs/assets/data/rdefault.js
+git add docs/assets/data/default.js
 # git add -f data/uk_cases.csv
 git commit -m "daily bootstrap update $today"
 git pull

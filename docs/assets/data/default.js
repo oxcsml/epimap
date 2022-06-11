@@ -1,1 +1,1 @@
-let map_default = "2022-06-10-bootstrap"
+let map_default = "2022-06-11-bootstrap"

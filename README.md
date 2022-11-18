@@ -1,4 +1,4 @@
-# Rmap
+# Epimap
 
 Repository containing the code for the models used by the website [localcovid.info](https://localcovid.info).
 
